@@ -3,6 +3,10 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import authRoutes from './routes/auth.routes.js';
+import userRoutes from './routes/user.routes.js';
+import collegeRoutes from './routes/college.routes.js';
+import resourceRoutes from './routes/resource.routes.js';
+import mcqRoutes from './routes/mcq.routes.js';
 import { connectDatabase } from './prisma.js';
 
 const app = express();
@@ -15,6 +19,10 @@ app.use(express.json());
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/colleges', collegeRoutes);
+app.use('/api/resources', resourceRoutes);
+app.use('/api/mcqs', mcqRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

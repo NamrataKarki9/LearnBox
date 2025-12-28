@@ -11,19 +11,158 @@ datasource db {
 }
 
 model User {
-  id         Int      @id @default(autoincrement())
-  username   String   @unique
-  email      String   @unique
+  id         Int       @id @default(autoincrement())
+  username   String    @unique
+  email      String    @unique
   password   String
   first_name String?
   last_name  String?
-  roles      Role[]   @default([STUDENT])
+  role       Role      @default(STUDENT)
+  is_verified Boolean  @default(false)  // Added for email verification
+  collegeId  Int?
+  college    College?  @relation(fields: [collegeId], references: [id])
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  
+  // Relations
+  resources  Resource[]
+  mcqs       MCQ[]
+  modules    Module[]
+  attempts   MCQAttempt[]
+  progress   Progress[]
+  
+  @@index([email])
+  @@index([collegeId])
+}
+
+model College {
+  id          Int        @id @default(autoincrement())
+  name        String     @unique
+  code        String     @unique
+  location    String?
+  description String?
+  isActive    Boolean    @default(true)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  // Relations
+  users       User[]
+  resources   Resource[]
+  mcqs        MCQ[]
+  modules     Module[]
+  
+  @@index([code])
+}
+
+model Resource {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  fileUrl     String
+  fileType    String
+  moduleId    Int?
+  collegeId   Int
+  uploadedBy  Int
+  college     College  @relation(fields: [collegeId], references: [id])
+  uploader    User     @relation(fields: [uploadedBy], references: [id])
+  module      Module?  @relation(fields: [moduleId], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([collegeId])
+  @@index([moduleId])
+}
+
+model Module {
+  id          Int        @id @default(autoincrement())
+  name        String
+  code        String
+  description String?
+  collegeId   Int
+  createdBy   Int
+  college     College    @relation(fields: [collegeId], references: [id])
+  creator     User       @relation(fields: [createdBy], references: [id])
+  resources   Resource[]
+  mcqs        MCQ[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  @@unique([code, collegeId])
+  @@index([collegeId])
+}
+
+model MCQ {
+  id          Int          @id @default(autoincrement())
+  question    String
+  options     Json         // Array of options
+  correctAnswer String
+  explanation String?
+  difficulty  Difficulty   @default(MEDIUM)
+  moduleId    Int?
+  collegeId   Int
+  createdBy   Int
+  college     College      @relation(fields: [collegeId], references: [id])
+  creator     User         @relation(fields: [createdBy], references: [id])
+  module      Module?      @relation(fields: [moduleId], references: [id])
+  attempts    MCQAttempt[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  @@index([collegeId])
+  @@index([moduleId])
+}
+
+model MCQAttempt {
+  id              Int      @id @default(autoincrement())
+  mcqId           Int
+  studentId       Int
+  selectedAnswer  String
+  isCorrect       Boolean
+  mcq             MCQ      @relation(fields: [mcqId], references: [id])
+  student         User     @relation(fields: [studentId], references: [id])
+  attemptedAt     DateTime @default(now())
+  
+  @@index([studentId])
+  @@index([mcqId])
+}
+
+model Progress {
+  id          Int      @id @default(autoincrement())
+  studentId   Int
+  moduleId    Int
+  completedAt DateTime @default(now())
+  student     User     @relation(fields: [studentId], references: [id])
+  
+  @@unique([studentId, moduleId])
+  @@index([studentId])
+}
+
+// Email OTP for verification and password reset
+model EmailOTP {
+  id         Int      @id @default(autoincrement())
+  email      String
+  otp        String   // 6-digit OTP
+  purpose    OTPPurpose
+  expiresAt  DateTime
   createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  
+  @@index([email, purpose])
+  @@index([expiresAt])
 }
 
 enum Role {
   SUPER_ADMIN
   COLLEGE_ADMIN
   STUDENT
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum OTPPurpose {
+  REGISTER
+  FORGOT_PASSWORD
 }

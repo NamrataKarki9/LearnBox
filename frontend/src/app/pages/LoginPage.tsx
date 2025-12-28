@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -10,25 +10,100 @@ export function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
   
+  const [colleges, setColleges] = useState<any[]>([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [college, setCollege] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Fetch colleges on mount
+  useEffect(() => {
+    fetchColleges();
+  }, []);
+
+  const fetchColleges = async () => {
+    try {
+      const response = await fetch('http://localhost:5000/api/colleges/public');
+      if (!response.ok) {
+        console.error('Failed to fetch colleges');
+        return;
+      }
+      const data = await response.json();
+      if (data.success && data.data) {
+        setColleges(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch colleges:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
     setLoading(true);
 
-    const result = await login({ email, password });
+    // Pass collegeId if selected
+    const loginData: any = { email, password };
+    if (college) {
+      loginData.collegeId = parseInt(college);
+    }
+
+    const result = await login(loginData);
     
     setLoading(false);
     
     if (result.success) {
+      // Get user from localStorage (set by AuthContext)
+      const storedUser = localStorage.getItem('user');
+      if (!storedUser) {
+        setError("Login failed - user data not found");
+        return;
+      }
+
+      const user = JSON.parse(storedUser);
+      
+      // CRITICAL: College admins and students MUST select college
+      if ((user.role === 'COLLEGE_ADMIN' || user.role === 'STUDENT') && !college) {
+        setError("College admins and students must select their college");
+        // Logout the user since they didn't select college
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+        return;
+      }
+
+      // Validate that selected college matches user's college
+      if (college && user.collegeId && parseInt(college) !== user.collegeId) {
+        setError("Selected college does not match your account");
+        // Logout the user
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+        return;
+      }
+
+      // Store selected college for UI reference (if any)
+      if (college) {
+        localStorage.setItem('selected_college', college);
+      }
       navigate("/dashboard");
     } else {
-      setError(result.error || "Login failed");
+      // Check if user needs to verify email
+      if ((result as any).requiresVerification && (result as any).email) {
+        setError(result.error + " Redirecting to verification...");
+        setTimeout(() => {
+          navigate("/verify-otp", { 
+            state: { 
+              email: (result as any).email,
+              purpose: "REGISTER"
+            } 
+          });
+        }, 2000);
+      } else {
+        setError(result.error || "Login failed");
+      }
     }
   };
 
@@ -52,12 +127,18 @@ export function LoginPage() {
                 <SelectValue placeholder="Choose your academic institution.." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="university-a">University A</SelectItem>
-                <SelectItem value="university-b">University B</SelectItem>
-                <SelectItem value="college-c">College C</SelectItem>
-                <SelectItem value="institute-d">Institute D</SelectItem>
+                {colleges.length === 0 ? (
+                  <SelectItem value="loading" disabled>Loading colleges...</SelectItem>
+                ) : (
+                  colleges.map((col) => (
+                    <SelectItem key={col.id} value={col.id.toString()}>
+                      {col.name} ({col.code})
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
+            <p className="text-xs text-gray-500 mt-2">Note: Super admins can skip college selection</p>
           </div>
 
           {/* Login Form */}

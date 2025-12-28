@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -10,8 +10,9 @@ export function RegisterPage() {
   const navigate = useNavigate();
   const { register } = useAuth();
   
+  const [colleges, setColleges] = useState<any[]>([]);
   const [formData, setFormData] = useState({
-    college: "",
+    collegeId: "",
     username: "",
     fullName: "",
     email: "",
@@ -21,9 +22,48 @@ export function RegisterPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Fetch colleges on mount
+  useEffect(() => {
+    fetchColleges();
+  }, []);
+
+  const fetchColleges = async () => {
+    try {
+      console.log('Fetching colleges from:', 'http://localhost:5000/api/colleges/public');
+      const response = await fetch('http://localhost:5000/api/colleges/public');
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        console.error('Failed to fetch colleges:', response.statusText);
+        setError('Failed to load colleges. Please refresh the page.');
+        return;
+      }
+      
+      const data = await response.json();
+      console.log('Colleges data:', data);
+      
+      if (data.success && data.data) {
+        // Data is already filtered by backend to only active colleges
+        setColleges(data.data);
+        console.log('Loaded colleges:', data.data.length);
+      } else {
+        setError('No colleges available. Please contact support.');
+      }
+    } catch (error) {
+      console.error('Failed to fetch colleges:', error);
+      setError('Unable to connect to server. Please check if the backend is running.');
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Validate college selection
+    if (!formData.collegeId) {
+      setError("Please select your college");
+      return;
+    }
 
     // Validate passwords match
     if (formData.password !== formData.confirmPassword) {
@@ -50,12 +90,19 @@ export function RegisterPage() {
       password: formData.password,
       first_name: firstName,
       last_name: lastName,
+      collegeId: parseInt(formData.collegeId)
     });
     
     setLoading(false);
     
     if (result.success) {
-      navigate("/login");
+      // Navigate to OTP verification page
+      navigate("/verify-otp", { 
+        state: { 
+          email: formData.email,
+          purpose: "REGISTER"
+        } 
+      });
     } else {
       setError(result.error || "Registration failed");
     }
@@ -79,26 +126,27 @@ export function RegisterPage() {
         <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-lg">
           {/* College Selection */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-6">Select your college</h1>
-            <Select value={formData.college} onValueChange={(val) => updateField("college", val)}>
+            <h1 className="text-3xl font-bold mb-2">Student Registration</h1>
+            <p className="text-sm text-muted-foreground mb-4">
+              Register as a student. Only students can register publicly.
+            </p>
+            <Label htmlFor="college" className="text-sm font-semibold mb-2 block">Select your college *</Label>
+            <Select value={formData.collegeId} onValueChange={(val) => updateField("collegeId", val)}>
               <SelectTrigger className="w-full bg-input-background border-0 rounded-xl py-6">
                 <SelectValue placeholder="Choose your academic institution.." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="university-a">University A</SelectItem>
-                <SelectItem value="university-b">University B</SelectItem>
-                <SelectItem value="college-c">College C</SelectItem>
-                <SelectItem value="institute-d">Institute D</SelectItem>
+                {colleges.length === 0 ? (
+                  <SelectItem value="loading" disabled>Loading colleges...</SelectItem>
+                ) : (
+                  colleges.map((college) => (
+                    <SelectItem key={college.id} value={college.id.toString()}>
+                      {college.name} ({college.code})
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
-          </div>
-
-          {/* Registration Form */}
-          <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold mb-2">Create New Account</h2>
-            <p className="text-muted-foreground text-sm">
-              Join LearnBox and unlock your academic potential.
-            </p>
           </div>
 
           {error && (
@@ -109,11 +157,11 @@ export function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-sm font-semibold">Username</Label>
+              <Label htmlFor="username" className="text-sm font-semibold">Username *</Label>
               <Input
                 id="username"
                 type="text"
-                placeholder="johndoe"
+                placeholder="enter your username"
                 value={formData.username}
                 onChange={(e) => updateField("username", e.target.value)}
                 className="bg-input-background border-0 rounded-xl py-6"
@@ -122,11 +170,11 @@ export function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="fullName" className="text-sm font-semibold">Full Name</Label>
+              <Label htmlFor="fullName" className="text-sm font-semibold">Full Name *</Label>
               <Input
                 id="fullName"
                 type="text"
-                placeholder=""
+                placeholder="enter your full name"
                 value={formData.fullName}
                 onChange={(e) => updateField("fullName", e.target.value)}
                 className="bg-input-background border-0 rounded-xl py-6"
@@ -135,7 +183,7 @@ export function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-semibold">Email</Label>
+              <Label htmlFor="email" className="text-sm font-semibold">Email *</Label>
               <Input
                 id="email"
                 type="email"
@@ -148,11 +196,11 @@ export function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-semibold">Password</Label>
+              <Label htmlFor="password" className="text-sm font-semibold">Password *</Label>
               <Input
                 id="password"
                 type="password"
-                placeholder="....."
+                placeholder="password"
                 value={formData.password}
                 onChange={(e) => updateField("password", e.target.value)}
                 className="bg-input-background border-0 rounded-xl py-6"
@@ -161,11 +209,11 @@ export function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-sm font-semibold">Confirm Password</Label>
+              <Label htmlFor="confirmPassword" className="text-sm font-semibold">Confirm Password *</Label>
               <Input
                 id="confirmPassword"
                 type="password"
-                placeholder="....."
+                placeholder="confirm password"
                 value={formData.confirmPassword}
                 onChange={(e) => updateField("confirmPassword", e.target.value)}
                 className="bg-input-background border-0 rounded-xl py-6"
@@ -173,29 +221,30 @@ export function RegisterPage() {
               />
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full bg-accent hover:bg-accent/90 text-white rounded-xl py-6 mt-6"
+            <Button
+              type="submit"
+              className="w-full bg-primary text-primary-foreground rounded-xl py-6 text-base font-semibold hover:bg-primary/90"
               disabled={loading}
             >
-              {loading ? "Creating account..." : "Register"}
+              {loading ? "Creating Account..." : "Create Account"}
             </Button>
-
-            <div className="text-center pt-2">
-              <p className="text-sm text-muted-foreground">
-                Already have an account?{" "}
-                <Link to="/login" className="text-accent font-semibold hover:underline">
-                  Sign in
-                </Link>
-              </p>
-            </div>
           </form>
-        </div>
-      </div>
 
-      {/* Footer */}
-      <div className="text-center py-6 text-white text-sm">
-        2025 LearnBox. All rights reserved.
+          <div className="mt-6 text-center text-sm">
+            <span className="text-muted-foreground">Already have an account? </span>
+            <Link to="/login" className="text-primary font-semibold hover:underline">
+              Sign In
+            </Link>
+          </div>
+
+          {/* Security Notice */}
+          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+            <p className="text-xs text-blue-800">
+              <strong>🔒 Secure Registration:</strong> Only students can register publicly. 
+              College admins are created by super admins. Role assignment is controlled server-side for security.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

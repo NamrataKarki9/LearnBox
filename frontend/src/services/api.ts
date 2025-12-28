@@ -86,9 +86,15 @@ interface User {
   id: number;
   username: string;
   email: string;
-  roles: string[];
+  role: string;
   first_name?: string;
   last_name?: string;
+  collegeId?: number;
+  college?: {
+    id: number;
+    name: string;
+    code: string;
+  };
 }
 
 interface AuthResponse {

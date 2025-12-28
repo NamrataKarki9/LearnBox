@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
 import { Button } from "../components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { BookOpen } from "lucide-react";
 
 export function LandingPage() {
@@ -12,18 +11,6 @@ export function LandingPage() {
           <div className="text-2xl font-semibold text-foreground">LearnBox</div>
           
           <div className="flex items-center gap-3">
-            <Select>
-              <SelectTrigger className="w-[180px] bg-accent text-accent-foreground border-0 rounded-full">
-                <SelectValue placeholder="Select College" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="university-a">University A</SelectItem>
-                <SelectItem value="university-b">University B</SelectItem>
-                <SelectItem value="college-c">College C</SelectItem>
-                <SelectItem value="institute-d">Institute D</SelectItem>
-              </SelectContent>
-            </Select>
-            
             <Link to="/login">
               <Button className="bg-accent hover:bg-accent/90 text-white rounded-full px-8">
                 Login
