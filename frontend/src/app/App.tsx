@@ -10,11 +10,24 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "../context/AuthContext";
+import { Toaster } from "./components/ui/sonner";
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        <Toaster 
+          position="top-right"
+          expand={true}
+          richColors
+          toastOptions={{
+            style: {
+              fontSize: "16px",
+              padding: "20px",
+              minWidth: "350px",
+            },
+          }}
+        />
         <Routes>
           {/* Landing Page - Has its own header/footer */}
           <Route path="/" element={<LandingPage />} />

@@ -5,6 +5,7 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { useAuth } from "../../context/AuthContext";
+import { toast } from "sonner";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -88,6 +89,18 @@ export function LoginPage() {
       if (college) {
         localStorage.setItem('selected_college', college);
       }
+      
+      // Show success toast
+      toast.success("Login successful!", {
+        description: `Welcome back, ${user.username || user.email}!`,
+        duration: 5000,
+        className: "text-lg py-4",
+        style: {
+          fontSize: "16px",
+          padding: "20px",
+        },
+      });
+      
       navigate("/dashboard");
     } else {
       // Check if user needs to verify email
