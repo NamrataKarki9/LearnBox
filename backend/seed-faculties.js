@@ -7,18 +7,12 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Common faculties across most colleges
+// Faculties for LearnBox
 const commonFaculties = [
-    { name: 'Computer Science and Engineering', code: 'CSE' },
-    { name: 'Information Technology', code: 'IT' },
-    { name: 'Electronics and Communication Engineering', code: 'ECE' },
-    { name: 'Electrical and Electronics Engineering', code: 'EEE' },
-    { name: 'Mechanical Engineering', code: 'MECH' },
-    { name: 'Civil Engineering', code: 'CIVIL' },
-    { name: 'Chemical Engineering', code: 'CHEM' },
-    { name: 'Biotechnology', code: 'BT' },
-    { name: 'Artificial Intelligence and Data Science', code: 'AIDS' },
-    { name: 'Computer Science and Business Systems', code: 'CSBS' }
+    { name: 'Artificial Intelligence', code: 'AI' },
+    { name: 'Computing', code: 'COMPUTING' },
+    { name: 'Multimedia', code: 'MULTIMEDIA' },
+    { name: 'Networking and IT Security', code: 'NETWORKING' }
 ];
 
 async function seedFaculties() {

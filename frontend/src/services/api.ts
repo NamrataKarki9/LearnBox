@@ -116,7 +116,7 @@ export const authAPI = {
 };
 
 // Resource types
-interface Module {
+export interface Module {
   id: number;
   name: string;
   code: string;
@@ -124,7 +124,7 @@ interface Module {
   collegeId: number;
 }
 
-interface Resource {
+export interface Resource {
   id: number;
   title: string;
   description?: string;
@@ -144,6 +144,11 @@ interface Resource {
     last_name?: string;
   };
   module?: Module;
+  faculty?: {
+    id: number;
+    name: string;
+    code: string;
+  };
   college?: {
     id: number;
     name: string;
@@ -164,7 +169,7 @@ interface UploadResourceResponse {
 }
 
 // Faculty types
-interface Faculty {
+export interface Faculty {
   id: number;
   name: string;
   code: string;
@@ -207,6 +212,11 @@ export const resourceAPI = {
 export const moduleAPI = {
   getAll: (params?: { collegeId?: number }) =>
     api.get<{ success: boolean; count: number; data: Module[] }>('/modules', { params }),
+  
+  getByFacultyAndYear: (facultyId: number, year: number) =>
+    api.get<{ success: boolean; count: number; data: Module[] }>('/modules', {
+      params: { facultyId, year }
+    }),
 };
 
 // Faculty API endpoints

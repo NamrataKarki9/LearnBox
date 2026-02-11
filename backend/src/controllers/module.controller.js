@@ -13,7 +13,7 @@ import { HTTP_STATUS, ERROR_MESSAGES } from '../constants/errors.js';
  */
 export const getAllModules = async (req, res) => {
     try {
-        const { collegeId } = req.query;
+        const { collegeId, facultyId, year } = req.query;
         
         const whereClause = {};
         
@@ -25,10 +25,27 @@ export const getAllModules = async (req, res) => {
             whereClause.collegeId = req.user.collegeId;
         }
 
+        // Filter by faculty if provided
+        if (facultyId) {
+            whereClause.facultyId = parseInt(facultyId);
+        }
+
+        // Filter by year if provided
+        if (year) {
+            whereClause.year = parseInt(year);
+        }
+
         const modules = await prisma.module.findMany({
             where: whereClause,
             include: {
                 college: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true
+                    }
+                },
+                faculty: {
                     select: {
                         id: true,
                         name: true,

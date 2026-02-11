@@ -252,6 +252,7 @@ export const filterResources = async (req, res) => {
                 fileType: true,
                 year: true,
                 facultyId: true,
+                moduleId: true,
                 createdAt: true,
                 module: {
                     select: {
@@ -272,6 +273,14 @@ export const filterResources = async (req, res) => {
                         id: true,
                         name: true,
                         code: true
+                    }
+                },
+                uploader: {
+                    select: {
+                        id: true,
+                        username: true,
+                        first_name: true,
+                        last_name: true
                     }
                 }
             },

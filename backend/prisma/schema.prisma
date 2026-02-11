@@ -62,6 +62,7 @@ model Faculty {
   description String?
   collegeId   Int
   college     College    @relation(fields: [collegeId], references: [id])
+  modules     Module[]
   resources   Resource[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -99,17 +100,22 @@ model Module {
   name        String
   code        String
   description String?
+  year        Int        // Academic year (1, 2, 3)
+  facultyId   Int        // Faculty reference
   collegeId   Int
   createdBy   Int
   college     College    @relation(fields: [collegeId], references: [id])
   creator     User       @relation(fields: [createdBy], references: [id])
+  faculty     Faculty    @relation(fields: [facultyId], references: [id])
   resources   Resource[]
   mcqs        MCQ[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   
-  @@unique([code, collegeId])
+  @@unique([code, collegeId, facultyId, year])
   @@index([collegeId])
+  @@index([facultyId])
+  @@index([year])
 }
 
 model MCQ {

@@ -8,6 +8,7 @@ import { VerifyOTPPage } from "./pages/VerifyOTPPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
+import StudentResourcesPage from "./pages/StudentResourcesPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "../context/AuthContext";
 import { Toaster } from "./components/ui/sonner";
@@ -45,6 +46,15 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/student/resources"
+            element={
+              <ProtectedRoute>
+                <StudentResourcesPage />
               </ProtectedRoute>
             }
           />

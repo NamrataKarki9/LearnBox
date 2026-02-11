@@ -46,17 +46,25 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Fetch modules and faculties when dialog opens
+  // Fetch faculties when dialog opens
   useEffect(() => {
     if (open) {
-      fetchModules();
       fetchFaculties();
     }
   }, [open]);
 
-  const fetchModules = async () => {
+  // Fetch modules when faculty and year are selected
+  useEffect(() => {
+    if (formData.facultyId && formData.year) {
+      fetchModules(parseInt(formData.facultyId), parseInt(formData.year));
+    } else {
+      setModules([]);
+    }
+  }, [formData.facultyId, formData.year]);
+
+  const fetchModules = async (facultyId: number, year: number) => {
     try {
-      const response = await moduleAPI.getAll();
+      const response = await moduleAPI.getByFacultyAndYear(facultyId, year);
       setModules(response.data.data || []);
     } catch (err) {
       console.error('Error fetching modules:', err);
@@ -229,7 +237,10 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
             <Label htmlFor="faculty">Faculty *</Label>
             <Select
               value={formData.facultyId}
-              onValueChange={(value) => setFormData({ ...formData, facultyId: value })}
+              onValueChange={(value) => {
+                setFormData({ ...formData, facultyId: value, year: '', moduleId: '' });
+                setModules([]);
+              }}
               disabled={loading}
               required
             >
@@ -251,8 +262,10 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
             <Label htmlFor="year">Academic Year *</Label>
             <Select
               value={formData.year}
-              onValueChange={(value) => setFormData({ ...formData, year: value })}
-              disabled={loading}
+              onValueChange={(value) => {
+                setFormData({ ...formData, year: value, moduleId: '' });
+              }}
+              disabled={loading || !formData.facultyId}
               required
             >
               <SelectTrigger>
@@ -265,6 +278,9 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
                 <SelectItem value="4">Year 4</SelectItem>
               </SelectContent>
             </Select>
+            {!formData.facultyId && (
+              <p className="text-xs text-gray-500 mt-1">Select faculty first</p>
+            )}
           </div>
           
           {/* Module */}
@@ -273,7 +289,7 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
             <Select
               value={formData.moduleId}
               onValueChange={(value) => setFormData({ ...formData, moduleId: value })}
-              disabled={loading}
+              disabled={loading || !formData.facultyId || !formData.year || modules.length === 0}
               required
             >
               <SelectTrigger>
@@ -287,6 +303,11 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
                 ))}
               </SelectContent>
             </Select>
+            {!formData.facultyId || !formData.year ? (
+              <p className="text-xs text-gray-500 mt-1">Select faculty and year first</p>
+            ) : modules.length === 0 && formData.facultyId && formData.year ? (
+              <p className="text-xs text-amber-600 mt-1">No modules available for this faculty and year</p>
+            ) : null}
           </div>
           
           {/* File Upload */}
