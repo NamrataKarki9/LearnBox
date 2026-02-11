@@ -3,36 +3,113 @@
  * College-scoped access - manage resources and MCQs for assigned college only
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { resourceAPI, moduleAPI } from '../../services/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
+import UploadResourceDialog from '../components/UploadResourceDialog';
+import { toast } from 'sonner';
+
+interface Resource {
+  id: number;
+  title: string;
+  description?: string;
+  fileUrl: string;
+  fileType: string;
+  year?: number;
+  moduleId?: number;
+  createdAt: string;
+  module?: {
+    id: number;
+    name: string;
+    code: string;
+  };
+  uploader?: {
+    id: number;
+    username: string;
+    first_name?: string;
+    last_name?: string;
+  };
+}
+
+interface Module {
+  id: number;
+  code: string;
+  name: string;
+  description?: string;
+}
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [modules, setModules] = useState<Module[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [filterYear, setFilterYear] = useState<string>('');
+  const [filterModule, setFilterModule] = useState<string>('');
 
-  const resources = [
-    {
-      id: 1,
-      title: 'Introduction to React',
-      module: 'CS101',
-      type: 'PDF',
-      uploadDate: '2023-04-12',
-      uploadedBy: 'Jessica Alba',
-      published: true
-    }
-  ];
+  // Fetch resources and modules on mount
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const modules = [
-    {
-      id: 1,
-      code: 'CS102',
-      name: 'Introduction to Computer Science',
-      faculty: 'Computing',
-      year: 'Year 1',
-      credits: 3
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [resourcesRes, modulesRes] = await Promise.all([
+        resourceAPI.getAll(),
+        moduleAPI.getAll()
+      ]);
+      
+      setResources(resourcesRes.data.data || []);
+      setModules(modulesRes.data.data || []);
+    } catch (error: any) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to load data');
+    } finally {
+      setLoading(false);
     }
-  ];
+  };
+
+  const handleUploadSuccess = () => {
+    toast.success('Resource uploaded successfully!');
+    fetchData(); // Refresh resources list
+  };
+
+  const handleDeleteResource = async (id: number) => {
+    if (!window.confirm('Are you sure you want to delete this resource?')) {
+      return;
+    }
+
+    try {
+      await resourceAPI.delete(id);
+      toast.success('Resource deleted successfully');
+      fetchData();
+    } catch (error: any) {
+      console.error('Error deleting resource:', error);
+      toast.error('Failed to delete resource');
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+  };
+
+  const getUploaderName = (resource: Resource) => {
+    if (resource.uploader) {
+      const { first_name, last_name, username } = resource.uploader;
+      if (first_name || last_name) {
+        return `${first_name || ''} ${last_name || ''}`.trim();
+      }
+      return username;
+    }
+    return 'Unknown';
+  };
 
   return (
     <div className="flex min-h-screen bg-[#F5F5F5]">
@@ -91,13 +168,22 @@ export default function AdminDashboard() {
 
           {/* Filter Buttons */}
           <div className="flex gap-3 mb-8">
-            <Button className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6 py-2 rounded-lg">
-              Faculty
+            <Button 
+              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6 py-2 rounded-lg"
+              onClick={() => setFilterYear('')}
+            >
+              All Years
             </Button>
-            <Button className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6 py-2 rounded-lg">
-              Academic Year
+            <Button 
+              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6 py-2 rounded-lg"
+              onClick={() => setFilterYear('2')}
+            >
+              Year 2
             </Button>
-            <Button className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6 py-2 rounded-lg">
+            <Button 
+              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6 py-2 rounded-lg"
+              onClick={() => setUploadDialogOpen(true)}
+            >
               + Add new Resources
             </Button>
           </div>
@@ -107,24 +193,34 @@ export default function AdminDashboard() {
             <Card className="border border-gray-200">
               <CardContent className="p-6">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">Total Resource</h3>
-                <p className="text-4xl font-bold text-gray-900 mb-2">5</p>
+                <p className="text-4xl font-bold text-gray-900 mb-2">{resources.length}</p>
                 <p className="text-sm text-gray-600 mb-4">Across all modules and years</p>
-                <Button className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white text-sm px-4 py-2 rounded-lg w-full">
-                  View Details
+                <Button 
+                  className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white text-sm px-4 py-2 rounded-lg w-full"
+                  onClick={() => fetchData()}
+                >
+                  Refresh
                 </Button>
               </CardContent>
             </Card>
             <Card className="border border-gray-200">
               <CardContent className="p-6">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">Total Modules</h3>
-                <p className="text-4xl font-bold text-gray-900 mb-2">5</p>
+                <p className="text-4xl font-bold text-gray-900 mb-2">{modules.length}</p>
                 <p className="text-sm text-gray-600">Active modules in your college</p>
               </CardContent>
             </Card>
             <Card className="border border-gray-200">
               <CardContent className="p-6">
                 <h3 className="text-sm font-semibold text-gray-900 mb-2">Recent Activity</h3>
-                <p className="text-4xl font-bold text-gray-900 mb-2">5</p>
+                <p className="text-4xl font-bold text-gray-900 mb-2">
+                  {resources.filter(r => {
+                    const uploadDate = new Date(r.createdAt);
+                    const yesterday = new Date();
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    return uploadDate > yesterday;
+                  }).length}
+                </p>
                 <p className="text-sm text-gray-600">Last 24 hours</p>
               </CardContent>
             </Card>
@@ -142,38 +238,80 @@ export default function AdminDashboard() {
                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Title</th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Module</th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Year</th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Upload Date</th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Uploaded By</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Published</th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Action</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {resources.map((resource) => (
-                        <tr key={resource.id}>
-                          <td className="px-6 py-4 text-sm text-gray-900">{resource.title}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{resource.module}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{resource.type}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{resource.uploadDate}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{resource.uploadedBy}</td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center">
-                              <button className={`relative inline-flex h-6 w-11 items-center rounded-full ${resource.published ? 'bg-[#A8C5B5]' : 'bg-gray-300'}`}>
-                                <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${resource.published ? 'translate-x-6' : 'translate-x-1'}`} />
-                              </button>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 text-sm">
-                            <button className="text-gray-400 hover:text-gray-600 mr-3">Edit</button>
-                            <button className="text-gray-400 hover:text-gray-600">Delete</button>
+                      {loading ? (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                            Loading resources...
                           </td>
                         </tr>
-                      ))}
+                      ) : resources.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
+                            No resources found. Click "+ Add New Resource" to upload your first resource.
+                          </td>
+                        </tr>
+                      ) : (
+                        resources.map((resource) => (
+                          <tr key={resource.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 text-sm text-gray-900">
+                              <a 
+                                href={resource.fileUrl} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="hover:text-[#A8C5B5] hover:underline"
+                              >
+                                {resource.title}
+                              </a>
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {resource.module ? `${resource.module.code}` : 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600 uppercase">
+                              {resource.fileType}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {resource.year ? `Year ${resource.year}` : 'N/A'}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {formatDate(resource.createdAt)}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {getUploaderName(resource)}
+                            </td>
+                            <td className="px-6 py-4 text-sm">
+                              <a 
+                                href={resource.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[#A8C5B5] hover:text-[#96B5A5] mr-3"
+                              >
+                                View
+                              </a>
+                              <button 
+                                onClick={() => handleDeleteResource(resource.id)}
+                                className="text-red-400 hover:text-red-600"
+                              >
+                                Delete
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
                 <div className="p-4 flex justify-end border-t border-gray-200">
-                  <Button className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white text-sm px-4 py-2 rounded-lg">
+                  <Button 
+                    className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white text-sm px-4 py-2 rounded-lg"
+                    onClick={() => setUploadDialogOpen(true)}
+                  >
                     + Add New Resource
                   </Button>
                 </div>
@@ -192,38 +330,56 @@ export default function AdminDashboard() {
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Code</th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Name</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Faculty</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Year</th>
-                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Credits</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Description</th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Resources</th>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Action</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {modules.map((module) => (
-                        <tr key={module.id}>
-                          <td className="px-6 py-4 text-sm text-gray-900">{module.code}</td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{module.name}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{module.faculty}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{module.year}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{module.credits}</td>
-                          <td className="px-6 py-4 text-sm">
-                            <button className="text-gray-400 hover:text-gray-600 mr-3">Edit</button>
-                            <button className="text-gray-400 hover:text-gray-600">Delete</button>
+                      {loading ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                            Loading modules...
                           </td>
                         </tr>
-                      ))}
+                      ) : modules.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                            No modules found.
+                          </td>
+                        </tr>
+                      ) : (
+                        modules.map((module) => (
+                          <tr key={module.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 text-sm text-gray-900 font-medium">{module.code}</td>
+                            <td className="px-6 py-4 text-sm text-gray-900">{module.name}</td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {module.description || 'No description'}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-600">
+                              {resources.filter(r => r.moduleId === module.id).length}
+                            </td>
+                            <td className="px-6 py-4 text-sm">
+                              <button className="text-[#A8C5B5] hover:text-[#96B5A5] mr-3">View</button>
+                              <button className="text-gray-400 hover:text-gray-600">Edit</button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
-                </div>
-                <div className="p-4 flex justify-end border-t border-gray-200">
-                  <Button className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white text-sm px-4 py-2 rounded-lg">
-                    + Add New Module
-                  </Button>
                 </div>
               </CardContent>
             </Card>
           </div>
         </div>
+
+        {/* Upload Resource Dialog */}
+        <UploadResourceDialog
+          open={uploadDialogOpen}
+          onClose={() => setUploadDialogOpen(false)}
+          onSuccess={handleUploadSuccess}
+        />
 
         {/* Footer */}
         <footer className="bg-[#D5E3DF] py-6">

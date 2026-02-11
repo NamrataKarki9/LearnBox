@@ -115,4 +115,104 @@ export const authAPI = {
   getMe: () => api.get<{ user: User }>('/auth/me'),
 };
 
+// Resource types
+interface Module {
+  id: number;
+  name: string;
+  code: string;
+  description?: string;
+  collegeId: number;
+}
+
+interface Resource {
+  id: number;
+  title: string;
+  description?: string;
+  fileUrl: string;
+  fileType: string;
+  year?: number;
+  facultyId?: number;
+  moduleId?: number;
+  collegeId: number;
+  uploadedBy: number;
+  createdAt: string;
+  updatedAt: string;
+  uploader?: {
+    id: number;
+    username: string;
+    first_name?: string;
+    last_name?: string;
+  };
+  module?: Module;
+  college?: {
+    id: number;
+    name: string;
+    code: string;
+  };
+}
+
+interface ResourcesResponse {
+  success: boolean;
+  count: number;
+  data: Resource[];
+}
+
+interface UploadResourceResponse {
+  success: boolean;
+  message: string;
+  data: Resource;
+}
+
+// Faculty types
+interface Faculty {
+  id: number;
+  name: string;
+  code: string;
+  description?: string;
+  collegeId: number;
+}
+
+// Resource API endpoints
+export const resourceAPI = {
+  // Get all resources (with optional filters)
+  getAll: (params?: { moduleId?: number }) => 
+    api.get<ResourcesResponse>('/resources', { params }),
+  
+  // Filter resources (for students)
+  filter: (params?: { collegeId?: number; facultyId?: number; year?: number; moduleId?: number }) =>
+    api.get<ResourcesResponse>('/resources/filter', { params }),
+  
+  // Upload resource with file
+  upload: (formData: FormData) => {
+    return axios.create({
+      baseURL: 'http://localhost:5000/api',
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+      },
+      timeout: 120000, // 120 seconds (2 minutes) for file upload
+    }).post<UploadResourceResponse>('/resources/upload', formData);
+  },
+  
+  // Update resource
+  update: (id: number, data: Partial<Resource>) =>
+    api.put<{ success: boolean; message: string; data: Resource }>(`/resources/${id}`, data),
+  
+  // Delete resource
+  delete: (id: number) =>
+    api.delete<{ success: boolean; message: string }>(`/resources/${id}`),
+};
+
+// Module API endpoints
+export const moduleAPI = {
+  getAll: (params?: { collegeId?: number }) =>
+    api.get<{ success: boolean; count: number; data: Module[] }>('/modules', { params }),
+};
+
+// Faculty API endpoints
+export const facultyAPI = {
+  getAll: (params?: { collegeId?: number }) =>
+    api.get<{ success: boolean; count: number; data: Faculty[] }>('/faculties', { params }),
+};
+
 export default api;

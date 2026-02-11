@@ -50,8 +50,24 @@ model College {
   resources   Resource[]
   mcqs        MCQ[]
   modules     Module[]
+  faculties   Faculty[]
   
   @@index([code])
+}
+
+model Faculty {
+  id          Int        @id @default(autoincrement())
+  name        String
+  code        String
+  description String?
+  collegeId   Int
+  college     College    @relation(fields: [collegeId], references: [id])
+  resources   Resource[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  @@unique([code, collegeId])
+  @@index([collegeId])
 }
 
 model Resource {
@@ -60,17 +76,22 @@ model Resource {
   description String?
   fileUrl     String
   fileType    String
-  moduleId    Int?
+  year        Int      // Academic year (1, 2, 3, 4, etc.) - now mandatory
+  facultyId   Int      // Faculty/department reference - now mandatory
+  moduleId    Int      // Module reference - now mandatory
   collegeId   Int
   uploadedBy  Int
   college     College  @relation(fields: [collegeId], references: [id])
   uploader    User     @relation(fields: [uploadedBy], references: [id])
-  module      Module?  @relation(fields: [moduleId], references: [id])
+  module      Module   @relation(fields: [moduleId], references: [id])
+  faculty     Faculty  @relation(fields: [facultyId], references: [id])
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
   @@index([collegeId])
   @@index([moduleId])
+  @@index([year])
+  @@index([facultyId])
 }
 
 model Module {
