@@ -3,50 +3,176 @@
  * College-scoped access - view resources and attempt MCQs from own college
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
 import { useNavigate } from 'react-router-dom';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import { facultyAPI, moduleAPI, Faculty } from '../../services/api';
+
+interface Module {
+  id: number;
+  name: string;
+  code: string;
+  description?: string;
+  year: number;
+  facultyId: number;
+  collegeId: number;
+  faculty?: {
+    id: number;
+    name: string;
+    code: string;
+  };
+}
 
 export default function StudentDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  const [selectedFaculty, setSelectedFaculty] = useState('All');
-  const [selectedYear, setSelectedYear] = useState('All');
-  const [selectedModule, setSelectedModule] = useState('All');
+  
+  // Data states
+  const [faculties, setFaculties] = useState<Faculty[]>([]);
+  const [modules, setModules] = useState<Module[]>([]);
+  const [filteredModules, setFilteredModules] = useState<Module[]>([]);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  
+  // Filter states
+  const [selectedFaculty, setSelectedFaculty] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [selectedModule, setSelectedModule] = useState<string>('all');
+  
+  // Loading state
+  const [loading, setLoading] = useState(true);
 
-  const modules = [
-    {
-      year: 1,
-      title: 'Introduction to Programming',
-      code: 'CS101',
-      description: 'Fundamentals of programming using Python.',
-      progress: 100
-    },
-    {
-      year: 1,
-      title: 'Discrete Mathematics',
-      code: 'MA101',
-      description: 'Essentials mathematic concepts for computer science..',
-      progress: 100
-    },
-    {
-      year: 2,
-      title: 'Data Structures',
-      code: 'CS201',
-      description: 'Study of efficient data organization and management techniques.',
-      progress: 60
-    },
-    {
-      year: 2,
-      title: 'Algorithms',
-      code: 'CS202',
-      description: 'Design and analysis of efficient compulsion methods.',
-      progress: 0
+  // Fetch faculties on component mount
+  useEffect(() => {
+    const fetchFaculties = async () => {
+      try {
+        const response = await facultyAPI.getAll();
+        setFaculties(response.data.data);
+      } catch (error) {
+        console.error('Error fetching faculties:', error);
+      }
+    };
+
+    fetchFaculties();
+  }, []);
+
+  // Fetch modules based on selected faculty and year
+  useEffect(() => {
+    const fetchModules = async () => {
+      try {
+        setLoading(true);
+        const params: any = {};
+        
+        if (selectedFaculty !== 'all') {
+          params.facultyId = parseInt(selectedFaculty);
+        }
+        
+        if (selectedYear !== 'all') {
+          params.year = parseInt(selectedYear);
+        }
+
+        const response = await moduleAPI.getAll(params);
+        setModules(response.data.data);
+        setLoading(false);
+      } catch (error) {
+        console.error('Error fetching modules:', error);
+        setLoading(false);
+      }
+    };
+
+    fetchModules();
+  }, [selectedFaculty, selectedYear]);
+
+  // Update available years when faculty changes
+  useEffect(() => {
+    if (selectedFaculty === 'all') {
+      // Get all unique years from all modules
+      const years = new Set<number>();
+      modules.forEach(module => years.add(module.year));
+      setAvailableYears(Array.from(years).sort());
+    } else {
+      // Get years for selected faculty
+      const facultyModules = modules.filter(
+        m => m.facultyId === parseInt(selectedFaculty)
+      );
+      const years = new Set<number>();
+      facultyModules.forEach(module => years.add(module.year));
+      setAvailableYears(Array.from(years).sort());
+      
+      // Reset year if current selection is not available
+      if (selectedYear !== 'all' && !years.has(parseInt(selectedYear))) {
+        setSelectedYear('all');
+      }
     }
-  ];
+  }, [selectedFaculty, modules, selectedYear]);
+
+  // Filter modules based on all selections
+  useEffect(() => {
+    let filtered = modules;
+
+    if (selectedFaculty !== 'all') {
+      filtered = filtered.filter(m => m.facultyId === parseInt(selectedFaculty));
+    }
+
+    if (selectedYear !== 'all') {
+      filtered = filtered.filter(m => m.year === parseInt(selectedYear));
+    }
+
+    if (selectedModule !== 'all') {
+      filtered = filtered.filter(m => m.id === parseInt(selectedModule));
+    }
+
+    setFilteredModules(filtered);
+  }, [modules, selectedFaculty, selectedYear, selectedModule]);
+
+  // Handle faculty change
+  const handleFacultyChange = (value: string) => {
+    setSelectedFaculty(value);
+    setSelectedYear('all');
+    setSelectedModule('all');
+  };
+
+  // Handle year change
+  const handleYearChange = (value: string) => {
+    setSelectedYear(value);
+    setSelectedModule('all');
+  };
+
+  // Calculate performance metrics
+  const calculateMetrics = () => {
+    const totalModules = filteredModules.length;
+    const completedModules = filteredModules.filter(m => {
+      // Assuming we'll add progress field later, for now use placeholder logic
+      return false;
+    }).length;
+
+    return {
+      totalModules,
+      completedModules,
+      inProgress: totalModules - completedModules,
+      averageScore: 0 // Will be calculated when we have actual progress data
+    };
+  };
+
+  const metrics = calculateMetrics();
+
+  // Group modules by year
+  const modulesByYear = filteredModules.reduce((acc, module) => {
+    if (!acc[module.year]) {
+      acc[module.year] = [];
+    }
+    acc[module.year].push(module);
+    return acc;
+  }, {} as Record<number, Module[]>);
 
   const recentActivity = [
     { title: 'Data Structures & Algorithm Class 3 ext', action: 'View' },
@@ -126,21 +252,70 @@ export default function StudentDashboard() {
         <div className="p-8">
           {/* Welcome Section */}
           <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-1">Welcome Back, Namu!</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-1">Welcome Back, {user?.first_name || user?.username || 'Student'}!</h1>
             <p className="text-gray-600">Here's your academic overview and recent activities.</p>
           </div>
 
-          {/* Filter Buttons */}
+          {/* Filter Dropdowns */}
           <div className="flex gap-3 mb-8">
-            <Button className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6 py-2 rounded-lg">
-              Faculty
-            </Button>
-            <Button className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6 py-2 rounded-lg">
-              Academic Year
-            </Button>
-            <Button className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6 py-2 rounded-lg">
-              Module
-            </Button>
+            {/* Faculty Dropdown */}
+            <div className="w-64">
+              <Select value={selectedFaculty} onValueChange={handleFacultyChange}>
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Select Faculty" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Faculties</SelectItem>
+                  {faculties.map((faculty) => (
+                    <SelectItem key={faculty.id} value={faculty.id.toString()}>
+                      {faculty.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Academic Year Dropdown */}
+            <div className="w-48">
+              <Select 
+                value={selectedYear} 
+                onValueChange={handleYearChange}
+                disabled={selectedFaculty === 'all' && availableYears.length === 0}
+              >
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Select Year" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Years</SelectItem>
+                  {availableYears.map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      Year {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Module Dropdown */}
+            <div className="w-64">
+              <Select 
+                value={selectedModule} 
+                onValueChange={setSelectedModule}
+                disabled={filteredModules.length === 0}
+              >
+                <SelectTrigger className="bg-white">
+                  <SelectValue placeholder="Select Module" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Modules</SelectItem>
+                  {filteredModules.map((module) => (
+                    <SelectItem key={module.id} value={module.id.toString()}>
+                      {module.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Performance Cards */}
@@ -149,21 +324,25 @@ export default function StudentDashboard() {
             <div className="grid grid-cols-4 gap-4">
               <Card className="bg-[#A8C5B5]/20 border-0">
                 <CardContent className="p-6 text-center">
-                  <p className="text-gray-700 font-medium">Tutorials</p>
+                  <p className="text-3xl font-bold text-gray-900 mb-2">{metrics.totalModules}</p>
+                  <p className="text-gray-700 font-medium">Total Modules</p>
                 </CardContent>
               </Card>
               <Card className="bg-[#A8C5B5]/20 border-0">
                 <CardContent className="p-6 text-center">
-                  <p className="text-gray-700 font-medium">Practice tests</p>
+                  <p className="text-3xl font-bold text-gray-900 mb-2">{metrics.inProgress}</p>
+                  <p className="text-gray-700 font-medium">In Progress</p>
                 </CardContent>
               </Card>
               <Card className="bg-[#A8C5B5]/20 border-0">
                 <CardContent className="p-6 text-center">
-                  <p className="text-gray-700 font-medium">Completed Courses</p>
+                  <p className="text-3xl font-bold text-gray-900 mb-2">{metrics.completedModules}</p>
+                  <p className="text-gray-700 font-medium">Completed Modules</p>
                 </CardContent>
               </Card>
               <Card className="bg-[#A8C5B5]/20 border-0">
                 <CardContent className="p-6 text-center">
+                  <p className="text-3xl font-bold text-gray-900 mb-2">{metrics.averageScore}%</p>
                   <p className="text-gray-700 font-medium">Average Score</p>
                 </CardContent>
               </Card>
@@ -174,47 +353,50 @@ export default function StudentDashboard() {
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">My Modules</h2>
             
-            {/* Year 1 */}
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Year 1</h3>
-            <div className="grid grid-cols-2 gap-6 mb-8">
-              {modules.filter(m => m.year === 1).map((module, idx) => (
-                <Card key={idx} className="border border-gray-200">
-                  <CardContent className="p-6">
-                    <h4 className="font-bold text-gray-900 mb-1">{module.title}</h4>
-                    <p className="text-sm text-gray-600 mb-3">{module.code}</p>
-                    <p className="text-sm text-gray-700 mb-4">{module.description}</p>
-                    <Progress value={module.progress} className="h-2 mb-2" />
-                    <div className="flex justify-between items-center mt-4">
-                      <span className="text-sm font-semibold text-gray-900">{module.progress}% complete</span>
-                      <Button className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white text-sm px-4 py-2 rounded-lg">
-                        View Module
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-
-            {/* Year 2 */}
-            <h3 className="text-xl font-bold text-gray-900 mb-4">Year 2</h3>
-            <div className="grid grid-cols-2 gap-6 mb-8">
-              {modules.filter(m => m.year === 2).map((module, idx) => (
-                <Card key={idx} className="border border-gray-200">
-                  <CardContent className="p-6">
-                    <h4 className="font-bold text-gray-900 mb-1">{module.title}</h4>
-                    <p className="text-sm text-gray-600 mb-3">{module.code}</p>
-                    <p className="text-sm text-gray-700 mb-4">{module.description}</p>
-                    <Progress value={module.progress} className="h-2 mb-2" />
-                    <div className="flex justify-between items-center mt-4">
-                      <span className="text-sm font-semibold text-gray-900">{module.progress}% complete</span>
-                      <Button className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white text-sm px-4 py-2 rounded-lg">
-                        View Module
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            {loading ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">Loading modules...</p>
+              </div>
+            ) : filteredModules.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-600">No modules found for the selected filters.</p>
+              </div>
+            ) : (
+              Object.keys(modulesByYear).sort().map((year) => (
+                <div key={year} className="mb-8">
+                  <h3 className="text-xl font-bold text-gray-900 mb-4">Year {year}</h3>
+                  <div className="grid grid-cols-2 gap-6">
+                    {modulesByYear[parseInt(year)].map((module) => (
+                      <Card key={module.id} className="border border-gray-200">
+                        <CardContent className="p-6">
+                          <h4 className="font-bold text-gray-900 mb-1">{module.name}</h4>
+                          <p className="text-sm text-gray-600 mb-3">{module.code}</p>
+                          {module.faculty && (
+                            <p className="text-xs text-gray-500 mb-2">
+                              Faculty: {module.faculty.name}
+                            </p>
+                          )}
+                          <p className="text-sm text-gray-700 mb-4">
+                            {module.description || 'No description available.'}
+                          </p>
+                          {/* Progress bar - Will be dynamic when progress tracking is implemented */}
+                          <Progress value={0} className="h-2 mb-2" />
+                          <div className="flex justify-between items-center mt-4">
+                            <span className="text-sm font-semibold text-gray-900">0% complete</span>
+                            <Button 
+                              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white text-sm px-4 py-2 rounded-lg"
+                              onClick={() => navigate(`/student/resources?moduleId=${module.id}`)}
+                            >
+                              View Module
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
 
           {/* Bottom Grid: Recent Activity, MCQs History */}

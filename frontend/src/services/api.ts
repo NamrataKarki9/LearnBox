@@ -121,7 +121,14 @@ export interface Module {
   name: string;
   code: string;
   description?: string;
+  year: number;
+  facultyId: number;
   collegeId: number;
+  faculty?: {
+    id: number;
+    name: string;
+    code: string;
+  };
 }
 
 export interface Resource {
@@ -210,7 +217,7 @@ export const resourceAPI = {
 
 // Module API endpoints
 export const moduleAPI = {
-  getAll: (params?: { collegeId?: number }) =>
+  getAll: (params?: { collegeId?: number; facultyId?: number; year?: number }) =>
     api.get<{ success: boolean; count: number; data: Module[] }>('/modules', { params }),
   
   getByFacultyAndYear: (facultyId: number, year: number) =>
