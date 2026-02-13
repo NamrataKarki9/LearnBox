@@ -8,16 +8,19 @@ import { VerifyOTPPage } from "./pages/VerifyOTPPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
+import StudentDashboard from "./pages/StudentDashboard";
 import StudentResourcesPage from "./pages/StudentResourcesPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "../context/AuthContext";
+import { FilterProvider } from "../context/FilterContext";
 import { Toaster } from "./components/ui/sonner";
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Toaster 
+        <FilterProvider>
+          <Toaster 
           position="top-right"
           expand={true}
           richColors
@@ -46,6 +49,15 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/student-dashboard"
+            element={
+              <ProtectedRoute>
+                <StudentDashboard />
               </ProtectedRoute>
             }
           />
@@ -81,6 +93,7 @@ export default function App() {
             }
           />
         </Routes>
+        </FilterProvider>
       </AuthProvider>
     </BrowserRouter>
   );

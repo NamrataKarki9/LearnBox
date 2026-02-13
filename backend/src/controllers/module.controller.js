@@ -15,6 +15,13 @@ export const getAllModules = async (req, res) => {
     try {
         const { collegeId, facultyId, year } = req.query;
         
+        // Ensure user is authenticated
+        if (!req.user) {
+             return res.status(HTTP_STATUS.UNAUTHORIZED).json({ 
+                 error: ERROR_MESSAGES.UNAUTHORIZED 
+             });
+        }
+
         const whereClause = {};
         
         // If collegeId provided, filter by it
@@ -72,7 +79,8 @@ export const getAllModules = async (req, res) => {
     } catch (error) {
         console.error('Get modules error:', error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR
+            error: ERROR_MESSAGES.DATABASE_ERROR,
+            details: error.message
         });
     }
 };

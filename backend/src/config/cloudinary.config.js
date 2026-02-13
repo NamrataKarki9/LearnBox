@@ -51,12 +51,19 @@ export const uploadToCloudinary = async (filePath, options = {}) => {
 
         const defaultOptions = {
             folder: 'learnbox/resources',
-            resource_type: 'auto',
-            allowed_formats: ['pdf', 'doc', 'docx', 'ppt', 'pptx'],
+            resource_type: 'raw', 
+            type: 'upload', 
+            access_mode: 'public',
+            allowed_formats: ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'dat', 'bin'], // Allow generic binaries
             ...options
         };
 
+        console.log('Uploading to Cloudinary with options:', JSON.stringify(defaultOptions));
+        
         const result = await cloudinary.uploader.upload(filePath, defaultOptions);
+        
+        console.log('Cloudinary upload success. URL:', result.secure_url, 'Type:', result.type, 'Resource Type:', result.resource_type);
+        
         return {
             success: true,
             url: result.secure_url,
@@ -83,11 +90,14 @@ export const uploadToCloudinary = async (filePath, options = {}) => {
 /**
  * Delete file from Cloudinary
  * @param {string} publicId - Cloudinary public ID of the file
+ * @param {string} resourceType - Resource type ('image' for PDFs/documents uploaded via auto, 'raw' for raw uploads)
  * @returns {Promise<object>} Deletion result
  */
-export const deleteFromCloudinary = async (publicId) => {
+export const deleteFromCloudinary = async (publicId, resourceType = 'raw') => {
     try {
-        const result = await cloudinary.uploader.destroy(publicId);
+        const result = await cloudinary.uploader.destroy(publicId, {
+            resource_type: resourceType
+        });
         return {
             success: result.result === 'ok',
             result: result.result

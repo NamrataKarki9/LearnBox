@@ -213,6 +213,8 @@ export const resourceAPI = {
   // Delete resource
   delete: (id: number) =>
     api.delete<{ success: boolean; message: string }>(`/resources/${id}`),
+
+  getDownloadUrl: (id: number) => `http://localhost:5000/api/resources/${id}/download`
 };
 
 // Module API endpoints
@@ -230,6 +232,50 @@ export const moduleAPI = {
 export const facultyAPI = {
   getAll: (params?: { collegeId?: number }) =>
     api.get<{ success: boolean; count: number; data: Faculty[] }>('/faculties', { params }),
+};
+
+// Search types
+export interface SemanticSearchResult extends Resource {
+  relevanceScore: number;
+  matchedChunks?: string[];
+  chunkCount?: number;
+}
+
+interface SemanticSearchResponse {
+  success: boolean;
+  data: SemanticSearchResult[];
+  count: number;
+  query: string;
+  filters: {
+    facultyId?: string;
+    year?: string;
+    moduleId?: string;
+  };
+}
+
+interface SearchStatusResponse {
+  success: boolean;
+  data: {
+    initialized: boolean;
+    count: number;
+    message: string;
+    error?: string;
+  };
+}
+
+// Search API endpoints
+export const searchAPI = {
+  // Perform semantic search
+  semanticSearch: (params: {
+    query: string;
+    facultyId?: string;
+    year?: string;
+    moduleId?: string;
+    limit?: number;
+  }) => api.post<SemanticSearchResponse>('/search/semantic', params),
+  
+  // Get search status
+  getStatus: () => api.get<SearchStatusResponse>('/search/status'),
 };
 
 export default api;

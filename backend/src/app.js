@@ -9,6 +9,7 @@ import resourceRoutes from './routes/resource.routes.js';
 import moduleRoutes from './routes/module.routes.js';
 import mcqRoutes from './routes/mcq.routes.js';
 import facultyRoutes from './routes/faculty.routes.js';
+import searchRoutes from './routes/search.routes.js';
 import { connectDatabase } from './prisma.js';
 
 const app = express();
@@ -27,6 +28,17 @@ app.use('/api/resources', resourceRoutes);
 app.use('/api/modules', moduleRoutes);
 app.use('/api/mcqs', mcqRoutes);
 app.use('/api/faculties', facultyRoutes);
+app.use('/api/search', searchRoutes);
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error('Unhandled Error:', err);
+    res.status(500).json({
+        error: 'Internal Server Error',
+        message: err.message,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    });
+});
 
 // Root endpoint
 app.get('/', (req, res) => {

@@ -86,7 +86,11 @@ export const requireCollegeAccess = async (req, res, next) => {
         }
 
         // Check if trying to access a different college
-        const requestedCollegeId = parseInt(req.params.collegeId || req.body.collegeId || req.query.collegeId);
+        const requestedCollegeId = parseInt(
+            req.params?.collegeId || 
+            req.body?.collegeId || 
+            req.query?.collegeId
+        );
         
         if (requestedCollegeId && requestedCollegeId !== req.user.collegeId) {
             return res.status(HTTP_STATUS.FORBIDDEN).json({ 

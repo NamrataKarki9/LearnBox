@@ -5,49 +5,40 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useFilters } from '../../context/FilterContext';
 import { useNavigate } from 'react-router-dom';
-import { resourceAPI, moduleAPI, facultyAPI, type Resource, type Module, type Faculty } from '../../services/api';
+import { resourceAPI, facultyAPI, type Resource, type Faculty } from '../../services/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Download, FileText, Book, GraduationCap } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Download, FileText, Book, GraduationCap, Eye, X } from 'lucide-react';
 
 export default function StudentResourcesPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const filters = useFilters();
   
   const [resources, setResources] = useState<Resource[]>([]);
-  const [modules, setModules] = useState<Module[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
-  
-  const [filters, setFilters] = useState({
-    facultyId: '',
-    year: '',
-    moduleId: '',
-  });
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Resource viewer state
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewingResource, setViewingResource] = useState<{ url: string; title: string } | null>(null);
 
-  // Fetch faculties on mount
+  // Fetch faculties on mount for display
   useEffect(() => {
     fetchFaculties();
   }, []);
 
-  // Fetch modules when faculty and year are selected
-  useEffect(() => {
-    if (filters.facultyId && filters.year) {
-      fetchModules(parseInt(filters.facultyId), parseInt(filters.year));
-    } else {
-      setModules([]);
-    }
-  }, [filters.facultyId, filters.year]);
-
   // Fetch resources when filters change
   useEffect(() => {
     fetchResources();
-  }, [filters]);
+  }, [filters.facultyId, filters.year, filters.moduleId]);
 
   const fetchFaculties = async () => {
     try {
@@ -58,15 +49,7 @@ export default function StudentResourcesPage() {
     }
   };
 
-  const fetchModules = async (facultyId: number, year: number) => {
-    try {
-      const response = await moduleAPI.getByFacultyAndYear(facultyId, year);
-      setModules(response.data.data || []);
-    } catch (err) {
-      console.error('Error fetching modules:', err);
-      setModules([]);
-    }
-  };
+
 
   const fetchResources = async () => {
     setLoading(true);
@@ -75,9 +58,9 @@ export default function StudentResourcesPage() {
     try {
       const params: any = {};
       
-      if (filters.facultyId) params.facultyId = parseInt(filters.facultyId);
-      if (filters.year) params.year = parseInt(filters.year);
-      if (filters.moduleId) params.moduleId = parseInt(filters.moduleId);
+      if (filters.facultyId !== 'all') params.facultyId = parseInt(filters.facultyId);
+      if (filters.year !== 'all') params.year = parseInt(filters.year);
+      if (filters.moduleId !== 'all') params.moduleId = parseInt(filters.moduleId);
       
       const response = await resourceAPI.filter(params);
       setResources(response.data.data || []);
@@ -89,8 +72,25 @@ export default function StudentResourcesPage() {
     }
   };
 
-  const handleDownload = (fileUrl: string, title: string) => {
-    window.open(fileUrl, '_blank');
+  const handleDownload = (resourceId: number) => {
+    try {
+      // Use the backend proxy URL which forces correct headers
+      const downloadUrl = resourceAPI.getDownloadUrl(resourceId);
+      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Download error:', error);
+    }
+  };
+
+  const handleView = (resource: Resource) => {
+    try {
+      // Use the backend proxy URL which serves the resource
+      const viewUrl = resourceAPI.getDownloadUrl(resource.id);
+      setViewingResource({ url: viewUrl, title: resource.title });
+      setViewerOpen(true);
+    } catch (error) {
+      console.error('View error:', error);
+    }
   };
 
   const getFileIcon = (fileType: string) => {
@@ -103,6 +103,16 @@ export default function StudentResourcesPage() {
       month: 'short',
       day: 'numeric',
     });
+  };
+
+  // Get current filter display names
+  const getFilterDisplayNames = () => {
+    const faculty = faculties.find(f => f.id.toString() === filters.facultyId);
+    return {
+      faculty: faculty ? faculty.name : 'All Faculties',
+      year: filters.year !== 'all' ? `Year ${filters.year}` : 'All Years',
+      module: resources[0]?.module?.name || (filters.moduleId !== 'all' ? 'Selected Module' : 'All Modules')
+    };
   };
 
   return (
@@ -162,95 +172,46 @@ export default function StudentResourcesPage() {
       <main className="flex-1 p-8">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
-          <div className="mb-8">
+          <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Learning Resources</h1>
             <p className="text-gray-600">Browse and download study materials for your courses</p>
           </div>
 
-          {/* Filters */}
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>Filter Resources</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Faculty Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Faculty</label>
-                  <Select
-                    value={filters.facultyId}
-                    onValueChange={(value) => {
-                      setFilters({ facultyId: value, year: '', moduleId: '' });
-                      setModules([]);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Faculties" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All Faculties</SelectItem>
-                      {faculties.map((faculty) => (
-                        <SelectItem key={faculty.id} value={faculty.id.toString()}>
-                          {faculty.code} - {faculty.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+          {/* Current Selection Display */}
+          <Card className="mb-6 bg-gradient-to-r from-[#A8C5B5]/10 to-[#D5E3DF]/10 border-[#A8C5B5]/30">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Book className="h-5 w-5 text-[#6B9080]" />
+                  <span className="text-sm font-medium text-gray-700">Viewing resources for:</span>
+                  <div className="flex gap-2 flex-wrap">
+                    <Badge variant="secondary" className="bg-[#A8C5B5] text-white hover:bg-[#96B5A5] px-3 py-1">
+                      {getFilterDisplayNames().faculty}
+                    </Badge>
+                    <Badge variant="secondary" className="bg-[#A8C5B5] text-white hover:bg-[#96B5A5] px-3 py-1">
+                      {getFilterDisplayNames().year}
+                    </Badge>
+                    {filters.moduleId !== 'all' && (
+                      <Badge variant="secondary" className="bg-[#A8C5B5] text-white hover:bg-[#96B5A5] px-3 py-1">
+                        {getFilterDisplayNames().module}
+                      </Badge>
+                    )}
+                  </div>
                 </div>
-
-                {/* Year Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Year</label>
-                  <Select
-                    value={filters.year}
-                    onValueChange={(value) => {
-                      setFilters({ ...filters, year: value, moduleId: '' });
-                    }}
-                    disabled={!filters.facultyId}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Years" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All Years</SelectItem>
-                      <SelectItem value="1">Year 1</SelectItem>
-                      <SelectItem value="2">Year 2</SelectItem>
-                      <SelectItem value="3">Year 3</SelectItem>
-                      <SelectItem value="4">Year 4</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {!filters.facultyId && (
-                    <p className="text-xs text-gray-500 mt-1">Select faculty first</p>
-                  )}
-                </div>
-
-                {/* Module Filter */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Module</label>
-                  <Select
-                    value={filters.moduleId}
-                    onValueChange={(value) => setFilters({ ...filters, moduleId: value })}
-                    disabled={!filters.facultyId || !filters.year || modules.length === 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="All Modules" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">All Modules</SelectItem>
-                      {modules.map((module) => (
-                        <SelectItem key={module.id} value={module.id.toString()}>
-                          {module.code} - {module.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {!filters.facultyId || !filters.year ? (
-                    <p className="text-xs text-gray-500 mt-1">Select faculty and year first</p>
-                  ) : modules.length === 0 && filters.facultyId && filters.year ? (
-                    <p className="text-xs text-amber-600 mt-1">No modules available</p>
-                  ) : null}
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/student-dashboard')}
+                  className="border-[#A8C5B5] text-[#6B9080] hover:bg-[#A8C5B5]/10"
+                >
+                  Change Selection
+                </Button>
               </div>
+              {(filters.facultyId !== 'all' || filters.year !== 'all' || filters.moduleId !== 'all') && (
+                <p className="text-xs text-gray-500 mt-3">
+                  💡 Change your selection from the Dashboard to view different resources
+                </p>
+              )}
             </CardContent>
           </Card>
 
@@ -273,7 +234,7 @@ export default function StudentResourcesPage() {
                   <Book className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No resources found</h3>
                   <p className="text-gray-600">
-                    {filters.facultyId || filters.year || filters.moduleId
+                    {filters.facultyId !== 'all' || filters.year !== 'all' || filters.moduleId !== 'all'
                       ? 'Try adjusting your filters to find more resources.'
                       : 'No resources have been uploaded yet.'}
                   </p>
@@ -311,18 +272,29 @@ export default function StudentResourcesPage() {
                           </div>
                         </div>
                         
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mt-4">
                           <span className="text-xs text-gray-500">
                             {formatDate(resource.createdAt)}
                           </span>
-                          <Button
-                            size="sm"
-                            onClick={() => handleDownload(resource.fileUrl, resource.title)}
-                            className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white"
-                          >
-                            <Download className="h-4 w-4 mr-1" />
-                            Download
-                          </Button>
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleView(resource)}
+                              className="border-[#A8C5B5] text-[#6B9080] hover:bg-[#A8C5B5]/10"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleDownload(resource.id)}
+                              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white"
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              Download
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -333,6 +305,26 @@ export default function StudentResourcesPage() {
           )}
         </div>
       </main>
+
+      {/* Resource Viewer Modal */}
+      <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
+        <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
+            <DialogTitle className="text-lg font-semibold">
+              {viewingResource?.title}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 min-h-0">
+            {viewingResource && (
+              <iframe
+                src={viewingResource.url}
+                className="w-full h-full border-0"
+                title={viewingResource.title}
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -3,7 +3,7 @@
  * College-scoped access - manage resources and MCQs for assigned college only
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { resourceAPI, moduleAPI } from '../../services/api';
 import { Button } from '../components/ui/button';
@@ -46,13 +46,16 @@ export default function AdminDashboard() {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [filterYear, setFilterYear] = useState<string>('');
-  const [filterModule, setFilterModule] = useState<string>('');
+  const resourcesSectionRef = useRef<HTMLDivElement>(null);
 
   // Fetch resources and modules on mount
   useEffect(() => {
     fetchData();
   }, []);
+
+  const scrollToResources = () => {
+    resourcesSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   const fetchData = async () => {
     setLoading(true);
@@ -122,7 +125,10 @@ export default function AdminDashboard() {
           <button className="w-full text-left px-4 py-3 text-gray-900 bg-gray-100 rounded-lg font-medium mb-1">
             Admin Dashboard
           </button>
-          <button className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1">
+          <button 
+            onClick={scrollToResources}
+            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
+          >
             Manage Resources
           </button>
           <button className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1">
@@ -166,20 +172,8 @@ export default function AdminDashboard() {
             <h1 className="text-3xl font-bold text-gray-900">College Admin Dashboard</h1>
           </div>
 
-          {/* Filter Buttons */}
+          {/* Add Resource Button */}
           <div className="flex gap-3 mb-8">
-            <Button 
-              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6 py-2 rounded-lg"
-              onClick={() => setFilterYear('')}
-            >
-              All Years
-            </Button>
-            <Button 
-              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6 py-2 rounded-lg"
-              onClick={() => setFilterYear('2')}
-            >
-              Year 2
-            </Button>
             <Button 
               className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6 py-2 rounded-lg"
               onClick={() => setUploadDialogOpen(true)}
@@ -227,7 +221,7 @@ export default function AdminDashboard() {
           </div>
 
           {/* Manage Academic Resources */}
-          <div className="mb-8">
+          <div ref={resourcesSectionRef} className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Manage Academic Resources</h2>
             <Card className="border border-gray-200">
               <CardContent className="p-0">
@@ -262,7 +256,7 @@ export default function AdminDashboard() {
                           <tr key={resource.id} className="hover:bg-gray-50">
                             <td className="px-6 py-4 text-sm text-gray-900">
                               <a 
-                                href={resource.fileUrl} 
+                                href={resourceAPI.getDownloadUrl(resource.id)}
                                 target="_blank" 
                                 rel="noopener noreferrer"
                                 className="hover:text-[#A8C5B5] hover:underline"
@@ -287,7 +281,7 @@ export default function AdminDashboard() {
                             </td>
                             <td className="px-6 py-4 text-sm">
                               <a 
-                                href={resource.fileUrl}
+                                href={resourceAPI.getDownloadUrl(resource.id)}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-[#A8C5B5] hover:text-[#96B5A5] mr-3"

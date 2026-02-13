@@ -13,10 +13,15 @@ import {
     updateResource,
     deleteResource,
     uploadResource,
-    filterResources
+    filterResources,
+    downloadResource
 } from '../controllers/resource.controller.js';
 
 const router = express.Router();
+
+// Download route (Public access for simplicity, or add auth if needed)
+// Placing before router.use(authMiddleware) if we want public download
+router.get('/:id/download', downloadResource);
 
 // All routes require authentication
 router.use(authMiddleware);
@@ -50,7 +55,8 @@ router.get(
  * @desc    Get all resources (college-scoped)
  * @access  COLLEGE_ADMIN (own college), STUDENT (own college)
  */
-router.get('/', requireCollegeAccess, getAllResources);
+// Remove verifyCollegeAccess/requireCollegeAccess middleware from here to let controller decide
+router.get('/', getAllResources); 
 
 /**
  * @route   POST /api/resources

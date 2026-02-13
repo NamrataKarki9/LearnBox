@@ -41,8 +41,12 @@ export const authMiddleware = async (req, res, next) => {
         next();
     } catch (error) {
         console.error('Auth middleware error:', error);
-        return res.status(HTTP_STATUS.UNAUTHORIZED).json({ 
-            error: ERROR_MESSAGES.INVALID_TOKEN 
+        // Fallback if constants are undefined
+        const status = (HTTP_STATUS && HTTP_STATUS.UNAUTHORIZED) || 401;
+        const msg = (ERROR_MESSAGES && ERROR_MESSAGES.INVALID_TOKEN) || 'Invalid token';
+        
+        return res.status(status).json({ 
+            error: msg
         });
     }
 };

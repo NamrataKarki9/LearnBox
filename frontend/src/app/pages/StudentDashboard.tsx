@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useFilters } from '../../context/FilterContext';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
@@ -16,7 +17,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { facultyAPI, moduleAPI, Faculty } from '../../services/api';
+import { facultyAPI, moduleAPI, Faculty, searchAPI, SemanticSearchResult } from '../../services/api';
+import { toast } from 'sonner';
 
 interface Module {
   id: number;
@@ -36,6 +38,7 @@ interface Module {
 export default function StudentDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const filters = useFilters();
   
   // Data states
   const [faculties, setFaculties] = useState<Faculty[]>([]);
@@ -43,10 +46,11 @@ export default function StudentDashboard() {
   const [filteredModules, setFilteredModules] = useState<Module[]>([]);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
   
-  // Filter states
-  const [selectedFaculty, setSelectedFaculty] = useState<string>('all');
-  const [selectedYear, setSelectedYear] = useState<string>('all');
-  const [selectedModule, setSelectedModule] = useState<string>('all');
+  // Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<SemanticSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
   
   // Loading state
   const [loading, setLoading] = useState(true);
@@ -72,12 +76,12 @@ export default function StudentDashboard() {
         setLoading(true);
         const params: any = {};
         
-        if (selectedFaculty !== 'all') {
-          params.facultyId = parseInt(selectedFaculty);
+        if (filters.facultyId !== 'all') {
+          params.facultyId = parseInt(filters.facultyId);
         }
         
-        if (selectedYear !== 'all') {
-          params.year = parseInt(selectedYear);
+        if (filters.year !== 'all') {
+          params.year = parseInt(filters.year);
         }
 
         const response = await moduleAPI.getAll(params);
@@ -90,11 +94,11 @@ export default function StudentDashboard() {
     };
 
     fetchModules();
-  }, [selectedFaculty, selectedYear]);
+  }, [filters.facultyId, filters.year]);
 
   // Update available years when faculty changes
   useEffect(() => {
-    if (selectedFaculty === 'all') {
+    if (filters.facultyId === 'all') {
       // Get all unique years from all modules
       const years = new Set<number>();
       modules.forEach(module => years.add(module.year));
@@ -102,49 +106,104 @@ export default function StudentDashboard() {
     } else {
       // Get years for selected faculty
       const facultyModules = modules.filter(
-        m => m.facultyId === parseInt(selectedFaculty)
+        m => m.facultyId === parseInt(filters.facultyId)
       );
       const years = new Set<number>();
       facultyModules.forEach(module => years.add(module.year));
       setAvailableYears(Array.from(years).sort());
       
       // Reset year if current selection is not available
-      if (selectedYear !== 'all' && !years.has(parseInt(selectedYear))) {
-        setSelectedYear('all');
+      if (filters.year !== 'all' && !years.has(parseInt(filters.year))) {
+        filters.setYear('all');
       }
     }
-  }, [selectedFaculty, modules, selectedYear]);
+  }, [filters.facultyId, modules, filters.year]);
 
   // Filter modules based on all selections
   useEffect(() => {
     let filtered = modules;
 
-    if (selectedFaculty !== 'all') {
-      filtered = filtered.filter(m => m.facultyId === parseInt(selectedFaculty));
+    if (filters.facultyId !== 'all') {
+      filtered = filtered.filter(m => m.facultyId === parseInt(filters.facultyId));
     }
 
-    if (selectedYear !== 'all') {
-      filtered = filtered.filter(m => m.year === parseInt(selectedYear));
+    if (filters.year !== 'all') {
+      filtered = filtered.filter(m => m.year === parseInt(filters.year));
     }
 
-    if (selectedModule !== 'all') {
-      filtered = filtered.filter(m => m.id === parseInt(selectedModule));
+    if (filters.moduleId !== 'all') {
+      filtered = filtered.filter(m => m.id === parseInt(filters.moduleId));
     }
 
     setFilteredModules(filtered);
-  }, [modules, selectedFaculty, selectedYear, selectedModule]);
+  }, [modules, filters.facultyId, filters.year, filters.moduleId]);
 
   // Handle faculty change
   const handleFacultyChange = (value: string) => {
-    setSelectedFaculty(value);
-    setSelectedYear('all');
-    setSelectedModule('all');
+    filters.setFacultyId(value);
+    filters.setYear('all');
+    filters.setModuleId('all');
   };
 
   // Handle year change
   const handleYearChange = (value: string) => {
-    setSelectedYear(value);
-    setSelectedModule('all');
+    filters.setYear(value);
+    filters.setModuleId('all');
+  };
+
+  // Handle semantic search
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) {
+      toast.error('Please enter a search query');
+      return;
+    }
+
+    setIsSearching(true);
+    setShowSearchResults(true);
+
+    try {
+      const response = await searchAPI.semanticSearch({
+        query: searchQuery,
+        facultyId: filters.facultyId !== 'all' ? filters.facultyId : undefined,
+        year: filters.year !== 'all' ? filters.year : undefined,
+        moduleId: filters.moduleId !== 'all' ? filters.moduleId : undefined,
+        limit: 10
+      });
+
+      setSearchResults(response.data.data);
+      
+      if (response.data.data.length === 0) {
+        toast.info('No results found. Try a different search query.');
+      } else {
+        toast.success(`Found ${response.data.data.length} relevant resources`);
+      }
+    } catch (error: any) {
+      console.error('Search error:', error);
+      
+      if (error.response?.status === 503) {
+        toast.error('Search system is being initialized. Please try again in a moment.');
+      } else {
+        toast.error('Failed to perform search. Please try again.');
+      }
+      
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Handle search key press
+  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  // Clear search results
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchResults(false);
   };
 
   // Calculate performance metrics
@@ -235,12 +294,35 @@ export default function StudentDashboard() {
       <main className="flex-1 overflow-auto">
         {/* Header */}
         <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center">
-          <div className="flex-1">
-            <input
-              type="text"
-              placeholder="Search academic resources..."
-              className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-            />
+          <div className="flex-1 flex gap-2">
+            <div className="relative flex-1 max-w-md">
+              <input
+                type="text"
+                placeholder="Search resources using AI (e.g., 'explain neural networks')..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onKeyPress={handleSearchKeyPress}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A8C5B5] pr-10"
+              />
+              {searchQuery && (
+                <button
+                  onClick={clearSearch}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 rounded"
+                  title="Clear search"
+                >
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+            <Button
+              onClick={handleSearch}
+              disabled={isSearching || !searchQuery.trim()}
+              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6"
+            >
+              {isSearching ? 'Searching...' : 'Search'}
+            </Button>
           </div>
           <button className="p-2 hover:bg-gray-100 rounded-lg">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -250,17 +332,114 @@ export default function StudentDashboard() {
         </header>
 
         <div className="p-8">
+          {/* Search Results Section */}
+          {showSearchResults && (
+            <div className="mb-8">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Search Results</h2>
+                  <p className="text-sm text-gray-600">Showing results for: "{searchQuery}"</p>
+                </div>
+                <Button
+                  onClick={clearSearch}
+                  variant="outline"
+                  className="text-gray-600 hover:text-gray-900"
+                >
+                  Back to Dashboard
+                </Button>
+              </div>
+              
+              {isSearching ? (
+                <div className="text-center py-12">
+                  <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#A8C5B5]"></div>
+                  <p className="mt-4 text-gray-600">Searching through resources...</p>
+                </div>
+              ) : searchResults.length === 0 ? (
+                <Card className="border border-gray-200">
+                  <CardContent className="p-8 text-center">
+                    <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No results found</h3>
+                    <p className="text-gray-600">Try different keywords or clear some filters</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {searchResults.map((resource) => (
+                    <Card key={resource.id} className="border border-gray-200 hover:shadow-lg transition-shadow">
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-start">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-lg font-bold text-gray-900">{resource.title}</h3>
+                              <span className="px-2 py-1 bg-[#A8C5B5]/20 text-[#2C5F2D] text-xs font-medium rounded">
+                                {Math.round(resource.relevanceScore * 100)}% match
+                              </span>
+                            </div>
+                            
+                            {resource.description && (
+                              <p className="text-sm text-gray-700 mb-3">{resource.description}</p>
+                            )}
+                            
+                            <div className="flex flex-wrap gap-2 mb-3">
+                              {resource.faculty && (
+                                <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
+                                  {resource.faculty.name}
+                                </span>
+                              )}
+                              {resource.year && (
+                                <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded">
+                                  Year {resource.year}
+                                </span>
+                              )}
+                              {resource.module && (
+                                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
+                                  {resource.module.name}
+                                </span>
+                              )}
+                              <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded">
+                                {resource.fileType.toUpperCase()}
+                              </span>
+                            </div>
+                            
+                            {resource.matchedChunks && resource.matchedChunks.length > 0 && (
+                              <div className="bg-gray-50 p-3 rounded-lg text-xs text-gray-600 mb-2">
+                                <p className="font-medium mb-1">Relevant excerpt:</p>
+                                <p className="italic">"{resource.matchedChunks[0]}"</p>
+                              </div>
+                            )}
+                          </div>
+                          
+                          <Button
+                            onClick={() => window.open(resource.fileUrl, '_blank')}
+                            className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white ml-4"
+                          >
+                            View Resource
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          
           {/* Welcome Section */}
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-1">Welcome Back, {user?.first_name || user?.username || 'Student'}!</h1>
-            <p className="text-gray-600">Here's your academic overview and recent activities.</p>
-          </div>
+          {!showSearchResults && (
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold text-gray-900 mb-1">Welcome Back, {user?.first_name || user?.username || 'Student'}!</h1>
+              <p className="text-gray-600">Here's your academic overview and recent activities.</p>
+            </div>
+          )}
 
           {/* Filter Dropdowns */}
+          {!showSearchResults && (
           <div className="flex gap-3 mb-8">
             {/* Faculty Dropdown */}
             <div className="w-64">
-              <Select value={selectedFaculty} onValueChange={handleFacultyChange}>
+              <Select value={filters.facultyId} onValueChange={handleFacultyChange}>
                 <SelectTrigger className="bg-white">
                   <SelectValue placeholder="Select Faculty" />
                 </SelectTrigger>
@@ -278,9 +457,9 @@ export default function StudentDashboard() {
             {/* Academic Year Dropdown */}
             <div className="w-48">
               <Select 
-                value={selectedYear} 
+                value={filters.year} 
                 onValueChange={handleYearChange}
-                disabled={selectedFaculty === 'all' && availableYears.length === 0}
+                disabled={filters.facultyId === 'all' && availableYears.length === 0}
               >
                 <SelectTrigger className="bg-white">
                   <SelectValue placeholder="Select Year" />
@@ -299,8 +478,8 @@ export default function StudentDashboard() {
             {/* Module Dropdown */}
             <div className="w-64">
               <Select 
-                value={selectedModule} 
-                onValueChange={setSelectedModule}
+                value={filters.moduleId} 
+                onValueChange={filters.setModuleId}
                 disabled={filteredModules.length === 0}
               >
                 <SelectTrigger className="bg-white">
@@ -317,8 +496,10 @@ export default function StudentDashboard() {
               </Select>
             </div>
           </div>
+          )}
 
           {/* Performance Cards */}
+          {!showSearchResults && (
           <div className="mb-8">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Your Performance at a Glance</h2>
             <div className="grid grid-cols-4 gap-4">
@@ -348,8 +529,10 @@ export default function StudentDashboard() {
               </Card>
             </div>
           </div>
+          )}
 
           {/* My Modules */}
+          {!showSearchResults && (
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">My Modules</h2>
             
@@ -385,7 +568,15 @@ export default function StudentDashboard() {
                             <span className="text-sm font-semibold text-gray-900">0% complete</span>
                             <Button 
                               className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white text-sm px-4 py-2 rounded-lg"
-                              onClick={() => navigate(`/student/resources?moduleId=${module.id}`)}
+                              onClick={() => {
+                                // Set the specific module filter in context
+                                filters.setFilters({
+                                  facultyId: module.facultyId.toString(),
+                                  year: module.year.toString(),
+                                  moduleId: module.id.toString()
+                                });
+                                navigate('/student/resources');
+                              }}
                             >
                               View Module
                             </Button>
@@ -398,8 +589,10 @@ export default function StudentDashboard() {
               ))
             )}
           </div>
+          )}
 
           {/* Bottom Grid: Recent Activity, MCQs History */}
+          {!showSearchResults && (
           <div className="grid grid-cols-2 gap-6 mb-8">
             {/* Recent Activity */}
             <div>
@@ -437,8 +630,10 @@ export default function StudentDashboard() {
               </Card>
             </div>
           </div>
+          )}
 
           {/* Course Roadmap */}
+          {!showSearchResults && (
           <div className="mb-8">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Course Roadmap</h2>
             <Card className="border border-gray-200">
@@ -454,6 +649,7 @@ export default function StudentDashboard() {
               </CardContent>
             </Card>
           </div>
+          )}
         </div>
 
         {/* Footer */}

@@ -9,6 +9,8 @@ import { ROLES } from '../constants/roles.js';
 import { uploadToCloudinary, deleteFromCloudinary } from '../config/cloudinary.config.js';
 import fs from 'fs';
 import { promisify } from 'util';
+import https from 'https';
+import path from 'path';
 
 const unlinkFile = promisify(fs.unlink);
 
@@ -120,23 +122,32 @@ export const uploadResource = async (req, res) => {
             });
         }
 
+        // [FIX]: Rename file to .dat to bypass Cloudinary PDF restrictions
+        const originalExt = path.extname(req.file.originalname).toLowerCase();
+        // Keep original name but append .dat
+        const tempPath = req.file.path + '.dat'; 
+        await fs.promises.rename(req.file.path, tempPath);
+
         // Upload file to Cloudinary with increased timeout handling
-        const uploadResult = await uploadToCloudinary(req.file.path, {
+        const uploadResult = await uploadToCloudinary(tempPath, {
             folder: `learnbox/colleges/${collegeId}/resources`,
-            resource_type: 'auto',
-            timeout: 120000 // 2 minutes timeout for large files
+            timeout: 120000, // 2 minutes timeout for large files
+            resource_type: 'raw', // Enforce raw
+            use_filename: true, // Use the .dat filename
+            format: '' // Do not convert
         });
 
         // Delete local file after successful upload
-        await unlinkFile(req.file.path);
+        await unlinkFile(tempPath);
 
         // Save resource metadata to database
         const resource = await prisma.resource.create({
             data: {
                 title,
                 description: description || null,
-                fileUrl: uploadResult.url,
-                fileType: uploadResult.format,
+                fileUrl: uploadResult.url, 
+                // Store ORIGINAL extension (e.g. 'pdf') not 'dat'
+                fileType: originalExt.replace('.', ''),
                 year: parseInt(year),
                 facultyId: parseInt(facultyId),
                 moduleId: parseInt(moduleId),
@@ -316,12 +327,35 @@ export const getAllResources = async (req, res) => {
     try {
         const { moduleId } = req.query;
         
-        const whereClause = {
-            collegeId: req.collegeId || req.user.collegeId
-        };
+        // Ensure user is authenticated
+        if (!req.user) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({ 
+                error: ERROR_MESSAGES.UNAUTHORIZED 
+            });
+        }
 
+        const whereClause = {};
+        
+        // Handle Role-Based Access
+        if (req.user.role !== ROLES.SUPER_ADMIN) {
+             // For College Admin and Student, collegeId is required
+             if (!req.user.collegeId) {
+                 // Should not happen for valid users, but safe fallack
+                 return res.status(HTTP_STATUS.OK).json({
+                     success: true,
+                     count: 0,
+                     data: []
+                 });
+             }
+             whereClause.collegeId = req.user.collegeId;
+        }
+
+        // Handle Module Filter
         if (moduleId) {
-            whereClause.moduleId = parseInt(moduleId);
+            const parsedModuleId = parseInt(moduleId);
+            if (!isNaN(parsedModuleId)) {
+                whereClause.moduleId = parsedModuleId;
+            }
         }
 
         const resources = await prisma.resource.findMany({
@@ -353,9 +387,13 @@ export const getAllResources = async (req, res) => {
         });
     } catch (error) {
         console.error('Get resources error:', error);
-        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR
-        });
+        // Pass error to global handler if headers not sent
+        if (!res.headersSent) {
+             res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+                error: ERROR_MESSAGES.DATABASE_ERROR,
+                details: error.message
+            });
+        }
     }
 };
 
@@ -498,5 +536,59 @@ export const deleteResource = async (req, res) => {
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
             error: ERROR_MESSAGES.DATABASE_ERROR
         });
+    }
+};
+
+
+/**
+ * Proxy download of resource file
+ * @route GET /api/resources/:id/download
+ * @access Public
+ */
+export const downloadResource = async (req, res) => {
+    try {
+        const resourceId = parseInt(req.params.id);
+        
+        const resource = await prisma.resource.findUnique({
+            where: { id: resourceId }
+        });
+
+        if (!resource) {
+            return res.status(HTTP_STATUS.NOT_FOUND).json({
+                error: 'Resource not found'
+            });
+        }
+
+        // Fetch file from Cloudinary (even if .dat)
+        https.get(resource.fileUrl, (response) => {
+            if (response.statusCode !== 200) {
+                return res.status(response.statusCode).json({
+                    error: 'Failed to fetch file from storage'
+                });
+            }
+
+            // Set content type based on original type
+            const mimeType = resource.fileType === 'pdf' ? 'application/pdf' : 
+                             resource.fileType === 'doc' ? 'application/msword' :
+                             resource.fileType === 'docx' ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' :
+                             'application/octet-stream';
+            
+            res.setHeader('Content-Type', mimeType);
+            
+            // Clean title for filename
+            const filename = (resource.title || 'download').replace(/[^a-z0-9]/gi, '_');
+            const ext = resource.fileType || 'pdf';
+            
+            res.setHeader('Content-Disposition', `inline; filename="${filename}.${ext}"`);
+            
+            response.pipe(res);
+        }).on('error', (err) => {
+            console.error('Download proxy error:', err);
+            res.status(500).json({ error: 'Download failed' });
+        });
+
+    } catch (error) {
+        console.error('Download error:', error);
+        res.status(500).json({ error: 'Internal server error' });
     }
 };
