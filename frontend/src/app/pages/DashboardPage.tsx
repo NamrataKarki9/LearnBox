@@ -7,7 +7,6 @@ import { useAuth, ROLES } from '../../context/AuthContext';
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SuperAdminDashboard from './SuperAdminDashboard';
-import AdminDashboard from './AdminDashboard';
 import StudentDashboard from './StudentDashboard';
 
 export default function DashboardPage() {
@@ -21,23 +20,19 @@ export default function DashboardPage() {
       return;
     }
 
-    // Optional: Redirect to specific URLs if preferred
-    // if (hasRole(ROLES.SUPER_ADMIN)) {
-    //   navigate('/super-admin');
-    // } else if (hasRole(ROLES.COLLEGE_ADMIN)) {
-    //   navigate('/admin');
-    // } else if (hasRole(ROLES.STUDENT)) {
-    //   navigate('/student');
-    // }
-  }, [user, navigate]);
+    // Redirect to specific URLs based on role
+    if (hasRole(ROLES.SUPER_ADMIN)) {
+      navigate('/super-admin');
+    } else if (hasRole(ROLES.COLLEGE_ADMIN)) {
+      navigate('/admin/dashboard');
+    } else if (hasRole(ROLES.STUDENT)) {
+      navigate('/student-dashboard');
+    }
+  }, [user, hasRole, navigate]);
 
-  // Render role-specific dashboard component
+  // For backward compatibility or initial render
   if (hasRole(ROLES.SUPER_ADMIN)) {
     return <SuperAdminDashboard />;
-  }
-
-  if (hasRole(ROLES.COLLEGE_ADMIN)) {
-    return <AdminDashboard />;
   }
 
   if (hasRole(ROLES.STUDENT)) {

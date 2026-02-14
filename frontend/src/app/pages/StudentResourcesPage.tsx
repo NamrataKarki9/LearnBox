@@ -308,18 +308,24 @@ export default function StudentResourcesPage() {
 
       {/* Resource Viewer Modal */}
       <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
-        <DialogContent className="max-w-6xl h-[90vh] flex flex-col p-0">
-          <DialogHeader className="px-6 py-4 border-b flex-shrink-0">
-            <DialogTitle className="text-lg font-semibold">
-              {viewingResource?.title}
-            </DialogTitle>
+        <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-0">
+          <DialogHeader className="px-6 py-4 border-b flex-shrink-0 bg-white">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg font-semibold">
+                {viewingResource?.title}
+              </DialogTitle>
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <span>💡 Use browser zoom (Ctrl +/-) or PDF viewer controls to adjust size</span>
+              </div>
+            </div>
           </DialogHeader>
-          <div className="flex-1 min-h-0">
+          <div className="flex-1 min-h-0 bg-gray-100">
             {viewingResource && (
               <iframe
-                src={viewingResource.url}
+                src={`${viewingResource.url}#zoom=page-width&view=FitH`}
                 className="w-full h-full border-0"
                 title={viewingResource.title}
+                allow="fullscreen"
               />
             )}
           </div>

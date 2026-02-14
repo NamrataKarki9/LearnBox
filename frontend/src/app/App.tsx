@@ -10,6 +10,7 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
 import StudentDashboard from "./pages/StudentDashboard";
 import StudentResourcesPage from "./pages/StudentResourcesPage";
+import AdminDashboard from "./pages/AdminDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "../context/AuthContext";
 import { FilterProvider } from "../context/FilterContext";
@@ -67,6 +68,16 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <StudentResourcesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin Routes - Nested routing */}
+          <Route
+            path="/admin/*"
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
               </ProtectedRoute>
             }
           />

@@ -9,6 +9,7 @@ import { useFilters } from '../../context/FilterContext';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Progress } from '../components/ui/progress';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { useNavigate } from 'react-router-dom';
 import {
   Select,
@@ -17,8 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { facultyAPI, moduleAPI, Faculty, searchAPI, SemanticSearchResult } from '../../services/api';
+import { facultyAPI, moduleAPI, resourceAPI, Faculty, searchAPI, SemanticSearchResult } from '../../services/api';
 import { toast } from 'sonner';
+import { Download, Eye } from 'lucide-react';
 
 interface Module {
   id: number;
@@ -51,6 +53,10 @@ export default function StudentDashboard() {
   const [searchResults, setSearchResults] = useState<SemanticSearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showSearchResults, setShowSearchResults] = useState(false);
+  
+  // Resource viewer state
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewingResource, setViewingResource] = useState<{ url: string; title: string } | null>(null);
   
   // Loading state
   const [loading, setLoading] = useState(true);
@@ -204,6 +210,29 @@ export default function StudentDashboard() {
     setSearchQuery('');
     setSearchResults([]);
     setShowSearchResults(false);
+  };
+
+  // Handle view resource
+  const handleView = (resource: SemanticSearchResult) => {
+    try {
+      const viewUrl = resourceAPI.getDownloadUrl(resource.id);
+      setViewingResource({ url: viewUrl, title: resource.title });
+      setViewerOpen(true);
+    } catch (error) {
+      console.error('View error:', error);
+      toast.error('Failed to open resource viewer');
+    }
+  };
+
+  // Handle download resource
+  const handleDownload = (resourceId: number) => {
+    try {
+      const downloadUrl = resourceAPI.getDownloadUrl(resourceId);
+      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download resource');
+    }
   };
 
   // Calculate performance metrics
@@ -411,12 +440,23 @@ export default function StudentDashboard() {
                             )}
                           </div>
                           
-                          <Button
-                            onClick={() => window.open(resource.fileUrl, '_blank')}
-                            className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white ml-4"
-                          >
-                            View Resource
-                          </Button>
+                          <div className="flex gap-2 ml-4">
+                            <Button
+                              variant="outline"
+                              onClick={() => handleView(resource)}
+                              className="border-[#A8C5B5] text-[#6B9080] hover:bg-[#A8C5B5]/10"
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+                            <Button
+                              onClick={() => handleDownload(resource.id)}
+                              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white"
+                            >
+                              <Download className="h-4 w-4 mr-1" />
+                              Download
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -690,6 +730,32 @@ export default function StudentDashboard() {
           </div>
         </footer>
       </main>
+
+      {/* Resource Viewer Modal */}
+      <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
+        <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-0">
+          <DialogHeader className="px-6 py-4 border-b flex-shrink-0 bg-white">
+            <div className="flex items-center justify-between">
+              <DialogTitle className="text-lg font-semibold">
+                {viewingResource?.title}
+              </DialogTitle>
+              <div className="flex items-center gap-2 text-xs text-gray-500">
+                <span>💡 Use browser zoom (Ctrl +/-) or PDF viewer controls to adjust size</span>
+              </div>
+            </div>
+          </DialogHeader>
+          <div className="flex-1 min-h-0 bg-gray-100">
+            {viewingResource && (
+              <iframe
+                src={`${viewingResource.url}#zoom=page-width&view=FitH`}
+                className="w-full h-full border-0"
+                title={viewingResource.title}
+                allow="fullscreen"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
