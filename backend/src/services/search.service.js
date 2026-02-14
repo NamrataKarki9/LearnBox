@@ -82,12 +82,28 @@ export async function semanticSearch(query, filters = {}, limit = 10) {
         ...resource,
         // Average score weighted by max score
         relevanceScore: (resource.totalScore / resource.chunkCount) * 0.5 + resource.maxScore * 0.5
-      }))
-      .filter(resource => resource.relevanceScore >= 0.30) // Only show results with >30% relevance
+      }));
+    
+    // Log all results before filtering
+    console.log(`   Before filtering: ${rankedResources.length} results`);
+    rankedResources.forEach(r => {
+      console.log(`      - ${r.title}: ${(r.relevanceScore * 100).toFixed(1)}%`);
+    });
+    
+    // Filter out results below 30% relevance
+    rankedResources = rankedResources
+      .filter(resource => {
+        const percentageMatch = resource.relevanceScore * 100;
+        const passes = percentageMatch >= 30.0;
+        if (!passes) {
+          console.log(`      Filtered out: ${resource.title} (${percentageMatch.toFixed(1)}%)`);
+        }
+        return passes;
+      })
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
       .slice(0, limit);
     
-    console.log(`   Filtered to ${rankedResources.length} resources with >30% relevance`);
+    console.log(`   After filtering: ${rankedResources.length} resources with ≥30% relevance`);
     
     // Fetch full resource details from database
     const resourceIds = rankedResources.map(r => r.resourceId);
