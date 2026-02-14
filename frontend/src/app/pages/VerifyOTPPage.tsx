@@ -40,9 +40,9 @@ export function VerifyOTPPage() {
 
       if (response.ok) {
         // Store tokens
-        localStorage.setItem("access_token", data.tokens.access);
-        localStorage.setItem("refresh_token", data.tokens.refresh);
-        localStorage.setItem("user", JSON.stringify(data.user));
+        sessionStorage.setItem("access_token", data.tokens.access);
+        sessionStorage.setItem("refresh_token", data.tokens.refresh);
+        sessionStorage.setItem("user", JSON.stringify(data.user));
 
         setSuccess("Email verified successfully! Redirecting to dashboard...");
         setTimeout(() => navigate("/dashboard"), 2000);

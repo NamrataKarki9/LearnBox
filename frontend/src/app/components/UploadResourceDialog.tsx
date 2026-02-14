@@ -49,6 +49,7 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
   // Fetch faculties when dialog opens
   useEffect(() => {
     if (open) {
+      setError(''); // Clear any previous errors
       fetchFaculties();
     }
   }, [open]);
@@ -74,10 +75,26 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
 
   const fetchFaculties = async () => {
     try {
+      // Debug: Check token and user
+      const token = sessionStorage.getItem('access_token');
+      const user = sessionStorage.getItem('user');
+      console.log('Auth Token exists:', !!token);
+      console.log('User from sessionStorage:', user ? JSON.parse(user) : null);
+      
       const response = await facultyAPI.getAll();
       setFaculties(response.data.data || []);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching faculties:', err);
+      console.error('Error response:', err.response?.data);
+      
+      let errorMessage = err.response?.data?.error || 'Failed to load faculties';
+      
+      // Add debugging info if it's a role error
+      if (err.response?.data?.userRole && err.response?.data?.requiredRoles) {
+        errorMessage += `\n(Your role: ${err.response.data.userRole}, Required: ${err.response.data.requiredRoles.join(' or ')})`;
+      }
+      
+      setError(errorMessage);
       setFaculties([]);
     }
   };

@@ -8,7 +8,7 @@ const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-t
 
 export const generateAccessToken = (user) => {
     return jwt.sign(
-        { userId: user.id, username: user.username, roles: user.roles },
+        { userId: user.id, username: user.username, role: user.role },
         ACCESS_TOKEN_SECRET,
         { expiresIn: '1d' }
     );

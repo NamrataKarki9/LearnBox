@@ -12,7 +12,7 @@ const api = axios.create({
 // Request interceptor to attach JWT token
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('access_token');
+    const token = sessionStorage.getItem('access_token');
     
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -35,7 +35,7 @@ api.interceptors.response.use(
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
       
-      const refreshToken = localStorage.getItem('refresh_token');
+      const refreshToken = sessionStorage.getItem('refresh_token');
       
       if (refreshToken) {
         try {
@@ -45,14 +45,14 @@ api.interceptors.response.use(
           );
           
           const { access } = response.data.tokens;
-          localStorage.setItem('access_token', access);
+          sessionStorage.setItem('access_token', access);
           
           originalRequest.headers.Authorization = `Bearer ${access}`;
           return api(originalRequest);
         } catch (refreshError) {
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
-          localStorage.removeItem('user');
+          sessionStorage.removeItem('access_token');
+          sessionStorage.removeItem('refresh_token');
+          sessionStorage.removeItem('user');
           window.location.href = '/login';
           return Promise.reject(refreshError);
         }
@@ -200,7 +200,7 @@ export const resourceAPI = {
       baseURL: 'http://localhost:5000/api',
       headers: {
         'Content-Type': 'multipart/form-data',
-        'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+        'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`,
       },
       timeout: 120000, // 120 seconds (2 minutes) for file upload
     }).post<UploadResourceResponse>('/resources/upload', formData);

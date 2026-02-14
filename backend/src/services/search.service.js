@@ -83,8 +83,11 @@ export async function semanticSearch(query, filters = {}, limit = 10) {
         // Average score weighted by max score
         relevanceScore: (resource.totalScore / resource.chunkCount) * 0.5 + resource.maxScore * 0.5
       }))
+      .filter(resource => resource.relevanceScore >= 0.30) // Only show results with >30% relevance
       .sort((a, b) => b.relevanceScore - a.relevanceScore)
       .slice(0, limit);
+    
+    console.log(`   Filtered to ${rankedResources.length} resources with >30% relevance`);
     
     // Fetch full resource details from database
     const resourceIds = rankedResources.map(r => r.resourceId);

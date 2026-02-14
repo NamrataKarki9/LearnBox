@@ -1,14 +1,24 @@
 # 🚀 Quick Start: Semantic Search
 
+## ✨ NEW: Auto-Vectorization Enabled!
+
+**Good news**: Resources are now **automatically vectorized** when uploaded. You don't need to run the vectorization script manually anymore!
+
+- ✅ Upload a PDF → Automatically searchable within seconds
+- ✅ Update a resource → Automatically re-indexed
+- ✅ Delete a resource → Automatically removed from search
+
 ## For Developers
 
-### 1. First Time Setup
+### 1. First Time Setup (Existing Resources Only)
+
+If you have **existing resources** in your database that were uploaded before auto-vectorization was implemented, run this once:
 
 ```bash
 # Navigate to backend
 cd backend
 
-# Vectorize all existing PDFs (this will take a few minutes)
+# Vectorize all existing PDFs (one-time only)
 node vectorize-resources.js
 ```
 
@@ -26,6 +36,8 @@ node vectorize-resources.js
 # If not already running
 npm run dev
 ```
+
+**That's it!** New uploads are automatically indexed.
 
 ### 3. Test the Search
 
@@ -75,17 +87,28 @@ Combine search with filters for better results:
 
 ## Maintenance
 
-### When to Re-Vectorize
+### Automatic Vectorization
 
-Run the vectorization script again when:
-- ✅ New PDFs are uploaded
-- ✅ PDFs are updated/replaced
-- ✅ Weekly maintenance (recommended)
+✅ **Automatic for new resources** - No action needed!
+
+When you:
+- **Upload** a resource → Automatically vectorized in the background
+- **Update** a resource → Automatically re-vectorized
+- **Delete** a resource → Automatically removed from index
+
+### Manual Re-Vectorization (Optional)
+
+Only needed if you want to rebuild the entire index:
 
 ```bash
 cd backend
 node vectorize-resources.js
 ```
+
+Use cases for manual re-vectorization:
+- Fixing corrupted index
+- Upgrading embedding model
+- Bulk re-processing after configuration changes
 
 ### Monitoring
 
@@ -104,11 +127,18 @@ curl http://localhost:5000/api/search/status \
   "data": {
     "initialized": true,
     "count": 156,
-    "message": "Vector database ready with 156 embedded chunks"
-  }
-}
+    "message": "Vector database r for existing resources (one-time)
+```bash
+cd backend
+node vectorize-resources.js
 ```
 
+### Newly uploaded resource not appearing in search
+
+**Check**:
+1. Wait a few seconds (vectorization happens in background)
+2. Check server logs for vectorization errors
+3. Verify PDF has readable text content
 ## Common Issues
 
 ### "Search system is being initialized"
@@ -133,12 +163,26 @@ node vectorize-resources.js
 **Normal**: First search after server restart takes 5-10 seconds (model loading)
 
 **Persistent slowness**: 
-- Check server resources (CPU/RAM)
-- Consider running vectorization during off-hours
-
-## Architecture Overview
-
-```
+- CAdmin Uploads  │
+│      PDF        │
+└────────┬────────┘
+         │
+         ▼
+┌─────────────────┐      ┌──────────────────┐
+│   Save to DB    │─────▶│  Auto-Vectorize  │
+│  & Cloudinary   │      │   (Background)   │
+└─────────────────┘      └────────┬─────────┘
+                                  │
+                                  ▼
+                         ┌──────────────────┐
+                         │  Vectra Index    │
+                         │  (Ready to       │
+                         │   Search)        │
+                         └────────┬─────────┘
+                                  │
+         ┌────────────────────────┘
+         │
+         ▼
 ┌─────────────────┐
 │  Student Types  │
 │     Query       │
@@ -156,8 +200,15 @@ node vectorize-resources.js
 │  Search API     │
 └────────┬────────┘
          │
+    Auto-Vectorization**: ~5 seconds per PDF (happens in background, doesn't block upload
+┌─────────────────┐
+│  Generate       │
+│  Embedding      │
+└────────┬────────┘
+         │
          ▼
 ┌─────────────────┐
+│   Vectra Index──┐
 │  Generate       │
 │  Embedding      │
 └────────┬────────┘
@@ -173,10 +224,10 @@ node vectorize-resources.js
 │   Return Top    │
 │   Matching PDFs │
 └─────────────────┘
-```
+``(One-time) Vectorize existing PDFs before auto-vectorization was implemented
+node vectorize-resources.js
 
-## Performance
-
+# Start backend (auto-vectorization enabled)
 - **Vectorization**: ~5 seconds per PDF (10 pages)
 - **Search Query**: 100-300ms
 - **First Load**: 5-10 seconds (model download/cache)

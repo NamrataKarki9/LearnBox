@@ -57,7 +57,7 @@ export function LoginPage() {
     
     if (result.success) {
       // Get user from localStorage (set by AuthContext)
-      const storedUser = localStorage.getItem('user');
+      const storedUser = sessionStorage.getItem('user');
       if (!storedUser) {
         setError("Login failed - user data not found");
         return;
@@ -69,9 +69,9 @@ export function LoginPage() {
       if ((user.role === 'COLLEGE_ADMIN' || user.role === 'STUDENT') && !college) {
         setError("College admins and students must select their college");
         // Logout the user since they didn't select college
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('access_token');
+        sessionStorage.removeItem('refresh_token');
+        sessionStorage.removeItem('user');
         return;
       }
 
@@ -79,9 +79,9 @@ export function LoginPage() {
       if (college && user.collegeId && parseInt(college) !== user.collegeId) {
         setError("Selected college does not match your account");
         // Logout the user
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('refresh_token');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('access_token');
+        sessionStorage.removeItem('refresh_token');
+        sessionStorage.removeItem('user');
         return;
       }
 

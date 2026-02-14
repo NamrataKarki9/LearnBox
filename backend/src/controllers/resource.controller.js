@@ -7,6 +7,7 @@ import prisma from '../prisma.js';
 import { HTTP_STATUS, ERROR_MESSAGES } from '../constants/errors.js';
 import { ROLES } from '../constants/roles.js';
 import { uploadToCloudinary, deleteFromCloudinary } from '../config/cloudinary.config.js';
+import { vectorizeResource, revectorizeResource, devectorizeResource } from '../services/vectorization.service.js';
 import fs from 'fs';
 import { promisify } from 'util';
 import https from 'https';
@@ -186,6 +187,13 @@ export const uploadResource = async (req, res) => {
                     }
                 }
             }
+        });
+
+        // Auto-vectorize the resource for semantic search (non-blocking)
+        // This runs in the background and won't block the response
+        vectorizeResource(resource).catch(err => {
+            console.error('⚠️  Background vectorization failed for resource', resource.id, ':', err.message);
+            // Vectorization failure doesn't affect the upload success
         });
 
         res.status(HTTP_STATUS.CREATED).json({
@@ -480,8 +488,20 @@ export const updateResource = async (req, res) => {
 
         const resource = await prisma.resource.update({
             where: { id: parseInt(id) },
-            data: updateData
+            data: updateData,
+            include: {
+                module: true,
+                faculty: true,
+                college: true
+            }
         });
+
+        // Re-vectorize if file content changed (fileUrl or fileType updated)
+        if (fileUrl || fileType) {
+            revectorizeResource(resource).catch(err => {
+                console.error('⚠️  Background re-vectorization failed for resource', resource.id, ':', err.message);
+            });
+        }
 
         res.status(HTTP_STATUS.OK).json({
             success: true,
@@ -522,6 +542,11 @@ export const deleteResource = async (req, res) => {
                 error: ERROR_MESSAGES.COLLEGE_ACCESS_DENIED
             });
         }
+
+        // Remove vectors from search index before deleting
+        devectorizeResource(parseInt(id)).catch(err => {
+            console.error('⚠️  Failed to remove vectors for resource', id, ':', err.message);
+        });
 
         await prisma.resource.delete({
             where: { id: parseInt(id) }

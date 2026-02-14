@@ -64,8 +64,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   // Check if user is logged in on mount
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const accessToken = localStorage.getItem('access_token');
+    const storedUser = sessionStorage.getItem('user');
+    const accessToken = sessionStorage.getItem('access_token');
     
     if (storedUser && accessToken) {
       setUser(JSON.parse(storedUser));
@@ -96,9 +96,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return { success: false, error: 'Invalid user data received from server' };
       }
       
-      localStorage.setItem('access_token', tokens.access);
-      localStorage.setItem('refresh_token', tokens.refresh);
-      localStorage.setItem('user', JSON.stringify(userData));
+      sessionStorage.setItem('access_token', tokens.access);
+      sessionStorage.setItem('refresh_token', tokens.refresh);
+      sessionStorage.setItem('user', JSON.stringify(userData));
       
       setUser(userData as User);
       setIsAuthenticated(true);
@@ -123,9 +123,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('access_token');
+    sessionStorage.removeItem('refresh_token');
+    sessionStorage.removeItem('user');
     setUser(null);
     setIsAuthenticated(false);
   };
