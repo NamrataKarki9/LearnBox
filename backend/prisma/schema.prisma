@@ -30,6 +30,7 @@ model User {
   modules    Module[]
   attempts   MCQAttempt[]
   progress   Progress[]
+  summaries  DocumentSummary[]
   
   @@index([email])
   @@index([collegeId])
@@ -192,4 +193,52 @@ enum Difficulty {
 enum OTPPurpose {
   REGISTER
   FORGOT_PASSWORD
+}
+
+// Document Summary for AI-powered summarization
+model DocumentSummary {
+  id                Int      @id @default(autoincrement())
+  userId            Int
+  user              User     @relation(fields: [userId], references: [id])
+  
+  // Document info
+  originalFileName  String
+  fileUrl           String
+  fileType          String
+  fileSize          Int
+  
+  // Summary data
+  quickSummary      String   @db.Text
+  detailedSummary   String?  @db.Text
+  studyNotes        String?  @db.Text
+  keyConcepts       Json?    // Array of key concepts with definitions
+  
+  // Metadata
+  processingTime    Int      // milliseconds
+  model             String   // LLM model used (e.g., gemma3:1b)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  questions         SummaryQuestion[]
+  
+  @@index([userId])
+  @@index([createdAt])
+  @@map("document_summaries")
+}
+
+// Questions and answers about documents
+model SummaryQuestion {
+  id        Int             @id @default(autoincrement())
+  summaryId Int
+  summary   DocumentSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+  
+  question  String
+  answer    String          @db.Text
+  
+  createdAt DateTime        @default(now())
+  
+  @@index([summaryId])
+  @@map("summary_questions")
 }

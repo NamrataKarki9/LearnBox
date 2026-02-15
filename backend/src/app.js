@@ -10,6 +10,7 @@ import moduleRoutes from './routes/module.routes.js';
 import mcqRoutes from './routes/mcq.routes.js';
 import facultyRoutes from './routes/faculty.routes.js';
 import searchRoutes from './routes/search.routes.js';
+import summaryRoutes from './routes/summary.routes.js';
 import { connectDatabase } from './prisma.js';
 
 const app = express();
@@ -29,6 +30,7 @@ app.use('/api/modules', moduleRoutes);
 app.use('/api/mcqs', mcqRoutes);
 app.use('/api/faculties', facultyRoutes);
 app.use('/api/search', searchRoutes);
+app.use('/api/summary', summaryRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

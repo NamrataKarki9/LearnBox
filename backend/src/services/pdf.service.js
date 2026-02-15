@@ -2,10 +2,43 @@ import { createRequire } from 'module';
 import https from 'https';
 import http from 'http';
 import { URL } from 'url';
+import { readFile } from 'fs/promises';
 
 const require = createRequire(import.meta.url);
 // pdf-parse-fork is a working fork with proper module support
 const pdfParser = require('pdf-parse-fork');
+
+/**
+ * Extract text from local PDF file
+ * @param {string} filePath - Local file path to PDF
+ * @returns {Promise<string>} - Extracted text content
+ */
+export async function extractTextFromLocalPDF(filePath) {
+  try {
+    console.log(`📄 Reading local PDF file: ${filePath}`);
+    const pdfBuffer = await readFile(filePath);
+    
+    console.log(`🔍 Extracting text from PDF (${pdfBuffer.length} bytes)...`);
+    const data = await pdfParser(pdfBuffer);
+    
+    // Clean up the extracted text
+    const text = data.text
+      .replace(/\s+/g, ' ') // Replace multiple spaces with single space
+      .replace(/\n+/g, '\n') // Replace multiple newlines with single newline
+      .trim();
+    
+    console.log(`✅ Extracted ${text.length} characters from PDF`);
+    
+    if (!text || text.length === 0) {
+      throw new Error('No text content found in PDF. It might be an image-based PDF.');
+    }
+    
+    return text;
+  } catch (error) {
+    console.error(`❌ Error extracting text from local PDF:`, error.message);
+    throw error;
+  }
+}
 
 /**
  * Download PDF from URL
@@ -13,6 +46,10 @@ const pdfParser = require('pdf-parse-fork');
  * @returns {Promise<Buffer>} - PDF buffer
  */
 async function downloadPDF(url) {
+  if (!url || typeof url !== 'string') {
+    throw new Error('Valid URL is required to download PDF');
+  }
+  
   return new Promise((resolve, reject) => {
     const protocol = url.startsWith('https') ? https : http;
     
@@ -42,6 +79,10 @@ async function downloadPDF(url) {
  */
 export async function extractTextFromPDF(pdfUrl) {
   try {
+    if (!pdfUrl) {
+      throw new Error('PDF URL is required');
+    }
+    
     console.log(`📄 Downloading PDF from: ${pdfUrl}`);
     const pdfBuffer = await downloadPDF(pdfUrl);
     

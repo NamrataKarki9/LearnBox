@@ -10,6 +10,7 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
 import StudentDashboard from "./pages/StudentDashboard";
 import StudentResourcesPage from "./pages/StudentResourcesPage";
+import Summaries from "./pages/Summaries";
 import AdminDashboard from "./pages/AdminDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "../context/AuthContext";
@@ -68,6 +69,15 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <StudentResourcesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/student/summaries"
+            element={
+              <ProtectedRoute>
+                <Summaries />
               </ProtectedRoute>
             }
           />

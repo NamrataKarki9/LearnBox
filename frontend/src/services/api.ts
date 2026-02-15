@@ -278,4 +278,39 @@ export const searchAPI = {
   getStatus: () => api.get<SearchStatusResponse>('/search/status'),
 };
 
+// Summary API endpoints
+export const summaryAPI = {
+  // Health check
+  healthCheck: () => api.get('/summary/health'),
+  
+  // Upload and summarize document
+  upload: (file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return api.post('/summary/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 0 // No timeout - wait as long as needed
+    });
+  },
+  
+  // Get summary history
+  getHistory: () => api.get('/summary/history'),
+  
+  // Get single summary by ID
+  getSummaryById: (id: number) => api.get(`/summary/${id}`),
+  
+  // Get detailed summary
+  getDetailed: (id: number) => api.get(`/summary/${id}/detailed`),
+  
+  // Get study notes
+  getStudyNotes: (id: number) => api.get(`/summary/${id}/notes`),
+  
+  // Ask question about document
+  askQuestion: (id: number, question: string) =>
+    api.post(`/summary/${id}/question`, { question }),
+  
+  // Delete summary
+  deleteSummary: (id: number) => api.delete(`/summary/${id}`),
+};
+
 export default api;
