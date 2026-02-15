@@ -31,6 +31,9 @@ model User {
   attempts   MCQAttempt[]
   progress   Progress[]
   summaries  DocumentSummary[]
+  mcqSets    MCQSet[]
+  quizSessions QuizSession[]
+  analytics  PerformanceAnalytics[]
   
   @@index([email])
   @@index([collegeId])
@@ -52,6 +55,8 @@ model College {
   mcqs        MCQ[]
   modules     Module[]
   faculties   Faculty[]
+  mcqSets     MCQSet[]
+  quizSessions QuizSession[]
   
   @@index([code])
 }
@@ -108,6 +113,9 @@ model Module {
   college     College    @relation(fields: [collegeId], references: [id])
   creator     User       @relation(fields: [createdBy], references: [id])
   faculty     Faculty    @relation(fields: [facultyId], references: [id])
+  mcqSets     MCQSet[]
+  quizSessions QuizSession[]
+  analytics   PerformanceAnalytics[]
   resources   Resource[]
   mcqs        MCQ[]
   createdAt   DateTime   @default(now())
@@ -129,29 +137,36 @@ model MCQ {
   moduleId    Int?
   collegeId   Int
   createdBy   Int
+  topic       String?      // Specific topic/subtopic for analytics
+  source      MCQSource    @default(MANUAL) // MANUAL or AI_GENERATED
   college     College      @relation(fields: [collegeId], references: [id])
   creator     User         @relation(fields: [createdBy], references: [id])
   module      Module?      @relation(fields: [moduleId], references: [id])
   attempts    MCQAttempt[]
+  setMCQs     SetMCQ[]     // MCQs can belong to multiple sets
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   
   @@index([collegeId])
   @@index([moduleId])
+  @@index([topic])
 }
 
 model MCQAttempt {
-  id              Int      @id @default(autoincrement())
+  id              Int          @id @default(autoincrement())
   mcqId           Int
   studentId       Int
   selectedAnswer  String
   isCorrect       Boolean
-  mcq             MCQ      @relation(fields: [mcqId], references: [id])
-  student         User     @relation(fields: [studentId], references: [id])
-  attemptedAt     DateTime @default(now())
+  sessionId       Int?         // Link to quiz session if part of one
+  mcq             MCQ          @relation(fields: [mcqId], references: [id])
+  student         User         @relation(fields: [studentId], references: [id])
+  session         QuizSession? @relation(fields: [sessionId], references: [id])
+  attemptedAt     DateTime     @default(now())
   
   @@index([studentId])
   @@index([mcqId])
+  @@index([sessionId])
 }
 
 model Progress {
@@ -178,6 +193,91 @@ model EmailOTP {
   @@index([expiresAt])
 }
 
+// MCQ Sets - Groups of questions (admin-created or AI-generated from PDF)
+model MCQSet {
+  id          Int          @id @default(autoincrement())
+  title       String
+  description String?
+  moduleId    Int?
+  collegeId   Int
+  createdBy   Int
+  source      MCQSource    @default(MANUAL) // MANUAL or AI_GENERATED
+  sourceFile  String?      // If AI-generated, store PDF URL
+  isPublic    Boolean      @default(true) // Available to all college students
+  college     College      @relation(fields: [collegeId], references: [id])
+  creator     User         @relation(fields: [createdBy], references: [id])
+  module      Module?      @relation(fields: [moduleId], references: [id])
+  mcqs        SetMCQ[]     // MCQs in this set
+  sessions    QuizSession[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  @@index([collegeId])
+  @@index([moduleId])
+  @@index([createdBy])
+}
+
+// Junction table for MCQs and Sets (many-to-many)
+model SetMCQ {
+  id        Int     @id @default(autoincrement())
+  setId     Int
+  mcqId     Int
+  order     Int     @default(0) // Order in the set
+  set       MCQSet  @relation(fields: [setId], references: [id], onDelete: Cascade)
+  mcq       MCQ     @relation(fields: [mcqId], references: [id], onDelete: Cascade)
+  
+  @@unique([setId, mcqId])
+  @@index([setId])
+  @@index([mcqId])
+}
+
+// Quiz Sessions - Student takes a full quiz (Google Forms style)
+model QuizSession {
+  id              Int          @id @default(autoincrement())
+  studentId       Int
+  setId           Int?         // If from a predefined set
+  moduleId        Int?
+  collegeId       Int
+  status          SessionStatus @default(IN_PROGRESS)
+  score           Int?         // Calculated after submission
+  totalQuestions  Int
+  correctAnswers  Int?
+  timeSpent       Int?         // Seconds spent on quiz
+  student         User         @relation(fields: [studentId], references: [id])
+  set             MCQSet?      @relation(fields: [setId], references: [id])
+  module          Module?      @relation(fields: [moduleId], references: [id])
+  college         College      @relation(fields: [collegeId], references: [id])
+  attempts        MCQAttempt[]
+  startedAt       DateTime     @default(now())
+  submittedAt     DateTime?
+  
+  @@index([studentId])
+  @@index([setId])
+  @@index([moduleId])
+  @@index([collegeId])
+}
+
+// Performance Analytics - Track student weak points
+model PerformanceAnalytics {
+  id              Int      @id @default(autoincrement())
+  studentId       Int
+  moduleId        Int?
+  topic           String?  // Specific topic/subtopic
+  difficulty      Difficulty
+  totalAttempts   Int      @default(0)
+  correctAttempts Int      @default(0)
+  accuracy        Float    @default(0.0) // Percentage
+  lastAttemptedAt DateTime @default(now())
+  student         User     @relation(fields: [studentId], references: [id])
+  module          Module?  @relation(fields: [moduleId], references: [id])
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([studentId, moduleId, topic, difficulty])
+  @@index([studentId])
+  @@index([moduleId])
+  @@index([accuracy]) // For finding weak points
+}
+
 enum Role {
   SUPER_ADMIN
   COLLEGE_ADMIN
@@ -193,6 +293,17 @@ enum Difficulty {
 enum OTPPurpose {
   REGISTER
   FORGOT_PASSWORD
+}
+
+enum MCQSource {
+  MANUAL        // Created by admin
+  AI_GENERATED  // Generated from PDF
+}
+
+enum SessionStatus {
+  IN_PROGRESS
+  SUBMITTED
+  ABANDONED
 }
 
 // Document Summary for AI-powered summarization

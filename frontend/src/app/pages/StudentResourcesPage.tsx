@@ -124,7 +124,7 @@ export default function StudentResourcesPage() {
         </div>
         <nav className="flex-1 px-4">
           <button 
-            onClick={() => navigate('/student-dashboard')}
+            onClick={() => navigate('/student/dashboard')}
             className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
           >
             Dashboard
@@ -132,14 +132,20 @@ export default function StudentResourcesPage() {
           <button className="w-full text-left px-4 py-3 text-gray-900 bg-gray-100 rounded-lg font-medium mb-1">
             Resources
           </button>
-          <button className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1">
+          <button 
+            onClick={() => navigate('/student/mcq-practice')}
+            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
+          >
             MCQs Practice
+          </button>
+          <button 
+            onClick={() => navigate('/student/summaries')}
+            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
+          >
+            Summaries
           </button>
           <button className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1">
             Useful Learning Sites
-          </button>
-          <button className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1">
-            Summaries
           </button>
           <button className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1">
             Settings

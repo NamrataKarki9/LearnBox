@@ -62,6 +62,11 @@ const upload = multer({
 export const uploadSinglePDF = upload.single('file');
 
 /**
+ * Middleware for single PDF upload (for MCQ generation)
+ */
+export const uploadPDFForMCQ = upload.single('pdfFile');
+
+/**
  * Middleware for multiple PDF uploads
  */
 export const uploadMultiplePDFs = upload.array('files', 5); // Max 5 files

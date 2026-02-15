@@ -11,6 +11,9 @@ import DashboardPage from "./pages/DashboardPage";
 import StudentDashboard from "./pages/StudentDashboard";
 import StudentResourcesPage from "./pages/StudentResourcesPage";
 import Summaries from "./pages/Summaries";
+import MCQPracticeSelectionPage from "./pages/MCQPracticeSelectionPage";
+import MCQPracticePage from "./pages/MCQPracticePage";
+import AnalyticsDashboardPage from "./pages/AnalyticsDashboardPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "../context/AuthContext";
@@ -78,6 +81,33 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Summaries />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/student/dashboard"
+            element={
+              <ProtectedRoute>
+                <StudentDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/student/mcq-practice"
+            element={
+              <ProtectedRoute>
+                <MCQPracticeSelectionPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/student/practice"
+            element={
+              <ProtectedRoute>
+                <MCQPracticePage />
               </ProtectedRoute>
             }
           />

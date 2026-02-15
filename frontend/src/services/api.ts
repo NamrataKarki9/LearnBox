@@ -313,4 +313,310 @@ export const summaryAPI = {
   deleteSummary: (id: number) => api.delete(`/summary/${id}`),
 };
 
+// MCQ types
+export interface MCQ {
+  id: number;
+  question: string;
+  options: string[] | string;
+  correctAnswer?: string;
+  explanation?: string;
+  difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+  topic?: string;
+  source?: 'MANUAL' | 'AI_GENERATED';
+  moduleId?: number;
+  module?: {
+    id: number;
+    name: string;
+    code: string;
+  };
+}
+
+export interface MCQSet {
+  id: number;
+  title: string;
+  description?: string;
+  moduleId?: number;
+  source: 'MANUAL' | 'AI_GENERATED';
+  sourceFile?: string;
+  isPublic: boolean;
+  questionCount?: number;
+  module?: {
+    name: string;
+    code: string;
+  };
+  creator?: {
+    username: string;
+    first_name?: string;
+    last_name?: string;
+  };
+  createdAt: string;
+}
+
+export interface QuizSession {
+  id: number;
+  totalQuestions: number;
+  setTitle?: string;
+  startedAt: string;
+}
+
+export interface QuizAnswer {
+  mcqId: number;
+  selectedAnswer: string;
+}
+
+export interface QuizResult {
+  sessionId: number;
+  score: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  incorrectAnswers: number;
+  accuracy: string;
+  timeSpent?: number;
+}
+
+export interface QuizAnswerDetail {
+  questionNumber: number;
+  mcqId: number;
+  isCorrect: boolean;
+  selectedAnswer: string;
+  correctAnswer: string;
+  explanation?: string;
+  question: string;
+  options: string[] | string;
+  difficulty: string;
+  topic?: string;
+}
+
+// MCQ API endpoints
+export const mcqAPI = {
+  // Get all MCQs
+  getAll: (params?: { moduleId?: number; difficulty?: string }) =>
+    api.get<{ success: boolean; count: number; data: MCQ[] }>('/mcqs', { params }),
+  
+  // Get MCQ sets
+  getSets: (params?: { moduleId?: number }) =>
+    api.get<{ success: boolean; count: number; data: MCQSet[] }>('/mcqs/sets', { params }),
+  
+  // Get MCQ set by ID
+  getSetById: (id: number) =>
+    api.get<{ success: boolean; data: MCQSet & { questions: MCQ[] } }>(`/mcqs/sets/${id}`),
+  
+  // Get adaptive questions based on weak areas
+  getAdaptive: (params?: { count?: number; difficulty?: string }) =>
+    api.get<{ success: boolean; message: string; weakAreas: string[]; data: MCQ[] }>('/mcqs/adaptive', { params }),
+  
+  // Bulk upload MCQs (admin only)
+  bulkUpload: (data: {
+    mcqs: Array<{
+      question: string;
+      options: string[];
+      correctAnswer: string;
+      explanation?: string;
+      difficulty?: string;
+      topic?: string;
+    }>;
+    moduleId?: number;
+    createSet?: boolean;
+    setTitle?: string;
+    setDescription?: string;
+  }) => api.post('/mcqs/bulk', data),
+  
+  // Generate MCQs from PDF
+  generateFromPDF: (data: {
+    pdfUrl: string;
+    count?: number;
+    difficulty?: string;
+    topic?: string;
+    moduleId?: number;
+    saveToDatabase?: boolean;
+    createSet?: boolean;
+    setTitle?: string;
+  }) => api.post<{
+    success: boolean;
+    message: string;
+    data: {
+      mcqs: MCQ[];
+      set?: MCQSet;
+      saved: boolean;
+    };
+  }>('/mcqs/generate-from-pdf', data, { timeout: 0 }), // No timeout for AI generation
+};
+
+// Quiz API endpoints
+export const quizAPI = {
+  // Start a quiz session
+  start: (data: {
+    setId?: number;
+    moduleId?: number;
+    customMCQIds?: number[];
+  }) => api.post<{
+    success: boolean;
+    session: QuizSession;
+    mcqs: (MCQ & { questionNumber: number })[];
+  }>('/quiz/start', data),
+  
+  // Submit quiz with all answers
+  submit: (sessionId: number, data: {
+    answers: QuizAnswer[];
+    timeSpent?: number;
+  }) => api.post<{
+    success: boolean;
+    results: QuizResult;
+    answers: QuizAnswerDetail[];
+  }>(`/quiz/${sessionId}/submit`, data),
+  
+  // Get quiz session
+  getSession: (sessionId: number) =>
+    api.get(`/quiz/${sessionId}`),
+  
+  // Get quiz history
+  getHistory: (params?: { moduleId?: number; limit?: number }) =>
+    api.get('/quiz/history', { params }),
+  
+  // Abandon quiz session
+  abandon: (sessionId: number) =>
+    api.post(`/quiz/${sessionId}/abandon`),
+};
+
+// Analytics types
+export interface WeakPoint {
+  module?: {
+    id: number;
+    name: string;
+    code: string;
+    year: number;
+  };
+  topic: string;
+  difficulty: string;
+  accuracy: number;
+  attempts: number;
+  lastAttempted: string;
+  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+export interface Recommendation {
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  type: string;
+  message: string;
+  module?: any;
+  topic?: string;
+  difficulty?: string;
+  action: string;
+  estimatedTime: string;
+  topics?: Array<{ module: string; topic: string; accuracy: number }>;
+}
+
+export interface PerformanceStats {
+  totalAttempts: number;
+  correctAttempts: number;
+  accuracy: number;
+  byDifficulty: {
+    EASY: { total: number; correct: number; accuracy: string };
+    MEDIUM: { total: number; correct: number; accuracy: string };
+    HARD: { total: number; correct: number; accuracy: string };
+  };
+  quizzesTaken: number;
+  averageQuizScore: string;
+  recentTrend: 'IMPROVING' | 'DECLINING' | 'STABLE' | 'NO_DATA';
+  recentAccuracy: number;
+}
+
+export interface PracticeHistory {
+  totalSessions: number;
+  totalQuestions: number;
+  totalCorrect: number;
+  totalTimeSpent: number;
+  dailyHistory: Array<{
+    date: string;
+    sessions: number;
+    totalQuestions: number;
+    correctAnswers: number;
+    accuracy: string;
+    timeSpent: number;
+  }>;
+  recentSessions: Array<{
+    id: number;
+    title: string;
+    module?: string;
+    score: number;
+    totalQuestions: number;
+    correctAnswers: number;
+    date: string;
+    timeSpent?: number;
+  }>;
+}
+
+export interface ModulePerformance {
+  module: {
+    id: number;
+    name: string;
+    code: string;
+    year: number;
+  };
+  overallAccuracy: number;
+  totalAttempts: number;
+  correctAttempts: number;
+  topicBreakdown: Array<{
+    name: string;
+    accuracy: number;
+    attempts: number;
+  }>;
+  difficultyBreakdown: {
+    EASY: { total: number; correct: number; accuracy: string };
+    MEDIUM: { total: number; correct: number; accuracy: string };
+    HARD: { total: number; correct: number; accuracy: string };
+  };
+}
+
+// Analytics API endpoints
+export const analyticsAPI = {
+  // Get complete dashboard data
+  getDashboard: () => api.get<{
+    success: boolean;
+    data: {
+      overview: PerformanceStats;
+      weakAreas: WeakPoint[];
+      recommendations: {
+        status: string;
+        totalWeakAreas?: number;
+        recommendations: Recommendation[];
+      };
+      recentActivity: any[];
+      dailyProgress: any[];
+      modulePerformance: ModulePerformance[];
+    };
+  }>('/analytics/dashboard'),
+  
+  // Get weak points
+  getWeakPoints: (threshold?: number) =>
+    api.get<{ success: boolean; count: number; data: WeakPoint[] }>('/analytics/weak-points', {
+      params: { threshold }
+    }),
+  
+  // Get recommendations
+  getRecommendations: () =>
+    api.get<{
+      success: boolean;
+      data: {
+        status: string;
+        totalWeakAreas?: number;
+        recommendations: Recommendation[];
+      };
+    }>('/analytics/recommendations'),
+  
+  // Get overall stats
+  getStats: () =>
+    api.get<{ success: boolean; data: PerformanceStats }>('/analytics/stats'),
+  
+  // Get practice history
+  getHistory: (days?: number) =>
+    api.get<{ success: boolean; data: PracticeHistory }>('/analytics/history', {
+      params: { days }
+    }),
+  
+  // Get module performance
+  getModulePerformance: () =>
+    api.get<{ success: boolean; count: number; data: ModulePerformance[] }>('/analytics/modules'),
+};
+
 export default api;

@@ -11,6 +11,8 @@ import mcqRoutes from './routes/mcq.routes.js';
 import facultyRoutes from './routes/faculty.routes.js';
 import searchRoutes from './routes/search.routes.js';
 import summaryRoutes from './routes/summary.routes.js';
+import quizRoutes from './routes/quiz.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
 import { connectDatabase } from './prisma.js';
 
 const app = express();
@@ -31,6 +33,8 @@ app.use('/api/mcqs', mcqRoutes);
 app.use('/api/faculties', facultyRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/summary', summaryRoutes);
+app.use('/api/quiz', quizRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
