@@ -23,6 +23,13 @@ app.use(cors());
 app.use(morgan('dev'));
 app.use(express.json());
 
+// Increase timeout for all requests to 10 minutes (for large PDF processing)
+app.use((req, res, next) => {
+    req.setTimeout(600000); // 10 minutes
+    res.setTimeout(600000); // 10 minutes
+    next();
+});
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -65,11 +72,16 @@ async function startServer() {
         const { adminRouter } = await import('./admin.js');
         app.use('/admin', adminRouter);
         
-        // Start server
-        app.listen(PORT, () => {
+        // Start server with increased timeout
+        const server = app.listen(PORT, () => {
             console.log(`🚀 Server is running on port ${PORT}`);
             console.log(`📊 Admin panel: http://localhost:${PORT}/admin`);
         });
+        
+        // Set server timeout to 10 minutes for long-running operations
+        server.timeout = 600000; // 10 minutes
+        server.keepAliveTimeout = 610000; // Slightly longer than timeout
+        server.headersTimeout = 620000; // Slightly longer than keepAliveTimeout
     } catch (error) {
         console.error('Failed to start server:', error);
         process.exit(1);

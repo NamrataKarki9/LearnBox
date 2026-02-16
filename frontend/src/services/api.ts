@@ -6,7 +6,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: 600000, // 10 minutes for long-running operations like MCQ generation
 });
 
 // Request interceptor to attach JWT token
@@ -202,7 +202,7 @@ export const resourceAPI = {
         'Content-Type': 'multipart/form-data',
         'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`,
       },
-      timeout: 120000, // 120 seconds (2 minutes) for file upload
+      timeout: 600000, // 10 minutes for large file uploads
     }).post<UploadResourceResponse>('/resources/upload', formData);
   },
   

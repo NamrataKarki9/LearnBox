@@ -34,6 +34,12 @@ router.use(authMiddleware);
 router.post(
     '/upload',
     requireRole([ROLES.SUPER_ADMIN, ROLES.COLLEGE_ADMIN]),
+    (req, res, next) => {
+        // Set extended timeout for large file uploads (10 minutes)
+        req.setTimeout(600000);
+        res.setTimeout(600000);
+        next();
+    },
     uploadSinglePDF,
     handleMulterError,
     uploadResource

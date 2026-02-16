@@ -158,6 +158,12 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
     
     setLoading(true);
     
+    // Show info message for large files
+    if (file.size > 5 * 1024 * 1024) { // > 5MB
+      setError(''); // Clear any previous errors
+      console.log('⏳ Uploading large file... This may take several minutes.');
+    }
+    
     try {
       // Create FormData for file upload
       const uploadData = new FormData();

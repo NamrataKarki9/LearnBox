@@ -132,7 +132,7 @@ export const uploadResource = async (req, res) => {
         // Upload file to Cloudinary with increased timeout handling
         const uploadResult = await uploadToCloudinary(tempPath, {
             folder: `learnbox/colleges/${collegeId}/resources`,
-            timeout: 120000, // 2 minutes timeout for large files
+            timeout: 300000, // 5 minutes timeout for large files
             resource_type: 'raw', // Enforce raw
             use_filename: true, // Use the .dat filename
             format: '' // Do not convert

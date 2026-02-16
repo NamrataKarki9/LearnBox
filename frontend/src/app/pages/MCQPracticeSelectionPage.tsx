@@ -100,7 +100,7 @@ export default function MCQPracticeSelectionPage() {
 
     try {
       setIsGenerating(true);
-      toast.info('Uploading PDF and generating MCQs... This may take 30-60 seconds.', { duration: 5000 });
+      toast.info('Uploading PDF and generating MCQs... This may take several minutes for large PDFs.', { duration: 10000 });
 
       const formData = new FormData();
       formData.append('pdfFile', pdfFile);
@@ -111,8 +111,10 @@ export default function MCQPracticeSelectionPage() {
       formData.append('saveToDatabase', 'false');
       formData.append('createSet', 'false');
 
-      // No timeout - wait indefinitely for MCQ generation
+      // Extended timeout for large PDFs (10 minutes)
       const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minutes
+      
       const response = await fetch('http://localhost:5000/api/mcqs/upload-and-generate', {
         method: 'POST',
         headers: {
@@ -122,6 +124,7 @@ export default function MCQPracticeSelectionPage() {
         signal: controller.signal
       });
 
+      clearTimeout(timeoutId);
       const data = await response.json();
       
       if (response.ok && data.success && data.data.mcqs.length > 0) {

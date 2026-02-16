@@ -78,14 +78,24 @@ router.post('/bulk', requireRole(ROLES.COLLEGE_ADMIN), requireCollegeAccess, bul
  * @desc    Upload PDF and generate MCQs (for students)
  * @access  STUDENT, COLLEGE_ADMIN
  */
-router.post('/upload-and-generate', requireCollegeAccess, uploadPDFForMCQ, handleMulterError, generateMCQsFromPDFController);
+router.post('/upload-and-generate', requireCollegeAccess, (req, res, next) => {
+    // Set extended timeout for MCQ generation (10 minutes)
+    req.setTimeout(600000);
+    res.setTimeout(600000);
+    next();
+}, uploadPDFForMCQ, handleMulterError, generateMCQsFromPDFController);
 
 /**
  * @route   POST /api/mcqs/generate-from-pdf
  * @desc    Generate MCQs from existing PDF URL using AI
  * @access  STUDENT, COLLEGE_ADMIN
  */
-router.post('/generate-from-pdf', requireCollegeAccess, generateMCQsFromPDFController);
+router.post('/generate-from-pdf', requireCollegeAccess, (req, res, next) => {
+    // Set extended timeout for MCQ generation (10 minutes)
+    req.setTimeout(600000);
+    res.setTimeout(600000);
+    next();
+}, generateMCQsFromPDFController);
 
 /**
  * @route   POST /api/mcqs/:id/attempt
