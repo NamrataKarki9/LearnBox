@@ -41,10 +41,45 @@ export default function MCQPracticePage() {
       const setId = searchParams.get('setId');
       const moduleId = searchParams.get('moduleId');
       const adaptive = searchParams.get('adaptive');
+      const generated = searchParams.get('generated');
 
       let response;
 
-      if (adaptive === 'true') {
+      if (generated === 'true') {
+        // Handle generated MCQs from sessionStorage
+        const generatedMCQsStr = sessionStorage.getItem('generated_mcqs');
+        if (!generatedMCQsStr) {
+          setError('No generated MCQs found. Please generate MCQs again.');
+          setLoading(false);
+          return;
+        }
+
+        const generatedMCQs = JSON.parse(generatedMCQsStr);
+        
+        // Check if MCQs have IDs (saved to database) or need to be saved
+        if (generatedMCQs.length > 0 && generatedMCQs[0].id) {
+          // MCQs are already in database, start quiz with them
+          response = await quizAPI.start({
+            customMCQIds: generatedMCQs.map((q: any) => q.id)
+          });
+        } else {
+          // MCQs were not saved to database, display them directly without backend session
+          setQuiz(prev => ({
+            ...prev,
+            sessionId: null, // No backend session for unsaved MCQs
+            questions: generatedMCQs.map((mcq: any, index: number) => ({
+              ...mcq,
+              questionNumber: index + 1
+            })),
+            startTime: Date.now()
+          }));
+          sessionStorage.removeItem('generated_mcqs'); // Clear after loading
+          setLoading(false);
+          return;
+        }
+        
+        sessionStorage.removeItem('generated_mcqs'); // Clear after using
+      } else if (adaptive === 'true') {
         // Get adaptive questions
         const adaptiveRes = await mcqAPI.getAdaptive({ count: 10 });
         if (adaptiveRes.data.data.length === 0) {
@@ -99,6 +134,55 @@ export default function MCQPracticePage() {
       setQuiz(prev => ({ ...prev, isSubmitting: true }));
 
       const timeSpent = Math.floor((Date.now() - quiz.startTime) / 1000);
+
+      // If no session (generated MCQs not saved to DB), calculate results locally
+      if (!quiz.sessionId) {
+        const answerDetails: QuizAnswerDetail[] = quiz.questions.map((q, index) => {
+          const selectedAnswer = quiz.answers[q.id] || '';
+          const correctAnswer = q.correctAnswer || '';
+          const isCorrect = selectedAnswer === correctAnswer;
+          
+          return {
+            questionNumber: index + 1,
+            question: q.question,
+            options: q.options,
+            selectedAnswer,
+            correctAnswer,
+            isCorrect,
+            explanation: q.explanation,
+            mcqId: q.id,
+            topic: q.topic,
+            difficulty: q.difficulty || 'MEDIUM'
+          };
+        });
+
+        const correctAnswers = answerDetails.filter(a => a.isCorrect).length;
+        const totalQuestions = quiz.questions.length;
+        const score = Math.round((correctAnswers / totalQuestions) * 100);
+        const accuracy = ((correctAnswers / totalQuestions) * 100).toFixed(2);
+
+        const results: QuizResult = {
+          sessionId: 0, // No backend session
+          totalQuestions,
+          correctAnswers,
+          incorrectAnswers: totalQuestions - correctAnswers,
+          score,
+          accuracy,
+          timeSpent
+        };
+
+        setQuiz(prev => ({
+          ...prev,
+          results,
+          answerDetails,
+          isSubmitting: false
+        }));
+
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        return;
+      }
+
+      // Normal flow with backend session
       const answers = quiz.questions.map(q => ({
         mcqId: q.id,
         selectedAnswer: quiz.answers[q.id] || ''

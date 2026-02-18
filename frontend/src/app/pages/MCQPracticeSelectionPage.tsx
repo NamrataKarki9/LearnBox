@@ -31,7 +31,8 @@ export default function MCQPracticeSelectionPage() {
   const [generateOptions, setGenerateOptions] = useState({
     count: 10,
     difficulty: 'MEDIUM',
-    topic: ''
+    topic: '',
+    saveToDatabase: true
   });
 
   useEffect(() => {
@@ -108,7 +109,7 @@ export default function MCQPracticeSelectionPage() {
       formData.append('difficulty', generateOptions.difficulty);
       if (generateOptions.topic) formData.append('topic', generateOptions.topic);
       if (filters.moduleId !== 'all') formData.append('moduleId', filters.moduleId);
-      formData.append('saveToDatabase', 'false');
+      formData.append('saveToDatabase', generateOptions.saveToDatabase.toString());
       formData.append('createSet', 'false');
 
       // Extended timeout for large PDFs (10 minutes)
@@ -451,6 +452,20 @@ export default function MCQPracticeSelectionPage() {
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
                         disabled={isGenerating}
                       />
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id="saveToDatabase"
+                        checked={generateOptions.saveToDatabase}
+                        onChange={(e) => setGenerateOptions({ ...generateOptions, saveToDatabase: e.target.checked })}
+                        className="h-4 w-4 text-[#A8C5B5] border-gray-300 rounded focus:ring-[#A8C5B5]"
+                        disabled={isGenerating}
+                      />
+                      <label htmlFor="saveToDatabase" className="text-sm text-gray-700">
+                        Save to database for analytics tracking
+                      </label>
                     </div>
 
                     <Button
