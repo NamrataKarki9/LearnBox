@@ -5,7 +5,7 @@
 import prisma from '../prisma.js';
 import { HTTP_STATUS, ERROR_MESSAGES } from '../constants/errors.js';
 import { ROLES } from '../constants/roles.js';
-import { updatePerformanceAnalytics } from '../services/analytics.service.js';
+import { updatePerformanceAnalytics, getStudyRecommendations } from '../services/analytics.service.js';
 
 /**
  * Start a new quiz session
@@ -227,13 +227,24 @@ export const submitQuizSession = async (req, res) => {
             }
         });
 
-        // Update performance analytics asynchronously
-        updatePerformanceAnalytics(req.user.id, attempts.map(a => ({
-            mcqId: a.mcqId,
-            isCorrect: a.isCorrect
-        }))).catch(err => {
-            console.error('Error updating analytics:', err);
-        });
+        // Update performance analytics and get recommendations
+        let recommendations = null;
+        try {
+            await updatePerformanceAnalytics(req.user.id, attempts.map(a => ({
+                mcqId: a.mcqId,
+                isCorrect: a.isCorrect
+            })));
+            
+            // Analyze immediate quiz performance
+            const { analyzeQuizPerformance, getStudyRecommendations } = await import('../services/analytics.service.js');
+            const quizAnalysis = analyzeQuizPerformance(attempts, score);
+            
+            // Get personalized recommendations based on quiz analysis and historical data
+            recommendations = await getStudyRecommendations(req.user.id, quizAnalysis);
+        } catch (err) {
+            console.error('Error updating analytics or getting recommendations:', err);
+            // Don't fail the response if analytics fail
+        }
 
         res.status(HTTP_STATUS.OK).json({
             success: true,
@@ -249,7 +260,12 @@ export const submitQuizSession = async (req, res) => {
             answers: attempts.map((att, index) => ({
                 questionNumber: index + 1,
                 ...att
-            }))
+            })),
+            recommendations: recommendations || {
+                status: 'UNAVAILABLE',
+                message: 'Recommendations are being calculated. Check your analytics dashboard.',
+                recommendations: []
+            }
         });
     } catch (error) {
         console.error('Submit quiz session error:', error);
@@ -317,6 +333,7 @@ export const getQuizSession = async (req, res) => {
  */
 export const getQuizHistory = async (req, res) => {
     try {
+        console.log('📚 Getting quiz history for student:', req.user.id);
         const { moduleId, limit = 20 } = req.query;
 
         const whereClause = {
@@ -327,6 +344,8 @@ export const getQuizHistory = async (req, res) => {
         if (moduleId) {
             whereClause.moduleId = parseInt(moduleId);
         }
+
+        console.log('🔍 Query params:', { moduleId, limit, whereClause });
 
         const sessions = await prisma.quizSession.findMany({
             where: whereClause,
@@ -342,11 +361,13 @@ export const getQuizHistory = async (req, res) => {
             take: parseInt(limit)
         });
 
+        console.log('✅ Found sessions:', sessions.length);
+
         const stats = {
             totalQuizzes: sessions.length,
             averageScore: sessions.length > 0
                 ? (sessions.reduce((sum, s) => sum + (s.score || 0), 0) / sessions.length).toFixed(2)
-                : 0,
+                : '0.00',
             totalQuestions: sessions.reduce((sum, s) => sum + s.totalQuestions, 0),
             totalCorrect: sessions.reduce((sum, s) => sum + (s.correctAnswers || 0), 0)
         };
@@ -357,9 +378,15 @@ export const getQuizHistory = async (req, res) => {
             data: sessions
         });
     } catch (error) {
-        console.error('Get quiz history error:', error);
+        console.error('❌ Get quiz history error:', error);
+        console.error('Error details:', {
+            message: error.message,
+            stack: error.stack,
+            user: req.user?.id
+        });
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR
+            error: ERROR_MESSAGES.DATABASE_ERROR,
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };

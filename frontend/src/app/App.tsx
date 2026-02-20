@@ -13,6 +13,7 @@ import StudentResourcesPage from "./pages/StudentResourcesPage";
 import Summaries from "./pages/Summaries";
 import MCQPracticeSelectionPage from "./pages/MCQPracticeSelectionPage";
 import MCQPracticePage from "./pages/MCQPracticePage";
+import MCQHistoryPage from "./pages/MCQHistoryPage";
 import AnalyticsDashboardPage from "./pages/AnalyticsDashboardPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -108,6 +109,24 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <MCQPracticePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/student/history"
+            element={
+              <ProtectedRoute>
+                <MCQHistoryPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/student/analytics"
+            element={
+              <ProtectedRoute>
+                <AnalyticsDashboardPage />
               </ProtectedRoute>
             }
           />

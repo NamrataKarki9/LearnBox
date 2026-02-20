@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { mcqAPI, quizAPI, MCQ, QuizAnswerDetail, QuizResult } from '../../services/api';
+import { mcqAPI, quizAPI, MCQ, QuizAnswerDetail, QuizResult, Recommendation, FocusSection } from '../../services/api';
 
 interface QuizState {
   sessionId: number | null;
@@ -10,6 +10,14 @@ interface QuizState {
   isSubmitting: boolean;
   results: QuizResult | null;
   answerDetails: QuizAnswerDetail[];
+  recommendations: {
+    status: string;
+    message?: string;
+    totalWeakAreas?: number;
+    recommendations: Recommendation[];
+    focusSections?: FocusSection[];
+    studyPath?: string;
+  } | null;
 }
 
 export default function MCQPracticePage() {
@@ -23,7 +31,8 @@ export default function MCQPracticePage() {
     startTime: Date.now(),
     isSubmitting: false,
     results: null,
-    answerDetails: []
+    answerDetails: [],
+    recommendations: null
   });
 
   const [loading, setLoading] = useState(true);
@@ -196,6 +205,7 @@ export default function MCQPracticePage() {
       setQuiz(prev => ({
         ...prev,
         results: response.data.results as QuizResult,
+        recommendations: response.data.recommendations || null,
         answerDetails: response.data.answers,
         isSubmitting: false
       }));
@@ -308,6 +318,189 @@ export default function MCQPracticePage() {
             </button>
           </div>
         </div>
+
+        {/* Recommendations Section */}
+        {quiz.recommendations && quiz.recommendations.recommendations.length > 0 && (
+          <div className="bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-200 rounded-lg shadow-lg p-6 mb-6">
+            <div className="flex items-center mb-4">
+              <span className="text-3xl mr-3">💡</span>
+              <div className="flex-1">
+                <h2 className="text-2xl font-bold text-purple-900">Personalized Study Plan</h2>
+                <p className="text-sm text-purple-700">
+                  {quiz.recommendations.message || 'Based on your performance, here are specific sections to focus on'}
+                </p>
+              </div>
+            </div>
+
+            {/* Focus Sections - Priority Areas */}
+            {quiz.recommendations.focusSections && quiz.recommendations.focusSections.length > 0 && (
+              <div className="mb-6 p-4 bg-white rounded-lg border-l-4 border-purple-600">
+                <h3 className="font-bold text-lg text-purple-900 mb-3 flex items-center">
+                  🎯 Sections You Should Focus On Now
+                </h3>
+                <div className="grid gap-3">
+                  {quiz.recommendations.focusSections.map((section, idx) => {
+                    const priorityColors = {
+                      CRITICAL: 'bg-red-50 border-red-400 text-red-900',
+                      HIGH: 'bg-orange-50 border-orange-400 text-orange-900',
+                      MEDIUM: 'bg-yellow-50 border-yellow-400 text-yellow-900'
+                    };
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-lg border-2 ${priorityColors[section.priority] || priorityColors.MEDIUM}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <span className="font-bold text-lg">{idx + 1}. {section.topic}</span>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="text-sm">Current: {section.accuracy}%</div>
+                              <div className="text-xs px-2 py-0.5 bg-white rounded">
+                                {section.priority} PRIORITY
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-2xl font-bold">{section.accuracy}%</div>
+                            <div className="text-xs">accuracy</div>
+                          </div>
+                        </div>
+                        {/* Progress bar */}
+                        <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${
+                              section.accuracy >= 80 ? 'bg-green-500' :
+                              section.accuracy >= 60 ? 'bg-yellow-500' : 'bg-red-500'
+                            }`}
+                            style={{ width: `${section.accuracy}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 p-3 bg-purple-100 rounded-lg text-sm text-purple-900">
+                  💡 <strong>Tip:</strong> Focus on these sections in order. Mastering each topic will build a strong foundation!
+                </div>
+              </div>
+            )}
+
+            {/* Detailed Recommendations */}
+            <h3 className="font-bold text-lg text-purple-900 mb-3">📋 Recommended Actions</h3>
+            <div className="space-y-3">
+              {quiz.recommendations.recommendations.map((rec, index) => {
+                const priorityStyles = {
+                  SUCCESS: 'bg-green-100 border-green-500 text-green-900',
+                  CRITICAL: 'bg-red-100 border-red-500 text-red-900',
+                  HIGH: 'bg-orange-100 border-orange-500 text-orange-900',
+                  MEDIUM: 'bg-yellow-100 border-yellow-500 text-yellow-900',
+                  LOW: 'bg-blue-100 border-blue-500 text-blue-900',
+                  INFO: 'bg-indigo-100 border-indigo-500 text-indigo-900'
+                };
+
+                const priorityIcons = {
+                  SUCCESS: '🎉',
+                  CRITICAL: '🚨',
+                  HIGH: '⚠️',
+                  MEDIUM: '📚',
+                  LOW: '💡',
+                  INFO: '📋'
+                };
+
+                return (
+                  <div
+                    key={index}
+                    className={`p-4 rounded-lg border-l-4 ${priorityStyles[rec.priority] || priorityStyles.MEDIUM}`}
+                  >
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-start flex-1">
+                        <span className="text-2xl mr-2">{priorityIcons[rec.priority] || '📌'}</span>
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-lg mb-1">{rec.message}</h3>
+                          
+                          {rec.topic && (
+                            <p className="text-sm mb-1">
+                              <span className="font-medium">Section:</span> {rec.topic}
+                              {rec.difficulty && ` (${rec.difficulty} level)`}
+                            </p>
+                          )}
+                          
+                          <p className="text-sm mb-1">
+                            <span className="font-medium">What to do:</span> {rec.action}
+                          </p>
+                          
+                          <p className="text-sm">
+                            <span className="font-medium">Time needed:</span> {rec.estimatedTime}
+                          </p>
+
+                          {/* Resources list */}
+                          {rec.resources && rec.resources.length > 0 && (
+                            <div className="mt-2 bg-white bg-opacity-50 rounded p-2">
+                              <p className="text-xs font-semibold mb-1">Study Resources:</p>
+                              <ul className="text-xs space-y-1 list-disc list-inside">
+                                {rec.resources.map((resource, idx) => (
+                                  <li key={idx}>{resource}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+
+                          {rec.topics && rec.topics.length > 0 && (
+                            <div className="mt-2 bg-white bg-opacity-50 rounded p-2">
+                              <p className="text-xs font-semibold mb-1">Topics to Review:</p>
+                              <div className="space-y-1">
+                                {rec.topics.map((topic, idx) => (
+                                  <div key={idx} className="text-xs flex justify-between">
+                                    <span>{topic.topic} ({topic.module})</span>
+                                    <span className="font-medium">{topic.accuracy}%</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {rec.priority !== 'SUCCESS' && rec.priority !== 'INFO' && (
+                        <span className={`ml-3 px-2 py-1 text-xs font-bold rounded`}>
+                          {rec.priority}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {quiz.recommendations.totalWeakAreas && quiz.recommendations.totalWeakAreas > 0 && (
+              <div className="mt-4 text-center">
+                <button
+                  onClick={() => navigate('/student/analytics')}
+                  className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 shadow-md"
+                >
+                  View Full Analytics Dashboard
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Positive Feedback for Strong Performance */}
+        {quiz.recommendations && quiz.recommendations.status === 'STRONG' && quiz.recommendations.recommendations.length === 0 && (
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-300 rounded-lg shadow-lg p-6 mb-6 text-center">
+            <span className="text-5xl mb-3 block">🎉</span>
+            <h2 className="text-2xl font-bold text-green-900 mb-2">Excellent Performance!</h2>
+            <p className="text-green-800">
+              {quiz.recommendations.message || 'You\'re doing great! Keep up the excellent work.'}
+            </p>
+            <button
+              onClick={() => navigate('/student/analytics')}
+              className="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700"
+            >
+              View Your Progress
+            </button>
+          </div>
+        )}
 
         {/* Answer Review */}
         <div className="space-y-6">

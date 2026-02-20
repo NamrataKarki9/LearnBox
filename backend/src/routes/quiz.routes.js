@@ -27,6 +27,13 @@ router.use(authMiddleware);
 router.post('/start', requireRole(ROLES.STUDENT), startQuizSession);
 
 /**
+ * @route   GET /api/quiz/history
+ * @desc    Get student's quiz history
+ * @access  STUDENT
+ */
+router.get('/history', requireRole(ROLES.STUDENT), getQuizHistory);
+
+/**
  * @route   POST /api/quiz/:sessionId/submit
  * @desc    Submit quiz with all answers
  * @access  STUDENT
@@ -39,13 +46,6 @@ router.post('/:sessionId/submit', requireRole(ROLES.STUDENT), submitQuizSession)
  * @access  STUDENT
  */
 router.get('/:sessionId', requireRole(ROLES.STUDENT), getQuizSession);
-
-/**
- * @route   GET /api/quiz/history
- * @desc    Get student's quiz history
- * @access  STUDENT
- */
-router.get('/history', requireRole(ROLES.STUDENT), getQuizHistory);
 
 /**
  * @route   POST /api/quiz/:sessionId/abandon

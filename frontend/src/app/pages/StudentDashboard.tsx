@@ -305,6 +305,18 @@ export default function StudentDashboard() {
             MCQs Practice
           </button>
           <button 
+            onClick={() => navigate('/student/history')}
+            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
+          >
+            📊 MCQ History
+          </button>
+          <button 
+            onClick={() => navigate('/student/analytics')}
+            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
+          >
+            📈 Analytics
+          </button>
+          <button 
             onClick={() => navigate('/student/summaries')}
             className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
           >

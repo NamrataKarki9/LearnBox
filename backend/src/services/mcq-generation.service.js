@@ -54,29 +54,102 @@ async function callOllama(prompt, maxTokens = 1000) {
  */
 function parseMCQResponse(response) {
   try {
-    // Try to extract JSON from response
-    const jsonMatch = response.match(/\{[\s\S]*"mcqs"[\s\S]*\]/);
-    if (jsonMatch) {
-      let jsonStr = jsonMatch[0];
-      // Ensure it ends with }
-      if (!jsonStr.endsWith('}')) {
-        jsonStr += '}';
+    console.log('🔍 Attempting to parse LLM response...');
+    
+    // Clean the response - remove any markdown code blocks
+    let cleanedResponse = response.trim();
+    cleanedResponse = cleanedResponse.replace(/```json\s*/gi, '');
+    cleanedResponse = cleanedResponse.replace(/```\s*/g, '');
+    
+    // Method 1: Try to find JSON object with mcqs array
+    const jsonObjectMatch = cleanedResponse.match(/\{[\s\S]*?"mcqs"[\s\S]*?\[[\s\S]*?\][\s\S]*?\}/);
+    if (jsonObjectMatch) {
+      try {
+        const jsonStr = jsonObjectMatch[0];
+        console.log('📝 Found JSON object, attempting to parse...');
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.mcqs && Array.isArray(parsed.mcqs)) {
+          console.log(`✅ Successfully parsed ${parsed.mcqs.length} MCQs from object format`);
+          return parsed.mcqs;
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to parse as object format:', err.message);
       }
-      const parsed = JSON.parse(jsonStr);
-      return parsed.mcqs || [];
     }
 
-    // Try alternative format
-    const arrayMatch = response.match(/\[[\s\S]*\]/);
+    // Method 2: Try to find a standalone array
+    const arrayMatch = cleanedResponse.match(/\[\s*\{[\s\S]*?\}\s*\]/);
     if (arrayMatch) {
-      const parsed = JSON.parse(arrayMatch[0]);
-      return parsed;
+      try {
+        console.log('📝 Found JSON array, attempting to parse...');
+        const parsed = JSON.parse(arrayMatch[0]);
+        if (Array.isArray(parsed)) {
+          console.log(`✅ Successfully parsed ${parsed.length} MCQs from array format`);
+          return parsed;
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to parse as array format:', err.message);
+      }
     }
 
-    console.warn('⚠️ Failed to parse MCQs from LLM response');
+    // Method 3: Try to parse the entire cleaned response
+    try {
+      console.log('📝 Attempting to parse entire response as JSON...');
+      const parsed = JSON.parse(cleanedResponse);
+      if (parsed.mcqs && Array.isArray(parsed.mcqs)) {
+        console.log(`✅ Successfully parsed ${parsed.mcqs.length} MCQs from entire response`);
+        return parsed.mcqs;
+      }
+      if (Array.isArray(parsed)) {
+        console.log(`✅ Successfully parsed ${parsed.length} MCQs from array response`);
+        return parsed;
+      }
+    } catch (err) {
+      console.warn('⚠️ Failed to parse entire response:', err.message);
+    }
+
+    // Method 4: Try to extract JSON more aggressively
+    // Find the first { or [ and the last } or ]
+    const firstBrace = cleanedResponse.indexOf('{');
+    const firstBracket = cleanedResponse.indexOf('[');
+    const lastBrace = cleanedResponse.lastIndexOf('}');
+    const lastBracket = cleanedResponse.lastIndexOf(']');
+    
+    let startIdx = -1;
+    let endIdx = -1;
+    
+    if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
+      startIdx = firstBrace;
+      endIdx = lastBrace + 1;
+    } else if (firstBracket !== -1) {
+      startIdx = firstBracket;
+      endIdx = lastBracket + 1;
+    }
+    
+    if (startIdx !== -1 && endIdx > startIdx) {
+      try {
+        const extractedJson = cleanedResponse.substring(startIdx, endIdx);
+        console.log('📝 Attempting aggressive JSON extraction...');
+        const parsed = JSON.parse(extractedJson);
+        if (parsed.mcqs && Array.isArray(parsed.mcqs)) {
+          console.log(`✅ Successfully parsed ${parsed.mcqs.length} MCQs from extracted JSON`);
+          return parsed.mcqs;
+        }
+        if (Array.isArray(parsed)) {
+          console.log(`✅ Successfully parsed ${parsed.length} MCQs from extracted array`);
+          return parsed;
+        }
+      } catch (err) {
+        console.warn('⚠️ Aggressive extraction failed:', err.message);
+      }
+    }
+
+    console.error('❌ All parsing methods failed');
+    console.log('📄 Response preview:', cleanedResponse.substring(0, 500));
     return [];
   } catch (error) {
     console.error('❌ Error parsing MCQs:', error.message);
+    console.error('📄 Response causing error:', response.substring(0, 500));
     return [];
   }
 }

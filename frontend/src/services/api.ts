@@ -463,6 +463,14 @@ export const quizAPI = {
     success: boolean;
     results: QuizResult;
     answers: QuizAnswerDetail[];
+    recommendations?: {
+      status: string;
+      message?: string;
+      totalWeakAreas?: number;
+      recommendations: Recommendation[];
+      focusSections?: FocusSection[];
+      studyPath?: string;
+    };
   }>(`/quiz/${sessionId}/submit`, data),
   
   // Get quiz session
@@ -494,8 +502,16 @@ export interface WeakPoint {
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
 }
 
+export interface FocusSection {
+  topic: string;
+  accuracy: number;
+  attempts: number;
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM';
+  estimatedTime: string;
+}
+
 export interface Recommendation {
-  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+  priority: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'SUCCESS' | 'INFO';
   type: string;
   message: string;
   module?: any;
@@ -504,6 +520,7 @@ export interface Recommendation {
   action: string;
   estimatedTime: string;
   topics?: Array<{ module: string; topic: string; accuracy: number }>;
+  resources?: string[];
 }
 
 export interface PerformanceStats {

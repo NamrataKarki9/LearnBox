@@ -23,7 +23,14 @@ export async function updatePerformanceAnalytics(studentId, attempts) {
 
       if (!mcq) continue;
 
-      const key = `${mcq.moduleId || 'null'}_${mcq.topic || 'null'}_${mcq.difficulty}`;
+      // Skip analytics for MCQs without moduleId
+      // Analytics are module-based, so we need a module to track performance
+      if (!mcq.moduleId) {
+        console.log(`⚠️ Skipping analytics for MCQ ${attempt.mcqId} - no moduleId`);
+        continue;
+      }
+
+      const key = `${mcq.moduleId}_${mcq.topic || 'null'}_${mcq.difficulty}`;
       
       if (!groupedAttempts[key]) {
         groupedAttempts[key] = {
@@ -149,86 +156,289 @@ function calculateSeverity(accuracy, attempts) {
 }
 
 /**
+ * Analyze immediate quiz results and generate targeted recommendations
+ * @param {Array} attempts - Quiz attempts with topics and correctness
+ * @param {number} score - Quiz score percentage
+ */
+export function analyzeQuizPerformance(attempts, score) {
+  // Group by topic
+  const topicPerformance = {};
+  const difficultyPerformance = { EASY: { total: 0, correct: 0 }, MEDIUM: { total: 0, correct: 0 }, HARD: { total: 0, correct: 0 } };
+  
+  attempts.forEach(attempt => {
+    const topic = attempt.topic || 'General';
+    const difficulty = attempt.difficulty || 'MEDIUM';
+    
+    if (!topicPerformance[topic]) {
+      topicPerformance[topic] = { total: 0, correct: 0, difficulty: difficulty };
+    }
+    topicPerformance[topic].total++;
+    if (attempt.isCorrect) {
+      topicPerformance[topic].correct++;
+    }
+    
+    difficultyPerformance[difficulty].total++;
+    if (attempt.isCorrect) {
+      difficultyPerformance[difficulty].correct++;
+    }
+  });
+
+  // Calculate topic accuracies
+  const topicAnalysis = Object.entries(topicPerformance).map(([topic, data]) => ({
+    topic,
+    accuracy: ((data.correct / data.total) * 100).toFixed(1),
+    total: data.total,
+    correct: data.correct,
+    difficulty: data.difficulty
+  })).sort((a, b) => parseFloat(a.accuracy) - parseFloat(b.accuracy));
+
+  // Find weak topics (below 60%)
+  const weakTopics = topicAnalysis.filter(t => parseFloat(t.accuracy) < 60);
+  const moderateTopics = topicAnalysis.filter(t => parseFloat(t.accuracy) >= 60 && parseFloat(t.accuracy) < 80);
+  const strongTopics = topicAnalysis.filter(t => parseFloat(t.accuracy) >= 80);
+
+  return {
+    topicAnalysis,
+    weakTopics,
+    moderateTopics,
+    strongTopics,
+    difficultyPerformance,
+    overallScore: score
+  };
+}
+
+/**
  * Get personalized study recommendations
  * @param {number} studentId - Student ID
+ * @param {Object} quizAnalysis - Optional immediate quiz analysis
  */
-export async function getStudyRecommendations(studentId) {
+export async function getStudyRecommendations(studentId, quizAnalysis = null) {
   try {
     const weakPoints = await getWeakPoints(studentId, 65);
-    
-    if (weakPoints.length === 0) {
-      return {
-        status: 'STRONG',
-        message: 'Great job! You\'re performing well across all areas.',
-        recommendations: []
-      };
-    }
-
-    // Prioritize recommendations
     const recommendations = [];
-
-    // Critical areas - immediate attention
-    const critical = weakPoints.filter(w => w.severity === 'CRITICAL');
-    if (critical.length > 0) {
-      for (const area of critical) {
+    let focusSections = [];
+    
+    // If we have immediate quiz analysis, prioritize those recommendations
+    if (quizAnalysis) {
+      const { weakTopics, moderateTopics, strongTopics, overallScore, difficultyPerformance } = quizAnalysis;
+      
+      // Immediate feedback based on quiz
+      if (overallScore >= 80) {
         recommendations.push({
-          priority: 'CRITICAL',
-          type: 'IMMEDIATE_REVIEW',
-          module: area.module,
-          topic: area.topic,
-          difficulty: area.difficulty,
-          message: `🚨 Urgent: Review ${area.topic} in ${area.module.name}. Current accuracy: ${area.accuracy}%`,
-          action: 'Take focused practice quiz',
+          priority: 'SUCCESS',
+          type: 'POSITIVE_REINFORCEMENT',
+          message: `🎉 Excellent work! You scored ${overallScore}%`,
+          action: strongTopics.length > 0 
+            ? `You\'ve mastered: ${strongTopics.map(t => t.topic).join(', ')}. Ready for harder challenges!`
+            : 'Keep up the great work!',
+          estimatedTime: 'Continue practicing'
+        });
+      }
+
+      // Immediate weak areas from this quiz
+      if (weakTopics.length > 0) {
+        focusSections = weakTopics;
+        
+        weakTopics.forEach((topic, index) => {
+          if (index < 3) { // Top 3 weak topics from this quiz
+            recommendations.push({
+              priority: parseFloat(topic.accuracy) < 40 ? 'CRITICAL' : 'HIGH',
+              type: 'FOCUS_SECTION',
+              topic: topic.topic,
+              difficulty: topic.difficulty,
+              message: `📍 Focus on "${topic.topic}" - You got ${topic.correct}/${topic.total} questions correct (${topic.accuracy}%)`,
+              action: parseFloat(topic.accuracy) < 40 
+                ? 'Review fundamental concepts and examples'
+                : 'Practice more similar questions',
+              estimatedTime: '25-35 minutes',
+              resources: [
+                'Review lecture notes on this topic',
+                'Watch tutorial videos',
+                'Practice 5-10 more questions',
+                'Try explaining the concept to someone'
+              ]
+            });
+          }
+        });
+      }
+
+      // Moderate topics - need some work
+      if (moderateTopics.length > 0 && weakTopics.length === 0) {
+        moderateTopics.slice(0, 2).forEach(topic => {
+          recommendations.push({
+            priority: 'MEDIUM',
+            type: 'IMPROVEMENT_AREA',
+            topic: topic.topic,
+            difficulty: topic.difficulty,
+            message: `📚 Strengthen "${topic.topic}" - Current: ${topic.accuracy}%, Target: 80%+`,
+            action: 'Review concepts and practice edge cases',
+            estimatedTime: '15-20 minutes',
+            resources: [
+              'Re-read key sections',
+              'Try 3-5 practice problems'
+            ]
+          });
+        });
+      }
+
+      // Difficulty-based recommendations
+      const easyAcc = difficultyPerformance.EASY.total > 0 
+        ? (difficultyPerformance.EASY.correct / difficultyPerformance.EASY.total) * 100 
+        : 100;
+      const mediumAcc = difficultyPerformance.MEDIUM.total > 0 
+        ? (difficultyPerformance.MEDIUM.correct / difficultyPerformance.MEDIUM.total) * 100 
+        : 100;
+      const hardAcc = difficultyPerformance.HARD.total > 0 
+        ? (difficultyPerformance.HARD.correct / difficultyPerformance.HARD.total) * 100 
+        : 100;
+
+      if (easyAcc < 70 && difficultyPerformance.EASY.total > 0) {
+        recommendations.push({
+          priority: 'HIGH',
+          type: 'DIFFICULTY_ADJUSTMENT',
+          message: `⚡ Struggling with basic concepts (${easyAcc.toFixed(0)}% on EASY questions)`,
+          action: 'Focus on fundamentals before moving to harder topics',
+          estimatedTime: '30-40 minutes',
+          resources: [
+            'Review basic definitions and concepts',
+            'Work through simple examples step-by-step',
+            'Build strong foundation before advancing'
+          ]
+        });
+      } else if (mediumAcc < 60 && difficultyPerformance.MEDIUM.total > 0) {
+        recommendations.push({
+          priority: 'MEDIUM',
+          type: 'DIFFICULTY_ADJUSTMENT',
+          message: `📊 Ready to tackle medium-level problems (${mediumAcc.toFixed(0)}% on MEDIUM questions)`,
+          action: 'Practice applying concepts to new scenarios',
+          estimatedTime: '20-30 minutes'
+        });
+      } else if (easyAcc >= 80 && mediumAcc >= 80 && difficultyPerformance.HARD.total > 0) {
+        recommendations.push({
+          priority: 'LOW',
+          type: 'CHALLENGE',
+          message: `🚀 Strong performance! ${hardAcc > 0 ? `${hardAcc.toFixed(0)}% on HARD questions` : 'Ready for advanced challenges'}`,
+          action: 'Challenge yourself with complex problems',
           estimatedTime: '30-45 minutes'
         });
       }
     }
+    
+    // Add historical weak points if no immediate quiz analysis or for additional context
+    if (weakPoints.length === 0 && recommendations.length === 0) {
+      return {
+        status: 'STRONG',
+        message: 'Great job! You\'re performing well across all areas.',
+        focusSections: [],
+        recommendations: []
+      };
+    }
 
-    // High priority areas
+    // Critical areas from history - immediate attention
+    const critical = weakPoints.filter(w => w.severity === 'CRITICAL');
+    if (critical.length > 0 && !quizAnalysis) {
+      for (const area of critical.slice(0, 2)) {
+        recommendations.push({
+          priority: 'CRITICAL',
+          type: 'HISTORICAL_WEAKNESS',
+          module: area.module,
+          topic: area.topic,
+          difficulty: area.difficulty,
+          message: `🚨 Persistent weak area: ${area.topic} in ${area.module.name}. Accuracy: ${area.accuracy}%`,
+          action: 'Dedicate focused study session to this topic',
+          estimatedTime: '30-45 minutes',
+          resources: [
+            'Review all study materials',
+            'Take practice quizzes',
+            'Seek help from instructor if needed'
+          ]
+        });
+      }
+    }
+
+    // High priority areas from history
     const high = weakPoints.filter(w => w.severity === 'HIGH');
-    if (high.length > 0) {
-      for (const area of high.slice(0, 3)) { // Top 3
+    if (high.length > 0 && recommendations.length < 5) {
+      for (const area of high.slice(0, 2)) {
         recommendations.push({
           priority: 'HIGH',
           type: 'PRACTICE_NEEDED',
           module: area.module,
           topic: area.topic,
           difficulty: area.difficulty,
-          message: `⚠️ Practice more on ${area.topic} in ${area.module.name}. Current accuracy: ${area.accuracy}%`,
-          action: 'Practice with easier questions first',
+          message: `⚠️ Needs improvement: ${area.topic} in ${area.module.name} (${area.accuracy}%)`,
+          action: 'Regular practice with increasing difficulty',
           estimatedTime: '20-30 minutes'
         });
       }
     }
 
-    // Medium priority - general improvement
-    const medium = weakPoints.filter(w => w.severity === 'MEDIUM');
-    if (medium.length > 0) {
+    // Study path recommendation
+    if (focusSections.length > 0) {
+      const studyPath = generateStudyPath(focusSections);
       recommendations.push({
-        priority: 'MEDIUM',
-        type: 'IMPROVEMENT',
-        message: `📚 ${medium.length} topic(s) need improvement`,
-        topics: medium.map(m => ({ module: m.module.name, topic: m.topic, accuracy: m.accuracy })),
-        action: 'Review notes and attempt practice questions',
-        estimatedTime: '15-20 minutes per topic'
+        priority: 'INFO',
+        type: 'STUDY_PATH',
+        message: '📋 Recommended Study Path',
+        action: studyPath,
+        estimatedTime: 'Follow this sequence for best results'
       });
     }
 
-    // Difficulty progression recommendation
-    const difficultyAnalysis = analyzeDifficultyProgression(weakPoints);
-    if (difficultyAnalysis.recommendation) {
-      recommendations.push(difficultyAnalysis.recommendation);
-    }
+    const status = critical.length > 0 || (quizAnalysis && quizAnalysis.overallScore < 60) 
+      ? 'NEEDS_ATTENTION' 
+      : quizAnalysis && quizAnalysis.overallScore >= 80 
+        ? 'STRONG' 
+        : 'IMPROVING';
 
     return {
-      status: critical.length > 0 ? 'NEEDS_ATTENTION' : 'IMPROVING',
+      status,
+      message: generateStatusMessage(status, quizAnalysis),
       totalWeakAreas: weakPoints.length,
-      recommendations
+      focusSections: focusSections.map(t => ({
+        topic: t.topic,
+        accuracy: t.accuracy,
+        priority: parseFloat(t.accuracy) < 40 ? 'CRITICAL' : parseFloat(t.accuracy) < 60 ? 'HIGH' : 'MEDIUM'
+      })),
+      recommendations: recommendations.slice(0, 6) // Limit to top 6 recommendations
     };
   } catch (error) {
     console.error('❌ Error getting recommendations:', error);
     throw error;
   }
+}
+
+/**
+ * Generate a study path based on weak sections
+ */
+function generateStudyPath(weakTopics) {
+  const steps = [];
+  
+  weakTopics.sort((a, b) => parseFloat(a.accuracy) - parseFloat(b.accuracy));
+  
+  weakTopics.forEach((topic, index) => {
+    steps.push(`${index + 1}. Master "${topic.topic}" (currently ${topic.accuracy}%)`);
+  });
+  
+  return steps.join(' → ');
+}
+
+/**
+ * Generate status message based on performance
+ */
+function generateStatusMessage(status, quizAnalysis) {
+  if (!quizAnalysis) {
+    if (status === 'STRONG') return 'You\'re doing great overall!';
+    if (status === 'NEEDS_ATTENTION') return 'Several areas need focused attention.';
+    return 'You\'re making progress. Keep practicing!';
+  }
+  
+  const score = quizAnalysis.overallScore;
+  if (score >= 90) return `Outstanding performance! ${score}% - You\'ve mastered this material.`;
+  if (score >= 80) return `Great work! ${score}% - You have a strong grasp of the concepts.`;
+  if (score >= 70) return `Good effort! ${score}% - Focus on the areas below to improve.`;
+  if (score >= 60) return `You\'re getting there! ${score}% - Review the recommended sections.`;
+  return `${score}% - Don\'t worry! Focus on the sections below and you\'ll improve quickly.`;
 }
 
 /**
