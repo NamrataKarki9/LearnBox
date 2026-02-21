@@ -521,6 +521,15 @@ export interface Recommendation {
   estimatedTime: string;
   topics?: Array<{ module: string; topic: string; accuracy: number }>;
   resources?: string[];
+  studySteps?: Array<{
+    step: number;
+    title: string;
+    description: string;
+    duration: string;
+    actionItems: string[];
+  }>;
+  specificFocus?: string[];
+  quickWins?: string[];
 }
 
 export interface PerformanceStats {

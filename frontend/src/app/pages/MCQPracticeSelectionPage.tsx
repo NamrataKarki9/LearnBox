@@ -7,13 +7,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useFilters } from '../../context/FilterContext';
-import { mcqAPI, facultyAPI, MCQSet, Faculty } from '../../services/api';
+import { mcqAPI, facultyAPI, quizAPI, MCQSet, Faculty } from '../../services/api';
 import { toast } from 'sonner';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
-import { Brain, Target, BookOpen, Trophy, Upload, FileText, Zap } from 'lucide-react';
+import { Brain, Target, BookOpen, Trophy, Upload, FileText, Zap, Clock } from 'lucide-react';
 
 export default function MCQPracticeSelectionPage() {
   const { user, logout } = useAuth();
@@ -34,6 +34,8 @@ export default function MCQPracticeSelectionPage() {
     topic: '',
     saveToDatabase: true
   });
+
+  // No longer needed - history moved to separate page
 
   useEffect(() => {
     fetchFaculties();
@@ -186,18 +188,6 @@ export default function MCQPracticeSelectionPage() {
             MCQs Practice
           </button>
           <button 
-            onClick={() => navigate('/student/history')}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
-          >
-            📊 MCQ History
-          </button>
-          <button 
-            onClick={() => navigate('/student/analytics')}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
-          >
-            📈 Analytics
-          </button>
-          <button 
             onClick={() => navigate('/student/summaries')}
             className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
           >
@@ -233,12 +223,22 @@ export default function MCQPracticeSelectionPage() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8">
-        <div className="max-w-7xl mx-auto">
+      <main className="flex-1 p-8 overflow-hidden flex flex-col">
+        <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">MCQ Practice</h1>
-            <p className="text-gray-600">Practice from college sets or generate from your PDFs</p>
+          <div className="mb-6 flex justify-between items-start">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">MCQ Practice</h1>
+              <p className="text-gray-600">Practice from college sets or generate from your PDFs</p>
+            </div>
+            <Button
+              onClick={() => navigate('/student/history')}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Clock className="h-4 w-4" />
+              View History
+            </Button>
           </div>
 
           {/* Current Selection Display */}
@@ -274,246 +274,250 @@ export default function MCQPracticeSelectionPage() {
             </CardContent>
           </Card>
 
-          
-          {/* Adaptive Practice Card */}
-          <Card 
-            className="mb-6 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-l-[#8B5CF6] bg-gradient-to-r from-purple-50 to-white"
-            onClick={handleStartAdaptive}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-start space-x-4">
-                  <div className="p-3 bg-purple-100 rounded-lg">
-                    <Target className="h-8 w-8 text-[#8B5CF6]" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-xl mb-1">Adaptive Practice</h3>
-                    <p className="text-gray-600">
-                      AI-powered practice focusing on your weak areas based on performance history
-                    </p>
-                  </div>
-                </div>
-                <Button size="lg" className="bg-[#8B5CF6] hover:bg-[#7C3AED]">
-                  Start Practice
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Section 1: College-Uploaded Practice Sets */}
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <BookOpen className="h-5 w-5 text-[#6B9080]" />
-                <h3 className="text-lg font-semibold text-gray-900">Practice Sets</h3>
-                <Badge variant="outline" className="bg-[#A8C5B5]/10 text-[#6B9080] border-[#A8C5B5]">{mcqSets.length} available</Badge>
-              </div>
-              
-              {error && (
-                <Alert variant="destructive" className="mb-4">
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
-              )}
-
-              <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                {loading ? (
-                  <Card>
-                    <CardContent className="p-8 text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                      <p className="text-gray-600 text-sm">Loading practice sets...</p>
-                    </CardContent>
-                  </Card>
-                ) : mcqSets.length === 0 ? (
-                  <Card>
-                    <CardContent className="p-8 text-center">
-                      <Brain className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-gray-600 text-sm">
-                        {filters.moduleId !== 'all' || filters.facultyId !== 'all' || filters.year !== 'all'
-                          ? 'No sets for selected filters. Try changing filters in dashboard.'
-                          : 'No practice sets uploaded by your college yet.'}
-                      </p>
-                    </CardContent>
-                  </Card>
-                ) : (
-                  mcqSets.map((set) => (
-                    <Card key={set.id} className="hover:shadow-md transition-shadow">
-                      <CardHeader className="pb-3">
-                        <CardTitle className="text-base">{set.title}</CardTitle>
-                        {set.description && (
-                          <p className="text-sm text-gray-600 mt-1">{set.description}</p>
-                        )}
-                      </CardHeader>
-                      <CardContent>
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center space-x-4 text-sm text-gray-600">
-                            <span>{set.questionCount || 0} questions</span>
-                            {(set as any).difficulty && (
-                              <Badge className={getDifficultyColor((set as any).difficulty)}>
-                                {(set as any).difficulty}
-                              </Badge>
-                            )}
-                          </div>
-                        </div>
-                        {set.module && (
-                          <p className="text-xs text-gray-500 mb-3">{set.module.name}</p>
-                        )}
-                        <Button 
-                          onClick={() => handleStartQuiz(set.id)}
-                          className="w-full"
-                          size="sm"
-                          disabled={!set.questionCount || set.questionCount === 0}
-                        >
-                          Start Practice
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Section 2: Generate from PDF */}
-            <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <Zap className="h-5 w-5 text-[#6B9080]" />
-                <h3 className="text-lg font-semibold text-gray-900">Generate from PDF</h3>
-                <Badge variant="outline" className="bg-[#A8C5B5]/10 text-[#6B9080] border-[#A8C5B5]">AI-Powered</Badge>
-              </div>
-
-              <Card className="border-2 border-dashed border-[#A8C5B5]/50 bg-[#A8C5B5]/5">
+          <div className="flex-1 flex overflow-hidden gap-6">
+            {/* Main Content Area */}
+            <div className="flex-1 overflow-y-auto">
+              {/* Adaptive Practice Card */}
+              <Card 
+                className="mb-6 cursor-pointer hover:shadow-lg transition-shadow border-l-4 border-l-[#8B5CF6] bg-gradient-to-r from-purple-50 to-white"
+                onClick={handleStartAdaptive}
+              >
                 <CardContent className="p-6">
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Upload PDF Document
-                      </label>
-                      <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#A8C5B5] transition-colors">
-                        <input
-                          type="file"
-                          accept="application/pdf"
-                          onChange={handlePDFSelect}
-                          className="hidden"
-                          id="pdf-upload"
-                          disabled={isGenerating}
-                        />
-                        <label htmlFor="pdf-upload" className="cursor-pointer">
-                          <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
-                          {pdfFile ? (
-                            <div>
-                              <p className="text-sm font-medium text-green-600">{pdfFile.name}</p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
-                              </p>
-                            </div>
-                          ) : (
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">
-                                Click to upload PDF
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                Max 10MB • PDF only
-                              </p>
-                            </div>
-                          )}
-                        </label>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-start space-x-4">
+                      <div className="p-3 bg-purple-100 rounded-lg">
+                        <Target className="h-8 w-8 text-[#8B5CF6]" />
                       </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Number of Questions
-                        </label>
-                        <input
-                          type="number"
-                          min="5"
-                          max="50"
-                          value={generateOptions.count}
-                          onChange={(e) => setGenerateOptions({ ...generateOptions, count: parseInt(e.target.value) || 10 })}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                          disabled={isGenerating}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Difficulty Level
-                        </label>
-                        <select
-                          value={generateOptions.difficulty}
-                          onChange={(e) => setGenerateOptions({ ...generateOptions, difficulty: e.target.value })}
-                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                          disabled={isGenerating}
-                        >
-                          <option value="EASY">Easy</option>
-                          <option value="MEDIUM">Medium</option>
-                          <option value="HARD">Hard</option>
-                        </select>
+                        <h3 className="font-semibold text-xl mb-1">Adaptive Practice</h3>
+                        <p className="text-gray-600">
+                          AI-powered practice focusing on your weak areas based on performance history
+                        </p>
                       </div>
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Topic (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={generateOptions.topic}
-                        onChange={(e) => setGenerateOptions({ ...generateOptions, topic: e.target.value })}
-                        placeholder="e.g., Algorithms, Data Structures"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
-                        disabled={isGenerating}
-                      />
-                    </div>
-
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id="saveToDatabase"
-                        checked={generateOptions.saveToDatabase}
-                        onChange={(e) => setGenerateOptions({ ...generateOptions, saveToDatabase: e.target.checked })}
-                        className="h-4 w-4 text-[#A8C5B5] border-gray-300 rounded focus:ring-[#A8C5B5]"
-                        disabled={isGenerating}
-                      />
-                      <label htmlFor="saveToDatabase" className="text-sm text-gray-700">
-                        Save to database for analytics tracking
-                      </label>
-                    </div>
-
-                    <Button
-                      onClick={handleGenerateFromPDF}
-                      className="w-full bg-[#A8C5B5] hover:bg-[#96B5A5]"
-                      size="lg"
-                      disabled={!pdfFile || isGenerating}
-                    >
-                      {isGenerating ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Generating MCQs...
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="h-4 w-4 mr-2" />
-                          Generate MCQs
-                        </>
-                      )}
+                    <Button size="lg" className="bg-[#8B5CF6] hover:bg-[#7C3AED]">
+                      Start Practice
                     </Button>
-
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-xs text-blue-800">
-                        💡 <strong>Tip:</strong> Upload study materials, notes, or textbook chapters. 
-                        Our AI will analyze the content and create relevant multiple-choice questions.
-                      </p>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
 
-              <Alert className="mt-4 border-yellow-200 bg-yellow-50">
-                <AlertDescription className="text-xs text-yellow-800">
-                  ⚡ Make sure Ollama is running on your system for AI generation to work.
-                </AlertDescription>
-              </Alert>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Section 1: College-Uploaded Practice Sets */}
+                <div>
+                  <div className="flex items-center space-x-2 mb-4">
+                    <BookOpen className="h-5 w-5 text-[#6B9080]" />
+                    <h3 className="text-lg font-semibold text-gray-900">Practice Sets</h3>
+                    <Badge variant="outline" className="bg-[#A8C5B5]/10 text-[#6B9080] border-[#A8C5B5]">{mcqSets.length} available</Badge>
+                  </div>
+                  
+                  {error && (
+                    <Alert variant="destructive" className="mb-4">
+                      <AlertDescription>{error}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
+                    {loading ? (
+                      <Card>
+                        <CardContent className="p-8 text-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                          <p className="text-gray-600 text-sm">Loading practice sets...</p>
+                        </CardContent>
+                      </Card>
+                    ) : mcqSets.length === 0 ? (
+                      <Card>
+                        <CardContent className="p-8 text-center">
+                          <Brain className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                          <p className="text-gray-600 text-sm">
+                            {filters.moduleId !== 'all' || filters.facultyId !== 'all' || filters.year !== 'all'
+                              ? 'No sets for selected filters. Try changing filters in dashboard.'
+                              : 'No practice sets uploaded by your college yet.'}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      mcqSets.map((set) => (
+                        <Card key={set.id} className="hover:shadow-md transition-shadow">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-base">{set.title}</CardTitle>
+                            {set.description && (
+                              <p className="text-sm text-gray-600 mt-1">{set.description}</p>
+                            )}
+                          </CardHeader>
+                          <CardContent>
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center space-x-4 text-sm text-gray-600">
+                                <span>{set.questionCount || 0} questions</span>
+                                {(set as any).difficulty && (
+                                  <Badge className={getDifficultyColor((set as any).difficulty)}>
+                                    {(set as any).difficulty}
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                            {set.module && (
+                              <p className="text-xs text-gray-500 mb-3">{set.module.name}</p>
+                            )}
+                            <Button 
+                              onClick={() => handleStartQuiz(set.id)}
+                              className="w-full"
+                              size="sm"
+                              disabled={!set.questionCount || set.questionCount === 0}
+                            >
+                              Start Practice
+                            </Button>
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Section 2: Generate from PDF */}
+                <div>
+                  <div className="flex items-center space-x-2 mb-4">
+                    <Zap className="h-5 w-5 text-[#6B9080]" />
+                    <h3 className="text-lg font-semibold text-gray-900">Generate from PDF</h3>
+                    <Badge variant="outline" className="bg-[#A8C5B5]/10 text-[#6B9080] border-[#A8C5B5]">AI-Powered</Badge>
+                  </div>
+
+                  <Card className="border-2 border-dashed border-[#A8C5B5]/50 bg-[#A8C5B5]/5">
+                    <CardContent className="p-6">
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Upload PDF Document
+                          </label>
+                          <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-[#A8C5B5] transition-colors">
+                            <input
+                              type="file"
+                              accept="application/pdf"
+                              onChange={handlePDFSelect}
+                              className="hidden"
+                              id="pdf-upload"
+                              disabled={isGenerating}
+                            />
+                            <label htmlFor="pdf-upload" className="cursor-pointer">
+                              <Upload className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                              {pdfFile ? (
+                                <div>
+                                  <p className="text-sm font-medium text-green-600">{pdfFile.name}</p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
+                                  </p>
+                                </div>
+                              ) : (
+                                <div>
+                                  <p className="text-sm font-medium text-gray-700">
+                                    Click to upload PDF
+                                  </p>
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Max 10MB • PDF only
+                                  </p>
+                                </div>
+                              )}
+                            </label>
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Number of Questions
+                            </label>
+                            <input
+                              type="number"
+                              min="5"
+                              max="50"
+                              value={generateOptions.count}
+                              onChange={(e) => setGenerateOptions({ ...generateOptions, count: parseInt(e.target.value) || 10 })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                              disabled={isGenerating}
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                              Difficulty Level
+                            </label>
+                            <select
+                              value={generateOptions.difficulty}
+                              onChange={(e) => setGenerateOptions({ ...generateOptions, difficulty: e.target.value })}
+                              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                              disabled={isGenerating}
+                            >
+                              <option value="EASY">Easy</option>
+                              <option value="MEDIUM">Medium</option>
+                              <option value="HARD">Hard</option>
+                            </select>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Topic (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={generateOptions.topic}
+                            onChange={(e) => setGenerateOptions({ ...generateOptions, topic: e.target.value })}
+                            placeholder="e.g., Algorithms, Data Structures"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"
+                            disabled={isGenerating}
+                          />
+                        </div>
+
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            id="saveToDatabase"
+                            checked={generateOptions.saveToDatabase}
+                            onChange={(e) => setGenerateOptions({ ...generateOptions, saveToDatabase: e.target.checked })}
+                            className="h-4 w-4 text-[#A8C5B5] border-gray-300 rounded focus:ring-[#A8C5B5]"
+                            disabled={isGenerating}
+                          />
+                          <label htmlFor="saveToDatabase" className="text-sm text-gray-700">
+                            Save to database for tracking
+                          </label>
+                        </div>
+
+                        <Button
+                          onClick={handleGenerateFromPDF}
+                          className="w-full bg-[#A8C5B5] hover:bg-[#96B5A5]"
+                          size="lg"
+                          disabled={!pdfFile || isGenerating}
+                        >
+                          {isGenerating ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                              Generating MCQs...
+                            </>
+                          ) : (
+                            <>
+                              <Zap className="h-4 w-4 mr-2" />
+                              Generate MCQs
+                            </>
+                          )}
+                        </Button>
+
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <p className="text-xs text-blue-800">
+                            💡 <strong>Tip:</strong> Upload study materials, notes, or textbook chapters. 
+                            Our AI will analyze the content and create relevant multiple-choice questions.
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Alert className="mt-4 border-yellow-200 bg-yellow-50">
+                    <AlertDescription className="text-xs text-yellow-800">
+                      ⚡ Make sure Ollama is running on your system for AI generation to work.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              </div>
             </div>
           </div>
         </div>

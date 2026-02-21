@@ -241,22 +241,24 @@ export async function getStudyRecommendations(studentId, quizAnalysis = null) {
         
         weakTopics.forEach((topic, index) => {
           if (index < 3) { // Top 3 weak topics from this quiz
+            const isCritical = parseFloat(topic.accuracy) < 40;
+            const isVeryWeak = parseFloat(topic.accuracy) < 20;
+            
+            // Generate specific study plan based on performance level
+            const studyPlan = generateDetailedStudyPlan(topic, isCritical, isVeryWeak);
+            
             recommendations.push({
-              priority: parseFloat(topic.accuracy) < 40 ? 'CRITICAL' : 'HIGH',
+              priority: isCritical ? 'CRITICAL' : 'HIGH',
               type: 'FOCUS_SECTION',
               topic: topic.topic,
               difficulty: topic.difficulty,
-              message: `📍 Focus on "${topic.topic}" - You got ${topic.correct}/${topic.total} questions correct (${topic.accuracy}%)`,
-              action: parseFloat(topic.accuracy) < 40 
-                ? 'Review fundamental concepts and examples'
-                : 'Practice more similar questions',
-              estimatedTime: '25-35 minutes',
-              resources: [
-                'Review lecture notes on this topic',
-                'Watch tutorial videos',
-                'Practice 5-10 more questions',
-                'Try explaining the concept to someone'
-              ]
+              message: `📍 Master "${topic.topic}" - Current Performance: ${topic.correct}/${topic.total} (${topic.accuracy}%)`,
+              action: studyPlan.action,
+              estimatedTime: studyPlan.timeEstimate,
+              resources: studyPlan.resources,
+              studySteps: studyPlan.steps,
+              specificFocus: studyPlan.specificAreas,
+              quickWins: studyPlan.quickWins
             });
           }
         });
@@ -406,6 +408,222 @@ export async function getStudyRecommendations(studentId, quizAnalysis = null) {
     console.error('❌ Error getting recommendations:', error);
     throw error;
   }
+}
+
+/**
+ * Generate detailed, actionable study plan for a specific topic
+ * @param {Object} topic - Topic data with accuracy, correct, total
+ * @param {boolean} isCritical - Whether this is a critical weak area
+ * @param {boolean} isVeryWeak - Whether performance is extremely low
+ * @returns {Object} Detailed study plan with steps, resources, and specific focus areas
+ */
+function generateDetailedStudyPlan(topic, isCritical, isVeryWeak) {
+  const topicName = topic.topic;
+  const accuracy = parseFloat(topic.accuracy);
+  const difficulty = topic.difficulty;
+  
+  // Base action based on severity
+  let action;
+  let timeEstimate;
+  let steps = [];
+  let specificAreas = [];
+  let quickWins = [];
+  let resources = [];
+
+  if (isVeryWeak) {
+    // Less than 20% - needs complete restart
+    action = `Start from the basics - you need a fresh foundation in ${topicName}`;
+    timeEstimate = '45-60 minutes (spread over 2-3 sessions)';
+    
+    steps = [
+      {
+        step: 1,
+        title: 'Understand the Fundamentals',
+        description: `Begin with basic definitions and core concepts of ${topicName}`,
+        duration: '15-20 min',
+        actionItems: [
+          `Read introduction and overview of ${topicName}`,
+          'Take notes on key terminology and basic principles',
+          'Create a simple concept map or diagram'
+        ]
+      },
+      {
+        step: 2,
+        title: 'Study Simple Examples',
+        description: 'Work through 2-3 basic examples step-by-step',
+        duration: '15-20 min',
+        actionItems: [
+          'Find the simplest example problems',
+          'Follow along with detailed solutions',
+          'Identify the pattern or approach used'
+        ]
+      },
+      {
+        step: 3,
+        title: 'Practice Easy Questions',
+        description: 'Try 3-5 EASY difficulty questions on your own',
+        duration: '15-20 min',
+        actionItems: [
+          'Start with very basic questions',
+          'Check your answers immediately',
+          'Review mistakes and understand why you got them wrong'
+        ]
+      }
+    ];
+
+    specificAreas = [
+      `Core definition and purpose of ${topicName}`,
+      `Basic terminology related to ${topicName}`,
+      `Simple real-world applications`,
+      `Common beginner mistakes to avoid`
+    ];
+
+    quickWins = [
+      'Start with just understanding WHAT it is before WHY it works',
+      'Use visual aids (diagrams, flowcharts) if available',
+      'Practice explaining the concept in your own words'
+    ];
+
+    resources = [
+      `📖 Review course textbook: Chapter on ${topicName} (introduction section)`,
+      `🎥 Watch beginner tutorial video: "${topicName} explained for beginners"`,
+      `📝 Study lecture notes specifically covering ${topicName} basics`,
+      `💡 Find simple examples: Search for "easy ${topicName} examples"`,
+      `👥 Consider: Ask your instructor or TA for fundamental concept clarification`
+    ];
+
+  } else if (isCritical) {
+    // 20-40% - significant gaps
+    action = `Strengthen your foundation in ${topicName} through focused review and practice`;
+    timeEstimate = '30-40 minutes';
+    
+    steps = [
+      {
+        step: 1,
+        title: 'Identify Knowledge Gaps',
+        description: `Review which aspects of ${topicName} you're struggling with`,
+        duration: '5-10 min',
+        actionItems: [
+          'Look at the questions you got wrong',
+          'Identify common patterns in your mistakes',
+          'List specific concepts that confused you'
+        ]
+      },
+      {
+        step: 2,
+        title: 'Targeted Concept Review',
+        description: 'Study the specific areas you identified',
+        duration: '15-20 min',
+        actionItems: [
+          `Re-read sections about ${topicName} focusing on your weak areas`,
+          'Pay special attention to formulas, rules, or key principles',
+          'Create summary notes highlighting important points'
+        ]
+      },
+      {
+        step: 3,
+        title: 'Practice Similar Problems',
+        description: 'Work on 5-7 practice questions at your current level',
+        duration: '10-15 min',
+        actionItems: [
+          `Find practice questions on ${topicName}`,
+          'Try to solve them without looking at solutions first',
+          'Review explanations for both correct and incorrect attempts'
+        ]
+      }
+    ];
+
+    specificAreas = [
+      `Key principles and rules governing ${topicName}`,
+      `Common problem-solving patterns`,
+      `Typical question formats and what they're testing`,
+      `Mistakes you made and how to avoid them`
+    ];
+
+    quickWins = [
+      'Focus on the question types you saw in this quiz',
+      'Master one sub-concept at a time rather than everything at once',
+      'Create a cheat sheet with key formulas or steps'
+    ];
+
+    resources = [
+      `📖 Course material: Detailed chapter on ${topicName}`,
+      `🎥 Tutorial videos covering ${topicName} applications`,
+      `📝 Review your class notes and homework on this topic`,
+      `💻 Practice problems: ${difficulty} level ${topicName} exercises`,
+      `📚 Additional resources: Online tutorials or study guides`
+    ];
+
+  } else {
+    // 40-60% - needs reinforcement
+    action = `Reinforce and deepen your understanding of ${topicName}`;
+    timeEstimate = '20-30 minutes';
+    
+    steps = [
+      {
+        step: 1,
+        title: 'Review Mistakes',
+        description: 'Analyze the questions you got wrong',
+        duration: '5-10 min',
+        actionItems: [
+          'Understand why your answers were incorrect',
+          'Identify if it was a concept issue or careless mistake',
+          'Note specific areas that need attention'
+        ]
+      },
+      {
+        step: 2,
+        title: 'Practice Edge Cases',
+        description: `Work on trickier ${topicName} problems`,
+        duration: '10-15 min',
+        actionItems: [
+          'Try variations of problems you got wrong',
+          'Focus on edge cases and special scenarios',
+          'Look for common tricks or gotchas'
+        ]
+      },
+      {
+        step: 3,
+        title: 'Test Understanding',
+        description: 'Attempt 3-5 new practice questions',
+        duration: '5-10 min',
+        actionItems: [
+          'Try questions you haven\'t seen before',
+          'Check if you can consistently get them right',
+          'Aim for 80%+ accuracy to confirm mastery'
+        ]
+      }
+    ];
+
+    specificAreas = [
+      `Advanced applications of ${topicName}`,
+      `Common variations and edge cases`,
+      `Integration with related concepts`,
+      `Subtle distinctions and nuances`
+    ];
+
+    quickWins = [
+      'You\'re close! Focus on consistency rather than learning new concepts',
+      'Practice time management - make sure you read questions carefully',
+      'Review the explanation for each mistake to prevent repeating them'
+    ];
+
+    resources = [
+      `📝 Review solutions to similar problems`,
+      `💡 Practice question banks focusing on ${topicName}`,
+      `🎯 Past exam questions on this topic`,
+      `📖 Advanced examples and case studies`
+    ];
+  }
+
+  return {
+    action,
+    timeEstimate,
+    steps,
+    specificAreas,
+    quickWins,
+    resources
+  };
 }
 
 /**
