@@ -15,6 +15,7 @@ import MCQPracticeSelectionPage from "./pages/MCQPracticeSelectionPage";
 import MCQPracticePage from "./pages/MCQPracticePage";
 import MCQHistoryPage from "./pages/MCQHistoryPage";
 import AdminDashboard from "./pages/AdminDashboard";
+import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "../context/AuthContext";
 import { FilterProvider } from "../context/FilterContext";
@@ -127,6 +128,16 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Super Admin Route */}
+          <Route
+            path="/superadmin"
+            element={
+              <ProtectedRoute>
+                <SuperAdminDashboard />
               </ProtectedRoute>
             }
           />

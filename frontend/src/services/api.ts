@@ -234,6 +234,92 @@ export const facultyAPI = {
     api.get<{ success: boolean; count: number; data: Faculty[] }>('/faculties', { params }),
 };
 
+// College types
+export interface College {
+  id: number;
+  name: string;
+  code: string;
+  location?: string;
+  description?: string;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  _count?: {
+    users: number;
+    resources: number;
+    modules: number;
+    mcqs: number;
+  };
+}
+
+// College API endpoints
+export const collegeAPI = {
+  // Get all colleges
+  getAll: (includeInactive?: boolean) =>
+    api.get<{ success: boolean; count: number; data: College[] }>('/colleges', {
+      params: { includeInactive }
+    }),
+  
+  // Get public colleges (no auth required)
+  getPublic: () =>
+    api.get<{ success: boolean; count: number; data: College[] }>('/colleges/public'),
+  
+  // Get single college
+  getById: (id: number) =>
+    api.get<{ success: boolean; data: College }>(`/colleges/${id}`),
+  
+  // Create college (SUPER_ADMIN only)
+  create: (data: { name: string; code: string; location?: string; description?: string; isActive?: boolean }) =>
+    api.post<{ success: boolean; message: string; data: College }>('/colleges', data),
+  
+  // Update college (SUPER_ADMIN only)
+  update: (id: number, data: Partial<College>) =>
+    api.put<{ success: boolean; message: string; data: College }>(`/colleges/${id}`, data),
+  
+  // Delete/deactivate college (SUPER_ADMIN only)
+  delete: (id: number, hardDelete?: boolean) =>
+    api.delete<{ success: boolean; message: string }>(`/colleges/${id}`, {
+      params: { hardDelete }
+    }),
+  
+  // Get college statistics
+  getStats: (id: number) =>
+    api.get<{ success: boolean; data: any }>(`/colleges/${id}/stats`),
+};
+
+// User types
+export interface UserData {
+  id: number;
+  username: string;
+  email: string;
+  first_name?: string;
+  last_name?: string;
+  roles: string[];
+  collegeId?: number;
+  college?: {
+    id: number;
+    name: string;
+    code: string;
+  };
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// User API endpoints
+export const userAPI = {
+  // Get all users (SUPER_ADMIN, COLLEGE_ADMIN)
+  getAll: () =>
+    api.get<UserData[]>('/users'),
+  
+  // Update user
+  update: (id: number, data: { roles?: string[]; first_name?: string; last_name?: string; email?: string; username?: string }) =>
+    api.put<UserData>(`/users/${id}`, data),
+  
+  // Delete user
+  delete: (id: number) =>
+    api.delete<{ message: string }>(`/users/${id}`),
+};
+
 // Search types
 export interface SemanticSearchResult extends Resource {
   relevanceScore: number;

@@ -22,7 +22,7 @@ export default function DashboardPage() {
 
     // Redirect to specific URLs based on role
     if (hasRole(ROLES.SUPER_ADMIN)) {
-      navigate('/super-admin');
+      navigate('/superadmin');
     } else if (hasRole(ROLES.COLLEGE_ADMIN)) {
       navigate('/admin/dashboard');
     } else if (hasRole(ROLES.STUDENT)) {
