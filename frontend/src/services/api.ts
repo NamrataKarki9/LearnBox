@@ -318,6 +318,38 @@ export const userAPI = {
   // Delete user
   delete: (id: number) =>
     api.delete<{ message: string }>(`/users/${id}`),
+  
+  // Update user profile (for settings page)
+  updateProfile: (data: { 
+    first_name?: string; 
+    last_name?: string; 
+    email?: string; 
+    username?: string; 
+    bio?: string; 
+    phone?: string; 
+    avatar?: string;
+  }) =>
+    api.put<{ success: boolean; message: string; user: UserData }>('/users/profile', data),
+  
+  // Change password
+  changePassword: (data: { currentPassword: string; newPassword: string }) =>
+    api.post<{ success: boolean; message: string }>('/users/change-password', data),
+  
+  // Update notification settings
+  updateNotificationSettings: (settings: any) =>
+    api.put<{ success: boolean; message: string }>('/users/settings/notifications', settings),
+  
+  // Update privacy settings
+  updatePrivacySettings: (settings: any) =>
+    api.put<{ success: boolean; message: string }>('/users/settings/privacy', settings),
+  
+  // Update preferences
+  updatePreferences: (preferences: any) =>
+    api.put<{ success: boolean; message: string }>('/users/settings/preferences', preferences),
+  
+  // Get user settings
+  getSettings: () =>
+    api.get<{ success: boolean; data: any }>('/users/settings'),
 };
 
 // Search types
