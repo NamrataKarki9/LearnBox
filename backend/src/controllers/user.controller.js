@@ -11,12 +11,28 @@ export const getAllUsers = async (req, res) => {
                 email: true,
                 first_name: true,
                 last_name: true,
-                roles: true,
+                role: true,
+                collegeId: true,
+                college: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                    }
+                },
                 createdAt: true,
             },
         });
-        res.json(users);
+        
+        // Convert role to roles array for frontend compatibility
+        const usersWithRoles = users.map(user => ({
+            ...user,
+            roles: [user.role]
+        }));
+        
+        res.json(usersWithRoles);
     } catch (error) {
+        console.error('Error fetching users:', error);
         res.status(500).json({ error: 'Failed to fetch users' });
     }
 };
@@ -27,10 +43,13 @@ export const updateUser = async (req, res) => {
     const { roles, first_name, last_name, email, username } = req.body;
 
     try {
+        // Convert roles array to single role (take first role)
+        const role = roles && roles.length > 0 ? roles[0] : undefined;
+        
         const updatedUser = await prisma.user.update({
             where: { id: parseInt(id) },
             data: {
-                roles: roles || undefined,
+                role: role || undefined,
                 first_name: first_name || undefined,
                 last_name: last_name || undefined,
                 email: email || undefined,
@@ -40,11 +59,17 @@ export const updateUser = async (req, res) => {
                 id: true,
                 username: true,
                 email: true,
-                roles: true,
+                role: true,
             },
         });
-        res.json(updatedUser);
+        
+        // Convert role to roles array for frontend compatibility
+        res.json({
+            ...updatedUser,
+            roles: [updatedUser.role]
+        });
     } catch (error) {
+        console.error('Error updating user:', error);
         res.status(500).json({ error: 'Failed to update user' });
     }
 };

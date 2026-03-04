@@ -1,48 +1,27 @@
 import { extractTextFromPDF } from './pdf.service.js';
+import { callLLM, getLLMInfo } from './llm.service.js';
 
 /**
- * Ollama API Configuration
- * Local LLM server running gemma3:1b
+ * Call LLM for summarization (uses active configuration)
  */
-const OLLAMA_BASE_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-const MODEL_NAME = process.env.OLLAMA_MODEL || 'gemma3:1b';
-
-/**
- * Call Ollama API (no timeout - waits as long as needed)
- */
-async function callOllama(prompt, maxTokens = 500) {
+async function callLLMForSummary(prompt, maxTokens = 500) {
   try {
-    console.log(`🤖 Calling Ollama (${MODEL_NAME}) with ${prompt.length} chars prompt (no timeout)`);
+    const info = await getLLMInfo();
+    console.log(`🤖 Calling ${info.provider} (${info.model}) for summarization`);
     
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODEL_NAME,
-        prompt: prompt,
-        stream: false,
-        options: {
-          num_predict: maxTokens,
-          temperature: 0.3,
-          top_p: 0.9,
-        }
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ Ollama error: ${response.status} - ${errorText}`);
-      throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log(`✅ Ollama response received (${data.response?.length || 0} chars)`);
-    return data.response;
+    return await callLLM(prompt, maxTokens);
   } catch (error) {
-    console.error('❌ Ollama API error:', error.message);
-    throw new Error(`Failed to connect to local LLM at ${OLLAMA_BASE_URL}. Make sure Ollama is running.`);
+    console.error('❌ LLM API error:', error.message);
+    
+    // Provide user-friendly error for rate limits
+    if (error.message.includes('rate limit')) {
+      throw new Error('API rate limit reached. Please wait a moment before generating more summaries.');
+    }
+    if (error.message.includes('quota')) {
+      throw new Error('API quota exhausted. Please check your LLM configuration or upgrade your plan.');
+    }
+    
+    throw new Error(`Failed to connect to LLM: ${error.message}`);
   }
 }
 
@@ -50,29 +29,27 @@ async function callOllama(prompt, maxTokens = 500) {
  * Generate quick summary (TL;DR)
  */
 export async function generateQuickSummary(text) {
-  const prompt = `You are a helpful academic assistant. Summarize the following document in 3-4 clear and concise sentences. Focus on the main topics and key takeaways.
+  const prompt = `Summarize in 3-4 sentences. Main topics and key takeaways:
 
-Document:
-${text.slice(0, 8000)}
+${text.slice(0, 5000)}
 
 Summary:`;
   
-  return await callOllama(prompt, 250);
+  return await callLLMForSummary(prompt, 250);
 }
 
 /**
  * Extract key concepts from document
  */
 export async function extractKeyConcepts(text) {
-  const prompt = `You are a helpful academic assistant. Extract 5-8 key concepts from this document. Return ONLY a valid JSON object in this exact format (no additional text):
-{"concepts": [{"term": "concept name", "definition": "brief definition"}]}
+  const prompt = `Extract 5-8 key concepts. Return JSON only:
+{"concepts": [{"term": "name", "definition": "definition"}]}
 
-Document:
-${text.slice(0, 10000)}
+${text.slice(0, 6000)}
 
-JSON Response:`;
+JSON:`;
   
-  const response = await callOllama(prompt, 600);
+  const response = await callLLMForSummary(prompt, 500);
   
   try {
     // Try to extract JSON from response
@@ -95,56 +72,48 @@ JSON Response:`;
  * Generate detailed summary
  */
 export async function generateDetailedSummary(text) {
-  const prompt = `You are a helpful academic assistant. Create a comprehensive summary of this document. Include:
-
-1. Main Topics Covered
-2. Key Concepts and Definitions
+  const prompt = `Create comprehensive summary:
+1. Main Topics
+2. Key Concepts
 3. Important Details
 4. Conclusions
 
-Use clear headings and bullet points for better readability.
+${text.slice(0, 7000)}
 
-Document:
-${text.slice(0, 12000)}
-
-Detailed Summary:`;
+Summary:`;
   
-  return await callOllama(prompt, 1000);
+  return await callLLMForSummary(prompt, 800);
 }
 
 /**
  * Generate structured study notes
  */
 export async function generateStudyNotes(text) {
-  const prompt = `You are a helpful academic assistant. Convert this document into structured study notes. Use a hierarchical format with:
+  const prompt = `Convert to structured study notes:
 - Main topics (numbered)
 - Subtopics (lettered)
 - Key points (bulleted)
 
-Make it easy to scan and study from.
+${text.slice(0, 6000)}
 
-Document:
-${text.slice(0, 10000)}
-
-Study Notes:`;
+Notes:`;
   
-  return await callOllama(prompt, 800);
+  return await callLLMForSummary(prompt, 700);
 }
 
 /**
  * Answer question about document
  */
 export async function answerQuestion(text, question) {
-  const prompt = `You are a helpful academic assistant. Based on the document below, answer the following question concisely and accurately. If the answer is not in the document, say so.
+  const prompt = `Based on this document, answer the question. If not in document, say so.
 
-Document:
-${text.slice(0, 10000)}
+${text.slice(0, 6000)}
 
-Question: ${question}
+Q: ${question}
 
-Answer:`;
+A:`;
   
-  return await callOllama(prompt, 300);
+  return await callLLMForSummary(prompt, 300);
 }
 
 /**

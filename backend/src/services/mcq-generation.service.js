@@ -1,51 +1,89 @@
 /**
  * MCQ Generation Service
- * Uses Ollama (gemma3:1b) to generate MCQs from PDF content
+ * Uses configured LLM (Ollama or Groq) to generate MCQs from PDF content
  */
 
 import { extractTextFromPDF, extractTextFromLocalPDF } from './pdf.service.js';
+import { callLLM, getLLMInfo } from './llm.service.js';
 import fs from 'fs';
 
-const OLLAMA_BASE_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
-const MODEL_NAME = process.env.OLLAMA_MODEL || 'gemma3:1b';
+/**
+ * Sleep utility for rate limit handling
+ */
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
 
 /**
- * Call Ollama API
+ * Intelligently chunk text into smaller segments
+ * Tries to break at paragraph boundaries when possible
  */
-async function callOllama(prompt, maxTokens = 1000) {
-  try {
-    console.log(`🤖 Calling Ollama for MCQ generation (${MODEL_NAME}) at ${OLLAMA_BASE_URL}`);
+function chunkText(text, maxChunkSize = 3500) {
+  const chunks = [];
+  
+  // Split by paragraphs (double newline or single newline)
+  const paragraphs = text.split(/\n\n+|\n/);
+  
+  let currentChunk = '';
+  
+  for (const paragraph of paragraphs) {
+    const trimmedParagraph = paragraph.trim();
+    if (!trimmedParagraph) continue;
     
-    const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: MODEL_NAME,
-        prompt: prompt,
-        stream: false,
-        options: {
-          num_predict: maxTokens,
-          temperature: 0.7, // Higher for more varied questions
-          top_p: 0.9,
+    // If adding this paragraph would exceed the limit
+    if (currentChunk.length + trimmedParagraph.length + 1 > maxChunkSize) {
+      // Save current chunk if it has content
+      if (currentChunk) {
+        chunks.push(currentChunk.trim());
+        currentChunk = '';
+      }
+      
+      // If a single paragraph is too large, split it by sentences
+      if (trimmedParagraph.length > maxChunkSize) {
+        const sentences = trimmedParagraph.match(/[^.!?]+[.!?]+/g) || [trimmedParagraph];
+        for (const sentence of sentences) {
+          if (currentChunk.length + sentence.length > maxChunkSize) {
+            if (currentChunk) chunks.push(currentChunk.trim());
+            currentChunk = sentence;
+          } else {
+            currentChunk += ' ' + sentence;
+          }
         }
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ Ollama error: ${response.status} - ${errorText}`);
-      throw new Error(`Ollama API error: ${response.status} - ${errorText}`);
+      } else {
+        currentChunk = trimmedParagraph;
+      }
+    } else {
+      currentChunk += (currentChunk ? '\n' : '') + trimmedParagraph;
     }
+  }
+  
+  // Add the last chunk
+  if (currentChunk.trim()) {
+    chunks.push(currentChunk.trim());
+  }
+  
+  // If no chunks were created, just split by character limit
+  if (chunks.length === 0) {
+    for (let i = 0; i < text.length; i += maxChunkSize) {
+      chunks.push(text.slice(i, i + maxChunkSize));
+    }
+  }
+  
+  return chunks;
+}
 
-    const data = await response.json();
-    console.log(`✅ Ollama responded with ${data.response?.length || 0} characters`);
-    return data.response;
+/**
+ * Call LLM for MCQ generation (uses active configuration)
+ */
+async function callLLMForMCQ(prompt, maxTokens = 1000) {
+  try {
+    const info = await getLLMInfo();
+    console.log(`🤖 Calling ${info.provider} (${info.model}) for MCQ generation`);
+    
+    return await callLLM(prompt, maxTokens);
   } catch (error) {
-    console.error('❌ Ollama API error:', error.message);
-    console.error('❌ Full error:', error);
-    throw new Error(`Failed to connect to local LLM at ${OLLAMA_BASE_URL}: ${error.message}`);
+    console.error('❌ LLM API error:', error.message);
+    throw error;
   }
 }
 
@@ -191,11 +229,12 @@ export async function generateMCQsFromPDF(pdfUrl, options = {}) {
       throw new Error('PDF content too short to generate meaningful MCQs');
     }
 
-    // Truncate text to avoid token limits (use first ~15000 chars)
-    const contentToUse = pdfText.slice(0, 15000);
+    // Intelligently chunk the text to avoid overwhelming the LLM
+    const chunks = chunkText(pdfText, 3500); // Smaller chunks to stay within rate limits
+    console.log(`📦 Split content into ${chunks.length} chunks`);
 
-    // Generate MCQs in batches (5 at a time for better quality)
-    const batchSize = 5;
+    // Generate MCQs in batches (2-3 at a time for rate-limit safety)
+    const batchSize = 2;
     const batches = Math.ceil(count / batchSize);
     const allMCQs = [];
 
@@ -203,21 +242,55 @@ export async function generateMCQsFromPDF(pdfUrl, options = {}) {
       const questionsInBatch = Math.min(batchSize, count - allMCQs.length);
       console.log(`🎯 Generating batch ${i + 1}/${batches} (${questionsInBatch} questions)...`);
 
+      // Use different chunks for variety, or cycle through available chunks
+      const chunkIndex = i % chunks.length;
+      const contentToUse = chunks[chunkIndex];
+      console.log(`📄 Using chunk ${chunkIndex + 1}/${chunks.length} (${contentToUse.length} chars)`);
+
       const prompt = buildMCQPrompt(contentToUse, questionsInBatch, difficulty, topic, includeExplanations);
-      const response = await callOllama(prompt, 1500);
       
-      const mcqs = parseMCQResponse(response);
-      
-      if (mcqs.length > 0) {
-        allMCQs.push(...mcqs);
-        console.log(`✅ Generated ${mcqs.length} MCQs in this batch`);
-      } else {
-        console.warn(`⚠️ No MCQs parsed from batch ${i + 1}`);
+      try {
+        const response = await callLLMForMCQ(prompt, 1200);
+        
+        const mcqs = parseMCQResponse(response);
+        
+        if (mcqs.length > 0) {
+          allMCQs.push(...mcqs);
+          console.log(`✅ Generated ${mcqs.length} MCQs in this batch`);
+        } else {
+          console.warn(`⚠️ No MCQs parsed from batch ${i + 1}`);
+        }
+      } catch (error) {
+        console.error(`❌ Error in batch ${i + 1}:`, error.message);
+        
+        // If rate limited, add a longer delay and retry once
+        if (error.message.includes('rate limit')) {
+          console.log('⏳ Rate limit hit, waiting 6 seconds before retry...');
+          await sleep(6000);
+          
+          try {
+            const response = await callLLMForMCQ(prompt, 1200);
+            const mcqs = parseMCQResponse(response);
+            if (mcqs.length > 0) {
+              allMCQs.push(...mcqs);
+              console.log(`✅ Retry successful: Generated ${mcqs.length} MCQs`);
+            }
+          } catch (retryError) {
+            console.error(`❌ Retry failed:`, retryError.message);
+            // Continue to next batch instead of failing completely
+          }
+        }
       }
 
       // If we have enough, stop
       if (allMCQs.length >= count) {
         break;
+      }
+
+      // Add delay between batches to avoid rate limits
+      if (i < batches - 1) {
+        console.log('⏳ Waiting 2 seconds before next batch...');
+        await sleep(2000);
       }
     }
 
@@ -234,47 +307,22 @@ export async function generateMCQsFromPDF(pdfUrl, options = {}) {
 }
 
 /**
- * Build prompt for MCQ generation
+ * Build prompt for MCQ generation (optimized for token efficiency)
  */
 function buildMCQPrompt(content, count, difficulty, topic, includeExplanations) {
-  const difficultyGuide = {
-    EASY: 'straightforward recall or basic comprehension',
-    MEDIUM: 'application of concepts or moderate analysis',
-    HARD: 'complex analysis, synthesis, or evaluation'
-  };
+  const topicClause = topic ? `Topic: "${topic}".` : '';
+  const explanationClause = includeExplanations ? 'Add brief explanation.' : '';
 
-  const topicClause = topic ? `Focus on the topic: "${topic}".` : 'Cover various important topics from the content.';
-  const explanationClause = includeExplanations ? 'Include a brief explanation for each correct answer.' : '';
+  return `Generate ${count} MCQ from this content. ${topicClause}
+Difficulty: ${difficulty}. 4 options each, 1 correct. ${explanationClause}
 
-  return `You are an expert educator creating multiple choice questions for students.
+Return JSON only:
+{"mcqs":[{"question":"?","options":["A","B","C","D"],"correctAnswer":"A","explanation":"","topic":""}]}
 
-Based on the following educational content, generate exactly ${count} high-quality multiple-choice questions.
-
-Requirements:
-- Difficulty level: ${difficulty} (${difficultyGuide[difficulty]})
-- ${topicClause}
-- Each question should have 4 options (A, B, C, D)
-- Only ONE correct answer per question
-- Make distractors (wrong answers) plausible but clearly incorrect
-- ${explanationClause}
-
-Return ONLY a valid JSON object in this exact format (no extra text):
-{
-  "mcqs": [
-    {
-      "question": "Question text here?",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "correctAnswer": "Option A",
-      "explanation": "Brief explanation why this is correct",
-      "topic": "Specific topic or concept being tested"
-    }
-  ]
-}
-
-Educational Content:
+Content:
 ${content}
 
-JSON Response:`;
+JSON:`;
 }
 
 /**
@@ -325,40 +373,26 @@ function validateMCQ(mcq, index, defaultDifficulty, defaultTopic) {
  * @param {number} count - Number of questions
  */
 export async function generateTopicPractice(topic, context = '', count = 5) {
-  const prompt = `You are an expert educator creating practice questions.
+  const contextText = context ? context.slice(0, 2000) : '';
+  const prompt = `Generate ${count} MCQ about: "${topic}"
+${contextText ? `Context: ${contextText}\n` : ''}Mix difficulty levels. 4 options each.
 
-Generate ${count} multiple-choice questions specifically about: "${topic}"
+Return JSON only:
+{"mcqs":[{"question":"?","options":["A","B","C","D"],"correctAnswer":"A","explanation":"","difficulty":"MEDIUM","topic":"${topic}"}]}
 
-${context ? `Additional context:\n${context}\n` : ''}
-
-Requirements:
-- Focus ONLY on the specified topic
-- Mix of difficulty levels (easy to hard)
-- Each question should have 4 options
-- Include brief explanations
-
-Return ONLY valid JSON:
-{
-  "mcqs": [
-    {
-      "question": "Question text?",
-      "options": ["A", "B", "C", "D"],
-      "correctAnswer": "A",
-      "explanation": "Why this is correct",
-      "difficulty": "MEDIUM",
-      "topic": "${topic}"
-    }
-  ]
-}
-
-JSON Response:`;
+JSON:`;
 
   try {
-    const response = await callOllama(prompt, 1200);
+    const response = await callLLMForMCQ(prompt, 1000);
     const mcqs = parseMCQResponse(response);
     return mcqs.map((mcq, i) => validateMCQ(mcq, i, 'MEDIUM', topic)).filter(m => m !== null);
   } catch (error) {
     console.error('❌ Topic practice generation error:', error);
+    
+    // If rate limited, throw a user-friendly error
+    if (error.message.includes('rate limit')) {
+      throw new Error('API rate limit reached. Please wait a moment and try again.');
+    }
     throw error;
   }
 }
@@ -371,40 +405,24 @@ JSON Response:`;
 export async function generateAdaptiveQuestions(weakTopics, difficulty = 'MEDIUM', count = 5) {
   const topicsList = weakTopics.join(', ');
   
-  const prompt = `You are an expert educator helping a student improve in their weak areas.
+  const prompt = `Generate ${count} ${difficulty} MCQ for weak topics: ${topicsList}
 
-The student needs practice in these topics: ${topicsList}
+Return JSON only:
+{"mcqs":[{"question":"?","options":["A","B","C","D"],"correctAnswer":"A","explanation":"","difficulty":"${difficulty}","topic":""}]}
 
-Generate ${count} ${difficulty.toLowerCase()} difficulty questions that will help them improve.
-
-Requirements:
-- Focus on the weak topics mentioned
-- Difficulty: ${difficulty}
-- Include clear explanations
-- 4 options per question
-
-Return ONLY valid JSON:
-{
-  "mcqs": [
-    {
-      "question": "Question text?",
-      "options": ["A", "B", "C", "D"],
-      "correctAnswer": "A",
-      "explanation": "Detailed explanation",
-      "difficulty": "${difficulty}",
-      "topic": "topic name"
-    }
-  ]
-}
-
-JSON Response:`;
+JSON:`;
 
   try {
-    const response = await callOllama(prompt, 1500);
+    const response = await callLLMForMCQ(prompt, 1000);
     const mcqs = parseMCQResponse(response);
     return mcqs.map((mcq, i) => validateMCQ(mcq, i, difficulty, weakTopics[0])).filter(m => m !== null);
   } catch (error) {
     console.error('❌ Adaptive question generation error:', error);
+    
+    // If rate limited, throw a user-friendly error
+    if (error.message.includes('rate limit')) {
+      throw new Error('API rate limit reached. Please wait a moment and try again.');
+    }
     throw error;
   }
 }

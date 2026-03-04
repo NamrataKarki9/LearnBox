@@ -13,6 +13,7 @@ import searchRoutes from './routes/search.routes.js';
 import summaryRoutes from './routes/summary.routes.js';
 import quizRoutes from './routes/quiz.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
+import llmConfigRoutes from './routes/llm-config.routes.js';
 import { connectDatabase } from './prisma.js';
 
 const app = express();
@@ -42,6 +43,7 @@ app.use('/api/search', searchRoutes);
 app.use('/api/summary', summaryRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/llm-config', llmConfigRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

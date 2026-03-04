@@ -763,4 +763,71 @@ export const analyticsAPI = {
     api.get<{ success: boolean; count: number; data: ModulePerformance[] }>('/analytics/modules'),
 };
 
+// LLM Configuration Types
+export interface LLMConfig {
+  id: number;
+  name: string;
+  provider: 'OLLAMA' | 'GROQ';
+  isActive: boolean;
+  ollamaUrl?: string;
+  ollamaModel?: string;
+  groqApiKey?: string;
+  groqModel?: string;
+  temperature: number;
+  maxTokens: number;
+  topP: number;
+  createdBy: number;
+  creator?: {
+    id: number;
+    username: string;
+    email: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLLMConfigData {
+  name: string;
+  provider: 'OLLAMA' | 'GROQ';
+  isActive?: boolean;
+  ollamaUrl?: string;
+  ollamaModel?: string;
+  groqApiKey?: string;
+  groqModel?: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+}
+
+// LLM Configuration API endpoints
+export const llmConfigAPI = {
+  // Get all configurations
+  getAll: () => 
+    api.get<{ success: boolean; count: number; data: LLMConfig[] }>('/llm-config'),
+  
+  // Get active configuration
+  getActive: () =>
+    api.get<{ success: boolean; data: LLMConfig }>('/llm-config/active'),
+  
+  // Get single configuration by ID
+  getById: (id: number) =>
+    api.get<{ success: boolean; data: LLMConfig }>(`/llm-config/${id}`),
+  
+  // Create new configuration
+  create: (data: CreateLLMConfigData) =>
+    api.post<{ success: boolean; message: string; data: LLMConfig }>('/llm-config', data),
+  
+  // Update configuration
+  update: (id: number, data: Partial<CreateLLMConfigData>) =>
+    api.put<{ success: boolean; message: string; data: LLMConfig }>(`/llm-config/${id}`, data),
+  
+  // Delete configuration
+  delete: (id: number) =>
+    api.delete<{ success: boolean; message: string }>(`/llm-config/${id}`),
+  
+  // Activate configuration
+  activate: (id: number) =>
+    api.post<{ success: boolean; message: string; data: LLMConfig }>(`/llm-config/${id}/activate`),
+};
+
 export default api;

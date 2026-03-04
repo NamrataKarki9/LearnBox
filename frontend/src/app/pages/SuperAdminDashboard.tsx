@@ -7,9 +7,9 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
-import { collegeAPI, userAPI, College, UserData } from '../../services/api';
+import { collegeAPI, userAPI, llmConfigAPI, College, UserData, LLMConfig, CreateLLMConfigData } from '../../services/api';
 import { toast } from 'sonner';
-import { Plus, Building2, Users, BookOpen, GraduationCap, Edit, Trash2, X, Check, Search } from 'lucide-react';
+import { Plus, Building2, Users, BookOpen, GraduationCap, Edit, Trash2, X, Check, Search, Settings, CheckCircle, Circle } from 'lucide-react';
 
 interface Stats {
   totalColleges: number;
@@ -21,9 +21,10 @@ interface Stats {
 
 export default function SuperAdminDashboard() {
   const { user, logout } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'colleges' | 'users'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'colleges' | 'users' | 'llm-config'>('overview');
   const [colleges, setColleges] = useState<College[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
+  const [llmConfigs, setLlmConfigs] = useState<LLMConfig[]>([]);
   const [stats, setStats] = useState<Stats>({
     totalColleges: 0,
     totalUsers: 0,
@@ -34,6 +35,8 @@ export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showCollegeModal, setShowCollegeModal] = useState(false);
   const [editingCollege, setEditingCollege] = useState<College | null>(null);
+  const [showLLMModal, setShowLLMModal] = useState(false);
+  const [editingLLM, setEditingLLM] = useState<LLMConfig | null>(null);
   const [filterRole, setFilterRole] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -46,6 +49,20 @@ export default function SuperAdminDashboard() {
     isActive: true
   });
 
+  // LLM Config form state
+  const [llmForm, setLlmForm] = useState<CreateLLMConfigData>({
+    name: '',
+    provider: 'OLLAMA',
+    isActive: false,
+    ollamaUrl: 'http://localhost:11434',
+    ollamaModel: 'gemma3:1b',
+    groqApiKey: '',
+    groqModel: '',
+    temperature: 0.7,
+    maxTokens: 1000,
+    topP: 0.9
+  });
+
   // Fetch data on component mount
   useEffect(() => {
     fetchAllData();
@@ -54,13 +71,15 @@ export default function SuperAdminDashboard() {
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const [collegesRes, usersRes] = await Promise.all([
+      const [collegesRes, usersRes, llmConfigsRes] = await Promise.all([
         collegeAPI.getAll(true),
-        userAPI.getAll()
+        userAPI.getAll(),
+        llmConfigAPI.getAll()
       ]);
 
       setColleges(collegesRes.data.data);
       setUsers(usersRes.data);
+      setLlmConfigs(llmConfigsRes.data.data);
 
       // Calculate stats
       const activeColleges = collegesRes.data.data.filter((c: College) => c.isActive).length;
@@ -134,6 +153,98 @@ export default function SuperAdminDashboard() {
     } catch (error: any) {
       toast.error('Failed to delete user: ' + (error.response?.data?.error || error.message));
     }
+  };
+
+  // LLM Config handlers
+  const handleCreateLLMConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await llmConfigAPI.create(llmForm);
+      toast.success('LLM configuration created successfully');
+      setShowLLMModal(false);
+      resetLLMForm();
+      fetchAllData();
+    } catch (error: any) {
+      toast.error('Failed to create LLM config: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const handleUpdateLLMConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLLM) return;
+    
+    try {
+      await llmConfigAPI.update(editingLLM.id, llmForm);
+      toast.success('LLM configuration updated successfully');
+      setShowLLMModal(false);
+      setEditingLLM(null);
+      resetLLMForm();
+      fetchAllData();
+    } catch (error: any) {
+      toast.error('Failed to update LLM config: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const handleDeleteLLMConfig = async (id: number, name: string) => {
+    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
+    
+    try {
+      await llmConfigAPI.delete(id);
+      toast.success('LLM configuration deleted successfully');
+      fetchAllData();
+    } catch (error: any) {
+      toast.error('Failed to delete LLM config: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const handleActivateLLMConfig = async (id: number, name: string) => {
+    if (!confirm(`Activate "${name}" as the active LLM configuration?`)) return;
+    
+    try {
+      await llmConfigAPI.activate(id);
+      toast.success('LLM configuration activated successfully');
+      fetchAllData();
+    } catch (error: any) {
+      toast.error('Failed to activate LLM config: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const resetLLMForm = () => {
+    setLlmForm({
+      name: '',
+      provider: 'OLLAMA',
+      isActive: false,
+      ollamaUrl: 'http://localhost:11434',
+      ollamaModel: 'gemma3:1b',
+      groqApiKey: '',
+      groqModel: '',
+      temperature: 0.7,
+      maxTokens: 1000,
+      topP: 0.9
+    });
+  };
+
+  const openEditLLMModal = (config: LLMConfig) => {
+    setEditingLLM(config);
+    setLlmForm({
+      name: config.name,
+      provider: config.provider,
+      isActive: config.isActive,
+      ollamaUrl: config.ollamaUrl || 'http://localhost:11434',
+      ollamaModel: config.ollamaModel || 'gemma3:1b',
+      groqApiKey: config.groqApiKey || '',
+      groqModel: config.groqModel || '',
+      temperature: config.temperature,
+      maxTokens: config.maxTokens,
+      topP: config.topP
+    });
+    setShowLLMModal(true);
+  };
+
+  const openCreateLLMModal = () => {
+    setEditingLLM(null);
+    resetLLMForm();
+    setShowLLMModal(true);
   };
 
   const resetCollegeForm = () => {
@@ -234,6 +345,17 @@ export default function SuperAdminDashboard() {
             <Users className="w-5 h-5" />
             Users
           </button>
+          <button 
+            onClick={() => setActiveTab('llm-config')}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium mb-2 transition-colors ${
+              activeTab === 'llm-config' 
+                ? 'bg-[#7C9E9E] text-white' 
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <Settings className="w-5 h-5" />
+            LLM Config
+          </button>
         </nav>
         <div className="p-4 border-t border-gray-200">
           <div className="bg-gray-50 rounded-lg p-3 mb-3">
@@ -260,11 +382,13 @@ export default function SuperAdminDashboard() {
                 {activeTab === 'overview' && 'Dashboard Overview'}
                 {activeTab === 'colleges' && 'College Management'}
                 {activeTab === 'users' && 'User Management'}
+                {activeTab === 'llm-config' && 'LLM Configuration'}
               </h1>
               <p className="text-gray-500 mt-1">
                 {activeTab === 'overview' && 'Monitor platform statistics and performance'}
                 {activeTab === 'colleges' && 'Manage all colleges in the platform'}
                 {activeTab === 'users' && 'Manage users and their roles'}
+                {activeTab === 'llm-config' && 'Configure AI/LLM settings for the platform'}
               </p>
             </div>
           </div>
@@ -567,6 +691,144 @@ export default function SuperAdminDashboard() {
                   </Card>
                 </div>
               )}
+
+              {/* LLM Config Tab */}
+              {activeTab === 'llm-config' && (
+                <div>
+                  <div className="flex justify-between items-center mb-6">
+                    <div>
+                      <h2 className="text-2xl font-bold text-gray-900">LLM Configuration</h2>
+                      <p className="text-gray-500 mt-1">{llmConfigs.length} configurations</p>
+                    </div>
+                    <Button 
+                      onClick={openCreateLLMModal}
+                      className="bg-[#7C9E9E] hover:bg-[#6B8D8D] text-white flex items-center gap-2"
+                    >
+                      <Plus className="w-5 h-5" />
+                      Add New Config
+                    </Button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {llmConfigs.map(config => (
+                      <Card key={config.id} className={`shadow-md hover:shadow-lg transition-shadow ${
+                        config.isActive ? 'border-2 border-green-500' : ''
+                      }`}>
+                        <CardContent className="p-6">
+                          <div className="flex justify-between items-start mb-4">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <h3 className="text-lg font-semibold text-gray-900">{config.name}</h3>
+                                {config.isActive && (
+                                  <CheckCircle className="w-5 h-5 text-green-500" />
+                                )}
+                              </div>
+                              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                                config.provider === 'OLLAMA' 
+                                  ? 'bg-blue-100 text-blue-800' 
+                                  : 'bg-purple-100 text-purple-800'
+                              }`}>
+                                {config.provider === 'OLLAMA' ? '🏠 Local (Ollama)' : '☁️ Cloud (Groq)'}
+                              </span>
+                            </div>
+                            {config.isActive && (
+                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                                ACTIVE
+                              </span>
+                            )}
+                          </div>
+                          
+                          <div className="space-y-2 mb-4">
+                            {config.provider === 'OLLAMA' ? (
+                              <>
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-700">URL:</span>
+                                  <span className="ml-2 text-gray-600 font-mono text-xs">{config.ollamaUrl}</span>
+                                </div>
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-700">Model:</span>
+                                  <span className="ml-2 text-gray-600">{config.ollamaModel}</span>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-700">API Key:</span>
+                                  <span className="ml-2 text-gray-600">•••••••••{config.groqApiKey?.slice(-4)}</span>
+                                </div>
+                                <div className="text-sm">
+                                  <span className="font-medium text-gray-700">Model:</span>
+                                  <span className="ml-2 text-gray-600">{config.groqModel}</span>
+                                </div>
+                              </>
+                            )}
+                            <div className="text-sm">
+                              <span className="font-medium text-gray-700">Temperature:</span>
+                              <span className="ml-2 text-gray-600">{config.temperature}</span>
+                            </div>
+                            <div className="text-sm">
+                              <span className="font-medium text-gray-700">Max Tokens:</span>
+                              <span className="ml-2 text-gray-600">{config.maxTokens}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            {!config.isActive && (
+                              <Button
+                                onClick={() => handleActivateLLMConfig(config.id, config.name)}
+                                variant="outline"
+                                size="sm"
+                                className="flex-1 flex items-center justify-center gap-1 text-green-600 hover:text-green-700 hover:bg-green-50"
+                              >
+                                <Circle className="w-4 h-4" />
+                                Activate
+                              </Button>
+                            )}
+                            <Button
+                              onClick={() => openEditLLMModal(config)}
+                              variant="outline"
+                              size="sm"
+                              className="flex-1 flex items-center justify-center gap-1"
+                            >
+                              <Edit className="w-4 h-4" />
+                              Edit
+                            </Button>
+                            {!config.isActive && (
+                              <Button
+                                onClick={() => handleDeleteLLMConfig(config.id, config.name)}
+                                variant="outline"
+                                size="sm"
+                                className="flex items-center justify-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {llmConfigs.length === 0 && (
+                    <Card className="shadow-md">
+                      <CardContent className="p-12 text-center">
+                        <Settings className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No LLM Configurations</h3>
+                        <p className="text-gray-500 mb-6">
+                          Get started by creating your first LLM configuration
+                        </p>
+                        <Button 
+                          onClick={openCreateLLMModal}
+                          className="bg-[#7C9E9E] hover:bg-[#6B8D8D] text-white"
+                        >
+                          <Plus className="w-5 h-5 mr-2" />
+                          Create Configuration
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -682,6 +944,238 @@ export default function SuperAdminDashboard() {
                     className="flex-1 bg-[#7C9E9E] hover:bg-[#6B8D8D] text-white"
                   >
                     {editingCollege ? 'Update' : 'Create'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* LLM Config Modal */}
+      {showLLMModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {editingLLM ? 'Edit LLM Configuration' : 'Create New LLM Configuration'}
+                </h2>
+                <button 
+                  onClick={() => {
+                    setShowLLMModal(false);
+                    setEditingLLM(null);
+                    resetLLMForm();
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={editingLLM ? handleUpdateLLMConfig : handleCreateLLMConfig}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Configuration Name *
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={llmForm.name}
+                      onChange={(e) => setLlmForm({ ...llmForm, name: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                      placeholder="e.g., Production Ollama"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Provider *
+                    </label>
+                    <select
+                      value={llmForm.provider}
+                      onChange={(e) => setLlmForm({ ...llmForm, provider: e.target.value as 'OLLAMA' | 'GROQ' })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                    >
+                      <option value="OLLAMA">Ollama (Local)</option>
+                      <option value="GROQ">Groq (Cloud)</option>
+                    </select>
+                  </div>
+
+                  {/* Ollama Configuration */}
+                  {llmForm.provider === 'OLLAMA' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Ollama URL *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={llmForm.ollamaUrl}
+                          onChange={(e) => setLlmForm({ ...llmForm, ollamaUrl: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E] font-mono text-sm"
+                          placeholder="http://localhost:11434"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Ollama Model *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={llmForm.ollamaModel}
+                          onChange={(e) => setLlmForm({ ...llmForm, ollamaModel: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                          placeholder="gemma3:1b, llama2, mistral, etc."
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Make sure the model is pulled in Ollama (ollama pull model-name)
+                        </p>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Groq Configuration */}
+                  {llmForm.provider === 'GROQ' && (
+                    <>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Groq API Key *
+                        </label>
+                        <input
+                          type="password"
+                          required
+                          value={llmForm.groqApiKey}
+                          onChange={(e) => setLlmForm({ ...llmForm, groqApiKey: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E] font-mono text-sm"
+                          placeholder="gsk_..."
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Get your API key from{' '}
+                          <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" className="text-[#7C9E9E] hover:underline">
+                            console.groq.com
+                          </a>
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Groq Model *
+                        </label>
+                        <select
+                          value={llmForm.groqModel}
+                          onChange={(e) => setLlmForm({ ...llmForm, groqModel: e.target.value })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                          required
+                        >
+                          <option value="">Select a model...</option>
+                          <optgroup label="OpenAI GPT-OSS">
+                            <option value="openai/gpt-oss-120b">GPT-OSS 120B (Best Performance)</option>
+                            <option value="openai/gpt-oss-20b">GPT-OSS 20B (Balanced)</option>
+                            <option value="openai/gpt-oss-safeguard-20b">GPT-OSS Safeguard 20B (Safe)</option>
+                          </optgroup>
+                          <optgroup label="Llama Models">
+                            <option value="llama-3.1-8b-instant">Llama 3.1 8B Instant</option>
+                            <option value="llama-3.3-70b-versatile">Llama 3.3 70B Versatile</option>
+                          </optgroup>
+                          <optgroup label="Legacy Models">
+                            <option value="mixtral-8x7b-32768">Mixtral 8x7B (32K context)</option>
+                            <option value="llama2-70b-4096">Llama 2 70B (4K context)</option>
+                          </optgroup>
+                        </select>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Common Parameters */}
+                  <div className="border-t pt-4">
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Model Parameters</h3>
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Temperature
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="2"
+                          value={llmForm.temperature}
+                          onChange={(e) => setLlmForm({ ...llmForm, temperature: parseFloat(e.target.value) })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">0.0 - 2.0</p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Max Tokens
+                        </label>
+                        <input
+                          type="number"
+                          min="100"
+                          max="32000"
+                          value={llmForm.maxTokens}
+                          onChange={(e) => setLlmForm({ ...llmForm, maxTokens: parseInt(e.target.value) })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Top P
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0"
+                          max="1"
+                          value={llmForm.topP}
+                          onChange={(e) => setLlmForm({ ...llmForm, topP: parseFloat(e.target.value) })}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">0.0 - 1.0</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 border-t pt-4">
+                    <input
+                      type="checkbox"
+                      id="isActiveLLM"
+                      checked={llmForm.isActive}
+                      onChange={(e) => setLlmForm({ ...llmForm, isActive: e.target.checked })}
+                      className="w-4 h-4 text-[#7C9E9E] border-gray-300 rounded focus:ring-[#7C9E9E]"
+                    />
+                    <label htmlFor="isActiveLLM" className="text-sm font-medium text-gray-700">
+                      Set as active configuration
+                    </label>
+                  </div>
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowLLMModal(false);
+                      setEditingLLM(null);
+                      resetLLMForm();
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1 bg-[#7C9E9E] hover:bg-[#6B8D8D] text-white"
+                  >
+                    {editingLLM ? 'Update' : 'Create'}
                   </Button>
                 </div>
               </form>

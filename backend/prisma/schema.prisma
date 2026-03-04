@@ -34,6 +34,7 @@ model User {
   mcqSets    MCQSet[]
   quizSessions QuizSession[]
   analytics  PerformanceAnalytics[]
+  llmConfigs LLMConfig[]
   
   @@index([email])
   @@index([collegeId])
@@ -352,4 +353,39 @@ model SummaryQuestion {
   
   @@index([summaryId])
   @@map("summary_questions")
+}
+
+// LLM Configuration for AI services
+model LLMConfig {
+  id          Int        @id @default(autoincrement())
+  name        String     // Display name
+  provider    LLMProvider // OLLAMA or GROQ
+  isActive    Boolean    @default(false) // Only one can be active at a time
+  
+  // Ollama Configuration
+  ollamaUrl       String?  // e.g., http://localhost:11434
+  ollamaModel     String?  // e.g., gemma3:1b, llama2, mistral
+  
+  // Groq Configuration
+  groqApiKey      String?  // API Key for Groq
+  groqModel       String?  // e.g., mixtral-8x7b-32768, llama2-70b-4096
+  
+  // Common Parameters
+  temperature     Float   @default(0.7)
+  maxTokens       Int     @default(1000)
+  topP            Float   @default(0.9)
+  
+  // Metadata
+  createdBy   Int
+  creator     User     @relation(fields: [createdBy], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([isActive])
+  @@index([provider])
+}
+
+enum LLMProvider {
+  OLLAMA
+  GROQ
 }
