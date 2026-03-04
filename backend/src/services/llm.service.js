@@ -194,3 +194,92 @@ export async function getLLMInfo() {
     };
   }
 }
+
+/**
+ * Extract structured MCQs from document text using LLM
+ * @param {string} documentText - The text extracted from PDF/Word document
+ * @returns {Promise<Array>} - Array of parsed MCQ objects
+ */
+export async function extractMCQsFromText(documentText) {
+  try {
+    console.log(`🔍 Extracting MCQs from document (${documentText.length} characters)`);
+    
+    const prompt = `You are an expert at extracting multiple choice questions from documents.
+
+Extract ALL multiple choice questions (MCQs) from the following text and return them as a JSON array.
+
+For each question, identify:
+- The question text
+- All answer options (A, B, C, D or a, b, c, d)
+- The correct answer
+- Any explanation (if provided)
+- Difficulty level (EASY, MEDIUM, or HARD - estimate based on complexity)
+- Topic/subject (if mentioned)
+
+IMPORTANT:
+1. Return ONLY a valid JSON array, no other text
+2. Each question must have exactly 4 options
+3. correctAnswer should be just the answer text, not the letter
+4. If no difficulty is specified, estimate it based on question complexity
+5. If no topic is specified, try to infer it from context
+
+Example format:
+[
+  {
+    "question": "What is the capital of France?",
+    "options": ["London", "Paris", "Berlin", "Madrid"],
+    "correctAnswer": "Paris",
+    "explanation": "Paris is the capital and largest city of France",
+    "difficulty": "EASY",
+    "topic": "Geography"
+  }
+]
+
+Document text:
+${documentText}
+
+Extract all MCQs and return only the JSON array:`;
+
+    const response = await callLLM(prompt, 4000);
+    
+    // Try to extract JSON from response
+    let jsonMatch = response.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      // Try to find JSON between code blocks
+      jsonMatch = response.match(/```json\n?([\s\S]*?)\n?```/);
+      if (jsonMatch) {
+        jsonMatch = jsonMatch[1].match(/\[[\s\S]*\]/);
+      }
+    }
+    
+    if (!jsonMatch) {
+      console.error('❌ No valid JSON array found in LLM response');
+      console.log('Response:', response);
+      return [];
+    }
+
+    const mcqs = JSON.parse(jsonMatch[0]);
+    
+    // Validate and clean MCQs
+    const validMCQs = mcqs.filter(mcq => {
+      return mcq.question && 
+             Array.isArray(mcq.options) && 
+             mcq.options.length === 4 &&
+             mcq.correctAnswer;
+    }).map(mcq => ({
+      question: mcq.question.trim(),
+      options: mcq.options.map(opt => opt.trim()),
+      correctAnswer: mcq.correctAnswer.trim(),
+      explanation: mcq.explanation?.trim() || undefined,
+      difficulty: ['EASY', 'MEDIUM', 'HARD'].includes(mcq.difficulty) ? mcq.difficulty : 'MEDIUM',
+      topic: mcq.topic?.trim() || undefined
+    }));
+
+    console.log(`✅ Successfully extracted ${validMCQs.length} valid MCQs`);
+    return validMCQs;
+    
+  } catch (error) {
+    console.error('❌ Error extracting MCQs from text:', error);
+    throw new Error(`Failed to extract MCQs: ${error.message}`);
+  }
+}

@@ -5,7 +5,7 @@
 import express from 'express';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireRole, requireCollegeAccess } from '../middleware/role.middleware.js';
-import { uploadPDFForMCQ, handleMulterError } from '../middleware/upload.middleware.js';
+import { uploadPDFForMCQ, uploadSinglePDF, handleMulterError } from '../middleware/upload.middleware.js';
 import { ROLES } from '../constants/roles.js';
 import {
     getAllMCQs,
@@ -16,7 +16,9 @@ import {
     generateMCQsFromPDFController,
     getAdaptiveQuestions,
     getMCQSets,
-    getMCQSetById
+    getMCQSetById,
+    deleteMCQSet,
+    parseFromDocument
 } from '../controllers/mcq.controller.js';
 
 const router = express.Router();
@@ -74,6 +76,18 @@ router.post('/', requireRole(ROLES.COLLEGE_ADMIN), requireCollegeAccess, createM
 router.post('/bulk', requireRole(ROLES.COLLEGE_ADMIN), requireCollegeAccess, bulkUploadMCQs);
 
 /**
+ * @route   POST /api/mcqs/parse-document
+ * @desc    Parse MCQs from uploaded PDF/Word document using AI
+ * @access  COLLEGE_ADMIN only
+ */
+router.post('/parse-document', requireRole(ROLES.COLLEGE_ADMIN), requireCollegeAccess, (req, res, next) => {
+    // Set extended timeout for parsing (5 minutes)
+    req.setTimeout(300000);
+    res.setTimeout(300000);
+    next();
+}, uploadSinglePDF, handleMulterError, parseFromDocument);
+
+/**
  * @route   POST /api/mcqs/upload-and-generate
  * @desc    Upload PDF and generate MCQs (for students)
  * @access  STUDENT, COLLEGE_ADMIN
@@ -103,5 +117,12 @@ router.post('/generate-from-pdf', requireCollegeAccess, (req, res, next) => {
  * @access  STUDENT only
  */
 router.post('/:id/attempt', requireRole(ROLES.STUDENT), requireCollegeAccess, attemptMCQ);
+
+/**
+ * @route   DELETE /api/mcqs/sets/:id
+ * @desc    Delete MCQ set
+ * @access  COLLEGE_ADMIN only
+ */
+router.delete('/sets/:id', requireRole(ROLES.COLLEGE_ADMIN), requireCollegeAccess, deleteMCQSet);
 
 export default router;

@@ -539,6 +539,27 @@ export const mcqAPI = {
     setDescription?: string;
   }) => api.post('/mcqs/bulk', data),
   
+  // Delete MCQ set (admin only)
+  deleteSet: (id: number) => api.delete(`/mcqs/sets/${id}`),
+  
+  // Parse MCQs from PDF/Word document
+  parseFromDocument: (formData: FormData) =>
+    axios.create({
+      baseURL: 'http://localhost:5000/api',
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`,
+      },
+      timeout: 300000, // 5 minutes for document parsing
+    }).post<{ success: boolean; data: Array<{
+      question: string;
+      options: string[];
+      correctAnswer: string;
+      explanation?: string;
+      difficulty?: string;
+      topic?: string;
+    }> }>('/mcqs/parse-document', formData),
+  
   // Generate MCQs from PDF
   generateFromPDF: (data: {
     pdfUrl: string;

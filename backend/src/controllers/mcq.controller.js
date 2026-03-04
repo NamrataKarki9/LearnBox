@@ -8,6 +8,8 @@ import { HTTP_STATUS, ERROR_MESSAGES } from '../constants/errors.js';
 import { ROLES } from '../constants/roles.js';
 import { generateMCQsFromPDF, generateAdaptiveQuestions } from '../services/mcq-generation.service.js';
 import { getWeakPoints } from '../services/analytics.service.js';
+import { extractTextFromLocalPDF } from '../services/pdf.service.js';
+import { extractMCQsFromText } from '../services/llm.service.js';
 
 /**
  * Get MCQs (college-scoped)
@@ -600,3 +602,135 @@ export const getMCQSetById = async (req, res) => {
     }
 };
 
+/** * Parse MCQs from uploaded document (PDF/Word)
+ * @route POST /api/mcqs/parse-document
+ * @access COLLEGE_ADMIN
+ */
+export const parseFromDocument = async (req, res) => {
+    let uploadedFilePath = null;
+
+    try {
+        // Check if file was uploaded
+        if (!req.file) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                error: 'No file uploaded'
+            });
+        }
+
+        uploadedFilePath = req.file.path;
+        const fileExtension = req.file.originalname.split('.').pop().toLowerCase();
+
+        console.log(`📄 Processing ${fileExtension.toUpperCase()} file for MCQ extraction...`);
+
+        let documentText = '';
+
+        // Extract text based on file type
+        if (fileExtension === 'pdf') {
+            documentText = await extractTextFromLocalPDF(uploadedFilePath);
+        } else if (fileExtension === 'docx' || fileExtension === 'doc') {
+            // For Word documents, we'll need mammoth package
+            try {
+                const mammoth = await import('mammoth');
+                const result = await mammoth.extractRawText({ path: uploadedFilePath });
+                documentText = result.value;
+            } catch (error) {
+                console.error('Error extracting text from Word document:', error);
+                return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+                    error: 'Failed to extract text from Word document. Please ensure the file is not corrupted.'
+                });
+            }
+        } else {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                error: 'Unsupported file format. Please upload PDF or Word documents only.'
+            });
+        }
+
+        if (!documentText || documentText.trim().length < 50) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                error: 'Document appears to be empty or contains insufficient text to extract MCQs.'
+            });
+        }
+
+        console.log(`📝 Extracted ${documentText.length} characters from document`);
+
+        // Use LLM to extract structured MCQs from the text
+        const mcqs = await extractMCQsFromText(documentText);
+
+        if (!mcqs || mcqs.length === 0) {
+            return res.status(HTTP_STATUS.OK).json({
+                success: true,
+                message: 'No MCQs found in document. Please ensure questions are clearly formatted.',
+                data: []
+            });
+        }
+
+        // Clean up uploaded file
+        if (fs.existsSync(uploadedFilePath)) {
+            fs.unlinkSync(uploadedFilePath);
+        }
+
+        res.status(HTTP_STATUS.OK).json({
+            success: true,
+            message: `Successfully extracted ${mcqs.length} MCQs from document`,
+            data: mcqs
+        });
+
+    } catch (error) {
+        console.error('Parse document error:', error);
+
+        // Clean up uploaded file on error
+        if (uploadedFilePath && fs.existsSync(uploadedFilePath)) {
+            try {
+                fs.unlinkSync(uploadedFilePath);
+            } catch (cleanupError) {
+                console.error('Error cleaning up file:', cleanupError);
+            }
+        }
+
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+            error: error.message || 'Failed to parse MCQs from document'
+        });
+    }
+};
+
+/** * Delete MCQ set (COLLEGE_ADMIN only)
+ * @route DELETE /api/mcqs/sets/:id
+ * @access COLLEGE_ADMIN
+ */
+export const deleteMCQSet = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const set = await prisma.mCQSet.findUnique({
+            where: { id: parseInt(id) }
+        });
+
+        if (!set) {
+            return res.status(HTTP_STATUS.NOT_FOUND).json({
+                error: 'MCQ set not found'
+            });
+        }
+
+        // Verify college access
+        if (set.collegeId !== req.user.collegeId) {
+            return res.status(HTTP_STATUS.FORBIDDEN).json({
+                error: ERROR_MESSAGES.COLLEGE_ACCESS_DENIED
+            });
+        }
+
+        // Delete the set (SetMCQ entries will be cascade deleted)
+        await prisma.mCQSet.delete({
+            where: { id: parseInt(id) }
+        });
+
+        res.status(HTTP_STATUS.OK).json({
+            success: true,
+            message: 'MCQ set deleted successfully'
+        });
+    } catch (error) {
+        console.error('Delete MCQ set error:', error);
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+            error: ERROR_MESSAGES.DATABASE_ERROR
+        });
+    }
+};
