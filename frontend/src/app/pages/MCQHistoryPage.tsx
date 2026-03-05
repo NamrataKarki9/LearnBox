@@ -228,7 +228,7 @@ export default function MCQHistoryPage() {
                 <p className="text-sm mb-4">Start practicing to see your history here!</p>
                 <button
                   onClick={() => navigate('/student/mcq-practice')}
-                  className="bg-[#A8C5B5] text-white px-6 py-2 rounded-lg hover:bg-[#8fb3a3] transition-colors"
+                  className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors"
                 >
                   Start Practicing
                 </button>
@@ -244,7 +244,7 @@ export default function MCQHistoryPage() {
                             {session.set?.title || 'Custom Practice'}
                           </h3>
                           {session.module && (
-                            <span className="text-sm bg-[#A8C5B5] bg-opacity-20 text-[#6b9485] px-2 py-1 rounded font-medium">
+                            <span className="text-sm bg-primary/20 text-primary px-2 py-1 rounded font-medium">
                               {session.module.code}
                             </span>
                           )}
@@ -301,7 +301,7 @@ export default function MCQHistoryPage() {
           <div className="mt-6 flex gap-3 justify-center">
             <button
               onClick={() => navigate('/student/mcq-practice')}
-              className="bg-[#A8C5B5] text-white px-6 py-3 rounded-lg hover:bg-[#8fb3a3] shadow-sm transition-colors font-medium"
+              className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary/90 shadow-sm transition-colors font-medium"
             >
               Practice More MCQs
             </button>
@@ -442,8 +442,8 @@ export default function MCQHistoryPage() {
                         </div>
 
                         {question.explanation && (
-                          <div className="bg-[#A8C5B5] bg-opacity-10 border border-[#A8C5B5] border-opacity-30 rounded-lg p-4">
-                            <p className="text-xs font-semibold text-[#6b9485] mb-1.5">💡 Explanation:</p>
+                          <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
+                            <p className="text-xs font-semibold text-primary mb-1.5">💡 Explanation:</p>
                             <p className="text-sm text-gray-700 leading-relaxed">{question.explanation}</p>
                           </div>
                         )}
@@ -457,7 +457,7 @@ export default function MCQHistoryPage() {
               <div className="p-4 border-t border-gray-200 bg-gray-50">
                 <Button
                   onClick={() => setSelectedQuiz(null)}
-                  className="w-full bg-[#A8C5B5] hover:bg-[#8fb3a3] text-white"
+                  className="w-full bg-primary hover:bg-primary/90 text-white"
                 >
                   Close
                 </Button>

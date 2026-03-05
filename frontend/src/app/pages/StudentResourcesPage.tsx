@@ -147,7 +147,10 @@ export default function StudentResourcesPage() {
           <button className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1">
             Useful Learning Sites
           </button>
-          <button className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1">
+          <button 
+            onClick={() => navigate('/student/settings')}
+            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
+          >
             Settings
           </button>
           <button 
@@ -161,7 +164,7 @@ export default function StudentResourcesPage() {
         {/* User Info */}
         <div className="p-4 border-t border-gray-200">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-[#A8C5B5] flex items-center justify-center text-white font-medium">
+            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-medium">
               {user?.first_name?.[0] || user?.username?.[0] || 'S'}
             </div>
             <div>
@@ -184,21 +187,21 @@ export default function StudentResourcesPage() {
           </div>
 
           {/* Current Selection Display */}
-          <Card className="mb-6 bg-gradient-to-r from-[#A8C5B5]/10 to-[#D5E3DF]/10 border-[#A8C5B5]/30">
+          <Card className="mb-6 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/30">
             <CardContent className="p-6">
               <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-3 flex-wrap">
-                  <Book className="h-5 w-5 text-[#6B9080]" />
+                  <Book className="h-5 w-5 text-primary" />
                   <span className="text-sm font-medium text-gray-700">Viewing resources for:</span>
                   <div className="flex gap-2 flex-wrap">
-                    <Badge variant="secondary" className="bg-[#A8C5B5] text-white hover:bg-[#96B5A5] px-3 py-1">
+                    <Badge variant="secondary" className="bg-primary text-white hover:bg-primary/90 px-3 py-1">
                       {getFilterDisplayNames().faculty}
                     </Badge>
-                    <Badge variant="secondary" className="bg-[#A8C5B5] text-white hover:bg-[#96B5A5] px-3 py-1">
+                    <Badge variant="secondary" className="bg-primary text-white hover:bg-primary/90 px-3 py-1">
                       {getFilterDisplayNames().year}
                     </Badge>
                     {filters.moduleId !== 'all' && (
-                      <Badge variant="secondary" className="bg-[#A8C5B5] text-white hover:bg-[#96B5A5] px-3 py-1">
+                      <Badge variant="secondary" className="bg-primary text-white hover:bg-primary/90 px-3 py-1">
                         {getFilterDisplayNames().module}
                       </Badge>
                     )}
@@ -208,7 +211,7 @@ export default function StudentResourcesPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => navigate('/student-dashboard')}
-                  className="border-[#A8C5B5] text-[#6B9080] hover:bg-[#A8C5B5]/10"
+                  className="border-primary text-primary hover:bg-primary/10"
                 >
                   Change Selection
                 </Button>
@@ -287,7 +290,7 @@ export default function StudentResourcesPage() {
                               size="sm"
                               variant="outline"
                               onClick={() => handleView(resource)}
-                              className="border-[#A8C5B5] text-[#6B9080] hover:bg-[#A8C5B5]/10"
+                              className="border-primary text-primary hover:bg-primary/10"
                             >
                               <Eye className="h-4 w-4 mr-1" />
                               View
@@ -295,7 +298,7 @@ export default function StudentResourcesPage() {
                             <Button
                               size="sm"
                               onClick={() => handleDownload(resource.id)}
-                              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white"
+                              className="bg-primary hover:bg-primary/90 text-white"
                             >
                               <Download className="h-4 w-4 mr-1" />
                               Download

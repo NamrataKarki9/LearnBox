@@ -271,7 +271,7 @@ export default function AdminModulesPage() {
         
         <Button
           onClick={() => setCreateDialogOpen(true)}
-          className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white"
+          className="bg-primary hover:bg-primary/90 text-white"
         >
           <Plus className="h-4 w-4 mr-2" />
           Create Module
@@ -287,7 +287,7 @@ export default function AdminModulesPage() {
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-gray-600 mb-4">No modules found</p>
-            <Button onClick={() => setCreateDialogOpen(true)} className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white">
+            <Button onClick={() => setCreateDialogOpen(true)} className="bg-primary hover:bg-primary/90 text-white">
               <Plus className="h-4 w-4 mr-2" />
               Create Your First Module
             </Button>
@@ -483,7 +483,7 @@ export default function AdminModulesPage() {
               </Button>
               <Button
                 onClick={handleCreateModule}
-                className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white"
+                className="bg-primary hover:bg-primary/90 text-white"
               >
                 Create Module
               </Button>
@@ -581,7 +581,7 @@ export default function AdminModulesPage() {
               </Button>
               <Button
                 onClick={handleUpdateModule}
-                className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white"
+                className="bg-primary hover:bg-primary/90 text-white"
               >
                 Update Module
               </Button>

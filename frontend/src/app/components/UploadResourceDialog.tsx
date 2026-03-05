@@ -366,7 +366,7 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
             </Button>
             <Button
               type="submit"
-              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white"
+              className="bg-primary hover:bg-primary/90 text-white"
               disabled={loading}
             >
               {loading ? 'Uploading...' : 'Upload Resource'}

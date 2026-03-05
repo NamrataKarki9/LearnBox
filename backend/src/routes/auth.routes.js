@@ -8,7 +8,9 @@ import {
     verifyRegistrationOTP,
     forgotPassword,
     resetPassword,
-    resendOTP
+    resendOTP,
+    updateProfile,
+    changePassword
 } from '../controllers/auth.controller.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireRole, preventSuperAdminCreation } from '../middleware/role.middleware.js';
@@ -27,6 +29,8 @@ router.post('/resend-otp', resendOTP); // NEW: Resend OTP
 
 // Protected routes
 router.get('/me', authMiddleware, getMe);
+router.put('/profile', authMiddleware, updateProfile); // NEW: Update user profile
+router.put('/change-password', authMiddleware, changePassword); // NEW: Change password
 
 // Admin routes - SUPER_ADMIN only
 router.post('/admin/create-college-admin', authMiddleware, requireRole(ROLES.SUPER_ADMIN), createCollegeAdmin);

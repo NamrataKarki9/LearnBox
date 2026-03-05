@@ -16,7 +16,9 @@ import MCQPracticeSelectionPage from "./pages/MCQPracticeSelectionPage";
 import MCQPracticePage from "./pages/MCQPracticePage";
 import MCQHistoryPage from "./pages/MCQHistoryPage";
 import AdminDashboard from "./pages/AdminDashboard";
+import AdminSettingsPage from "./pages/AdminSettingsPage";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
+import SuperAdminSettingsPage from "./pages/SuperAdminSettingsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "../context/AuthContext";
 import { FilterProvider } from "../context/FilterContext";
@@ -132,6 +134,16 @@ export default function App() {
             }
           />
 
+          {/* Admin Settings - Standalone (no sidebar) */}
+          <Route
+            path="/admin/settings"
+            element={
+              <ProtectedRoute>
+                <AdminSettingsPage />
+              </ProtectedRoute>
+            }
+          />
+
           {/* Admin Routes - Nested routing */}
           <Route
             path="/admin/*"
@@ -148,6 +160,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <SuperAdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin/settings"
+            element={
+              <ProtectedRoute>
+                <SuperAdminSettingsPage />
               </ProtectedRoute>
             }
           />

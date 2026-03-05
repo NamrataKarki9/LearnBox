@@ -319,7 +319,7 @@ export default function AdminResourcesPage() {
             <div>
               <Button
                 onClick={() => setUploadDialogOpen(true)}
-                className="w-full bg-[#A8C5B5] hover:bg-[#96B5A5] text-white"
+                className="w-full bg-primary hover:bg-primary/90 text-white"
               >
                 <Upload className="h-4 w-4 mr-2" />
                 Upload
@@ -413,14 +413,14 @@ export default function AdminResourcesPage() {
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleView(resource)}
-                            className="inline-flex items-center px-2 py-1 text-xs border border-[#A8C5B5] text-[#6B9080] hover:bg-[#A8C5B5]/10 rounded transition-colors"
+                            className="inline-flex items-center px-2 py-1 text-xs border border-primary text-primary hover:bg-primary/10 rounded transition-colors"
                           >
                             <Eye className="h-3 w-3 mr-1" />
                             View
                           </button>
                           <button
                             onClick={() => handleDownload(resource.id)}
-                            className="inline-flex items-center px-2 py-1 text-xs bg-[#A8C5B5] hover:bg-[#96B5A5] text-white rounded transition-colors"
+                            className="inline-flex items-center px-2 py-1 text-xs bg-primary hover:bg-primary/90 text-white rounded transition-colors"
                           >
                             <Download className="h-3 w-3 mr-1" />
                             Download

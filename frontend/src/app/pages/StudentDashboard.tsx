@@ -357,7 +357,7 @@ export default function StudentDashboard() {
             <Button
               onClick={handleSearch}
               disabled={isSearching || !searchQuery.trim()}
-              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white px-6"
+              className="bg-primary hover:bg-primary/90 text-white px-6"
             >
               {isSearching ? 'Searching...' : 'Search'}
             </Button>
@@ -411,7 +411,7 @@ export default function StudentDashboard() {
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                               <h3 className="text-lg font-bold text-gray-900">{resource.title}</h3>
-                              <span className="px-2 py-1 bg-[#A8C5B5]/20 text-[#2C5F2D] text-xs font-medium rounded">
+                              <span className="px-2 py-1 bg-primary/20 text-primary text-xs font-medium rounded">
                                 {Math.round(resource.relevanceScore * 100)}% match
                               </span>
                             </div>
@@ -453,14 +453,14 @@ export default function StudentDashboard() {
                             <Button
                               variant="outline"
                               onClick={() => handleView(resource)}
-                              className="border-[#A8C5B5] text-[#6B9080] hover:bg-[#A8C5B5]/10"
+                              className="border-primary text-primary hover:bg-primary/10"
                             >
                               <Eye className="h-4 w-4 mr-1" />
                               View
                             </Button>
                             <Button
                               onClick={() => handleDownload(resource.id)}
-                              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white"
+                              className="bg-primary hover:bg-primary/90 text-white"
                             >
                               <Download className="h-4 w-4 mr-1" />
                               Download
@@ -552,25 +552,25 @@ export default function StudentDashboard() {
           <div className="mb-8">
             <h2 className="text-xl font-bold text-gray-900 mb-4">Your Performance at a Glance</h2>
             <div className="grid grid-cols-4 gap-4">
-              <Card className="bg-[#A8C5B5]/20 border-0">
+              <Card className="bg-primary/20 border-0">
                 <CardContent className="p-6 text-center">
                   <p className="text-3xl font-bold text-gray-900 mb-2">{metrics.totalModules}</p>
                   <p className="text-gray-700 font-medium">Total Modules</p>
                 </CardContent>
               </Card>
-              <Card className="bg-[#A8C5B5]/20 border-0">
+              <Card className="bg-primary/20 border-0">
                 <CardContent className="p-6 text-center">
                   <p className="text-3xl font-bold text-gray-900 mb-2">{metrics.inProgress}</p>
                   <p className="text-gray-700 font-medium">In Progress</p>
                 </CardContent>
               </Card>
-              <Card className="bg-[#A8C5B5]/20 border-0">
+              <Card className="bg-primary/20 border-0">
                 <CardContent className="p-6 text-center">
                   <p className="text-3xl font-bold text-gray-900 mb-2">{metrics.completedModules}</p>
                   <p className="text-gray-700 font-medium">Completed Modules</p>
                 </CardContent>
               </Card>
-              <Card className="bg-[#A8C5B5]/20 border-0">
+              <Card className="bg-primary/20 border-0">
                 <CardContent className="p-6 text-center">
                   <p className="text-3xl font-bold text-gray-900 mb-2">{metrics.averageScore}%</p>
                   <p className="text-gray-700 font-medium">Average Score</p>
@@ -616,7 +616,7 @@ export default function StudentDashboard() {
                           <div className="flex justify-between items-center mt-4">
                             <span className="text-sm font-semibold text-gray-900">0% complete</span>
                             <Button 
-                              className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white text-sm px-4 py-2 rounded-lg"
+                              className="bg-primary hover:bg-primary/90 text-white text-sm px-4 py-2 rounded-lg"
                               onClick={() => {
                                 // Set the specific module filter in context
                                 filters.setFilters({
@@ -652,7 +652,7 @@ export default function StudentDashboard() {
                     {recentActivity.map((activity, idx) => (
                       <div key={idx} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
                         <span className="text-sm text-gray-700">{activity.title}</span>
-                        <Button className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white text-xs px-3 py-1 rounded">
+                        <Button className="bg-primary hover:bg-primary/90 text-white text-xs px-3 py-1 rounded">
                           {activity.action}
                         </Button>
                       </div>

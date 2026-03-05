@@ -23,6 +23,9 @@ interface User {
   role: UserRole;
   first_name?: string;
   last_name?: string;
+  phone?: string;
+  bio?: string;
+  avatar?: string;
   collegeId?: number;
   college?: College;
 }
@@ -34,6 +37,7 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
   login: (data: LoginData) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
+  updateUser: (userData: Partial<User>) => void;
   hasRole: (role: UserRole | UserRole[]) => boolean;
   isSuperAdmin: () => boolean;
   isCollegeAdmin: () => boolean;
@@ -130,6 +134,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthenticated(false);
   };
 
+  const updateUser = (userData: Partial<User>) => {
+    const updatedUser = { ...user, ...userData } as User;
+    sessionStorage.setItem('user', JSON.stringify(updatedUser));
+    setUser(updatedUser);
+  };
+
   // Role checking utilities
   const hasRole = (role: UserRole | UserRole[]): boolean => {
     if (!user) return false;
@@ -150,6 +160,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     register,
     login,
     logout,
+    updateUser,
     hasRole,
     isSuperAdmin,
     isCollegeAdmin,

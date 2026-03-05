@@ -123,7 +123,7 @@ export default function AdminOverview() {
       {/* Quick Actions */}
       <div className="flex gap-3 mb-6">
         <Button 
-          className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white"
+          className="bg-primary hover:bg-primary/90 text-white"
           onClick={() => setUploadDialogOpen(true)}
         >
           <Upload className="h-4 w-4 mr-2" />
@@ -250,11 +250,11 @@ export default function AdminOverview() {
                         <h4 className="text-sm font-medium text-gray-900">{faculty.name}</h4>
                         <p className="text-xs text-gray-500">{faculty.code}</p>
                       </div>
-                      <span className="text-lg font-bold text-[#A8C5B5]">{faculty.count}</span>
+                      <span className="text-lg font-bold text-primary">{faculty.count}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-2">
                       <div
-                        className="bg-[#A8C5B5] h-2 rounded-full transition-all"
+                        className="bg-primary h-2 rounded-full transition-all"
                         style={{ width: `${(faculty.count / resources.length) * 100}%` }}
                       />
                     </div>

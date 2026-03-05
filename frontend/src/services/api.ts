@@ -89,12 +89,16 @@ interface User {
   role: string;
   first_name?: string;
   last_name?: string;
+  phone?: string;
+  bio?: string;
+  avatar?: string;
   collegeId?: number;
   college?: {
     id: number;
     name: string;
     code: string;
   };
+  createdAt?: string;
 }
 
 interface AuthResponse {
@@ -107,12 +111,38 @@ interface RefreshTokenResponse {
   tokens: AuthTokens;
 }
 
+interface UpdateProfileData {
+  username?: string;
+  email?: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  bio?: string;
+  avatar?: string;
+}
+
+interface UpdateProfileResponse {
+  message: string;
+  user: User;
+}
+
+interface ChangePasswordData {
+  currentPassword: string;
+  newPassword: string;
+}
+
+interface ChangePasswordResponse {
+  message: string;
+}
+
 // Auth API endpoints
 export const authAPI = {
   register: (data: RegisterData) => api.post<AuthResponse>('/auth/register', data),
   login: (data: LoginData) => api.post<AuthResponse>('/auth/login', data),
   refreshToken: (refreshToken: string) => api.post<RefreshTokenResponse>('/auth/token/refresh', { refresh: refreshToken }),
   getMe: () => api.get<{ user: User }>('/auth/me'),
+  updateProfile: (data: UpdateProfileData) => api.put<UpdateProfileResponse>('/auth/profile', data),
+  changePassword: (data: ChangePasswordData) => api.put<ChangePasswordResponse>('/auth/change-password', data),
 };
 
 // Resource types

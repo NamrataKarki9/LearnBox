@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { mcqAPI, quizAPI, MCQ, QuizAnswerDetail, QuizResult, Recommendation, FocusSection } from '../../services/api';
+import { mcqAPI, quizAPI, resourceAPI, MCQ, QuizAnswerDetail, QuizResult, Recommendation, FocusSection, Resource } from '../../services/api';
 
 interface QuizState {
   sessionId: number | null;
@@ -37,10 +37,34 @@ export default function MCQPracticePage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [relatedResources, setRelatedResources] = useState<Record<number, Resource[]>>({});
 
   useEffect(() => {
     startQuiz();
   }, []);
+
+  // Fetch study resources whenever quiz answers are set (after submission)
+  useEffect(() => {
+    if (quiz.answerDetails.length === 0) return;
+    const incorrectIds = quiz.answerDetails.filter(a => !a.isCorrect).map(a => a.mcqId);
+    const weakModuleIds = [...new Set(
+      quiz.questions
+        .filter(q => incorrectIds.includes(q.id) && q.moduleId)
+        .map(q => q.moduleId as number)
+    )];
+    if (weakModuleIds.length === 0) return;
+    const fetchResources = async () => {
+      const results: Record<number, Resource[]> = {};
+      await Promise.all(weakModuleIds.map(async (moduleId) => {
+        try {
+          const res = await resourceAPI.getAll({ moduleId });
+          if (res.data.data.length > 0) results[moduleId] = res.data.data;
+        } catch { /* ignore */ }
+      }));
+      setRelatedResources(results);
+    };
+    fetchResources();
+  }, [quiz.answerDetails]);
 
   const startQuiz = async () => {
     try {
@@ -606,549 +630,255 @@ export default function MCQPracticePage() {
 
   // Results view
   if (quiz.results) {
-    const scoreColor = 
-      quiz.results.score >= 80 ? 'text-green-600' :
-      quiz.results.score >= 60 ? 'text-yellow-600' : 'text-red-600';
+    const score = quiz.results.score;
+    const scoreColor =
+      score >= 80 ? 'text-green-600' :
+      score >= 60 ? 'text-yellow-600' : 'text-red-600';
+    const scoreBg =
+      score >= 80 ? 'bg-green-50 border-green-100' :
+      score >= 60 ? 'bg-yellow-50 border-yellow-100' : 'bg-red-50 border-red-100';
+    const scoreMessage =
+      score >= 90 ? "Outstanding! You've mastered this material." :
+      score >= 80 ? 'Great work! Strong understanding overall.' :
+      score >= 70 ? 'Good effort! Review the topics below to improve.' :
+      score >= 60 ? 'Keep going! More practice will help.' :
+      "Don't give up — review the materials below and try again.";
+
+    // Build topic → module map to identify weak areas
+    type TopicInfo = { topic: string; moduleId?: number; moduleName?: string; moduleCode?: string; correct: number; total: number };
+    const topicModuleMap: Record<string, TopicInfo> = {};
+    quiz.answerDetails.forEach(a => {
+      const topic = a.topic || 'General';
+      const question = quiz.questions.find(q => q.id === a.mcqId);
+      if (!topicModuleMap[topic]) {
+        topicModuleMap[topic] = {
+          topic,
+          moduleId: question?.moduleId,
+          moduleName: question?.module?.name,
+          moduleCode: question?.module?.code,
+          correct: 0, total: 0
+        };
+      }
+      topicModuleMap[topic].total++;
+      if (a.isCorrect) topicModuleMap[topic].correct++;
+    });
+    const weakTopics = Object.values(topicModuleMap).filter(t => t.correct / t.total < 0.6);
+
+    // Group weak topics by module
+    type ModuleGroup = { moduleName?: string; moduleCode?: string; moduleId?: number; topics: string[] };
+    const moduleGroups: Record<string, ModuleGroup> = {};
+    weakTopics.forEach(t => {
+      const key = t.moduleId?.toString() ?? 'general';
+      if (!moduleGroups[key]) {
+        moduleGroups[key] = { moduleName: t.moduleName, moduleCode: t.moduleCode, moduleId: t.moduleId, topics: [] };
+      }
+      moduleGroups[key].topics.push(t.topic);
+    });
 
     return (
-      <div className="max-w-4xl mx-auto p-6">
-        {/* Results Header */}
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
-          <h1 className="text-3xl font-bold text-center mb-6">Quiz Results</h1>
-          
-          <div className="flex justify-center items-center mb-8">
-            <div className="text-center">
-              <div className={`text-6xl font-bold ${scoreColor} mb-2`}>
-                {quiz.results.score}%
-              </div>
-              <div className="text-gray-600">Your Score</div>
-            </div>
-          </div>
+      <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-4">
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">{quiz.results.totalQuestions}</div>
-              <div className="text-sm text-gray-600">Total Questions</div>
+        {/* ── Score Card ── */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          {/* Score band */}
+          <div className={`border-b ${scoreBg} px-6 pt-7 pb-5 text-center`}>
+            <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Quiz Complete</p>
+            <div className={`text-7xl font-bold ${scoreColor} leading-none mb-2`}>
+              {score}%
             </div>
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-green-600">{quiz.results.correctAnswers}</div>
-              <div className="text-sm text-gray-600">Correct</div>
-            </div>
-            <div className="bg-red-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-red-600">{quiz.results.incorrectAnswers}</div>
-              <div className="text-sm text-gray-600">Incorrect</div>
-            </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
-              <div className="text-2xl font-bold text-purple-600">
-                {quiz.results.timeSpent ? `${Math.floor(quiz.results.timeSpent / 60)}:${(quiz.results.timeSpent % 60).toString().padStart(2, '0')}` : 'N/A'}
-              </div>
-              <div className="text-sm text-gray-600">Time Taken</div>
-            </div>
+            <p className="text-sm text-gray-600">{scoreMessage}</p>
           </div>
-
-          <div className="mt-6 flex gap-3 justify-center">
-            <button
-              onClick={() => navigate('/student/dashboard')}
-              className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
-            >
-              Back to Dashboard
-            </button>
-            <button
-              onClick={() => window.location.reload()}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-            >
-              Practice Again
-            </button>
-            <button
-              onClick={() => navigate('/student/mcq-practice')}
-              className="bg-[#A8C5B5] text-white px-6 py-2 rounded-lg hover:bg-[#96B5A5]"
-            >
-              Browse More MCQs
-            </button>
+          {/* Stats + actions */}
+          <div className="px-6 py-5">
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              <div className="text-center py-3 bg-gray-50 rounded-xl">
+                <div className="text-2xl font-bold text-gray-800">{quiz.results.totalQuestions}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Questions</div>
+              </div>
+              <div className="text-center py-3 bg-green-50 rounded-xl">
+                <div className="text-2xl font-bold text-green-600">{quiz.results.correctAnswers}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Correct</div>
+              </div>
+              <div className="text-center py-3 bg-red-50 rounded-xl">
+                <div className="text-2xl font-bold text-red-500">{quiz.results.incorrectAnswers}</div>
+                <div className="text-xs text-gray-500 mt-0.5">Incorrect</div>
+              </div>
+            </div>
+            <div className="flex gap-2 justify-center flex-wrap">
+              <button
+                onClick={() => navigate('/student/dashboard')}
+                className="px-5 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-5 py-2 text-sm rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
+              >
+                Try Again
+              </button>
+              <button
+                onClick={() => navigate('/student/mcq-practice')}
+                className="px-5 py-2 text-sm rounded-lg border border-primary text-primary hover:bg-primary/5 transition-colors"
+              >
+                More MCQs
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Topic Performance Breakdown */}
-        {quiz.answerDetails.length > 0 && (() => {
-          // Calculate topic breakdown
-          const topicBreakdown: Record<string, { correct: number; total: number; questions: number[] }> = {};
-          quiz.answerDetails.forEach(answer => {
-            const topic = answer.topic || 'General';
-            if (!topicBreakdown[topic]) {
-              topicBreakdown[topic] = { correct: 0, total: 0, questions: [] };
-            }
-            topicBreakdown[topic].total++;
-            topicBreakdown[topic].questions.push(answer.questionNumber);
-            if (answer.isCorrect) {
-              topicBreakdown[topic].correct++;
-            }
-          });
+        {/* ── What to Study ── */}
+        {quiz.answerDetails.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-0.5">📖 What to Study</h2>
+            <p className="text-xs text-gray-500 mb-4">
+              Review these study materials for the topics you missed
+            </p>
 
-          const topicStats = Object.entries(topicBreakdown)
-            .map(([topic, data]) => ({
-              topic,
-              correct: data.correct,
-              total: data.total,
-              accuracy: Math.round((data.correct / data.total) * 100),
-              questions: data.questions
-            }))
-            .sort((a, b) => a.accuracy - b.accuracy); // Sort by accuracy (weakest first)
-
-          return topicStats.length > 1 ? (
-            <div className="bg-gradient-to-br from-white to-gray-50 rounded-lg shadow-lg p-6 mb-6 border border-gray-200">
-              <div className="flex items-center mb-4">
-                <span className="text-2xl mr-2">📊</span>
-                <div>
-                  <h2 className="text-xl font-bold text-gray-900">Topic Performance Analysis</h2>
-                  <p className="text-sm text-gray-600">See where you excel and where to focus your study time</p>
-                </div>
+            {weakTopics.length === 0 ? (
+              <div className="flex items-center gap-2 py-2">
+                <span className="text-green-500">✅</span>
+                <span className="text-sm text-green-700 font-medium">
+                  You performed well on all topics — keep it up!
+                </span>
               </div>
-
+            ) : (
               <div className="space-y-3">
-                {topicStats.map((stat, idx) => {
-                  const isWeak = stat.accuracy < 60;
-                  const isModerate = stat.accuracy >= 60 && stat.accuracy < 80;
-                  const isStrong = stat.accuracy >= 80;
-
+                {Object.entries(moduleGroups).map(([key, group]) => {
+                  const resources = group.moduleId ? (relatedResources[group.moduleId] || []) : [];
                   return (
-                    <div
-                      key={idx}
-                      className={`p-4 rounded-lg border-l-4 ${
-                        isWeak ? 'bg-red-50 border-red-500' :
-                        isModerate ? 'bg-yellow-50 border-yellow-500' :
-                        'bg-green-50 border-green-500'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-900">{stat.topic}</span>
-                            <span className={`text-xs px-2 py-1 rounded font-medium ${
-                              isWeak ? 'bg-red-100 text-red-800' :
-                              isModerate ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-green-100 text-green-800'
-                            }`}>
-                              {isWeak ? '⚠️ Needs Focus' : isModerate ? '📚 Review' : '✅ Strong'}
-                            </span>
-                          </div>
-                          <div className="text-sm text-gray-600 mt-1">
-                            {stat.correct} of {stat.total} correct • Questions: {stat.questions.join(', ')}
-                          </div>
-                        </div>
-                        <div className="text-right ml-4">
-                          <div className={`text-3xl font-bold ${
-                            isWeak ? 'text-red-600' :
-                            isModerate ? 'text-yellow-600' :
-                            'text-green-600'
-                          }`}>
-                            {stat.accuracy}%
-                          </div>
-                        </div>
+                    <div key={key} className="border border-gray-200 rounded-xl p-4">
+                      {/* Topic badges */}
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {group.topics.map((t, i) => (
+                          <span
+                            key={i}
+                            className="text-xs bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded-full font-medium"
+                          >
+                            ⚠️ {t}
+                          </span>
+                        ))}
                       </div>
-
-                      {/* Progress Bar */}
-                      <div className="w-full bg-gray-200 rounded-full h-2.5">
-                        <div
-                          className={`h-2.5 rounded-full transition-all ${
-                            isWeak ? 'bg-red-500' :
-                            isModerate ? 'bg-yellow-500' :
-                            'bg-green-500'
-                          }`}
-                          style={{ width: `${stat.accuracy}%` }}
-                        ></div>
-                      </div>
-
-                      {/* Recommendation for weak topics */}
-                      {isWeak && (
-                        <div className="mt-2 text-sm text-red-800 bg-red-100 p-2 rounded">
-                          💡 <strong>Focus Area:</strong> Review this topic thoroughly and practice more questions
+                      {/* Module label */}
+                      {group.moduleName && (
+                        <p className="text-xs text-gray-500 mb-3">
+                          Module:{' '}
+                          <span className="font-medium text-gray-700">{group.moduleName}</span>
+                          {group.moduleCode && (
+                            <span className="text-gray-400"> · {group.moduleCode}</span>
+                          )}
+                        </p>
+                      )}
+                      {/* Resource links */}
+                      {resources.length > 0 ? (
+                        <div className="space-y-1.5">
+                          <p className="text-xs font-medium text-gray-500 mb-1">Study materials:</p>
+                          {resources.map(r => (
+                            <a
+                              key={r.id}
+                              href={`http://localhost:5000/api/resources/${r.id}/download`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100 transition-colors"
+                            >
+                              <span className="text-blue-400 text-sm shrink-0">📄</span>
+                              <span className="text-sm text-blue-700 font-medium flex-1 truncate">{r.title}</span>
+                              <span className="text-xs text-blue-400 shrink-0">Open →</span>
+                            </a>
+                          ))}
                         </div>
+                      ) : (
+                        <p className="text-xs text-gray-400 italic">
+                          {group.moduleId
+                            ? 'No documents uploaded for this module yet.'
+                            : 'Ask your instructor for study materials on this topic.'}
+                        </p>
                       )}
                     </div>
                   );
                 })}
-              </div>
-
-              {/* Summary insight */}
-              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-900">
-                  <strong>📌 Quick Insight:</strong>{' '}
-                  {topicStats.filter(t => t.accuracy < 60).length > 0
-                    ? `Focus on: ${topicStats.filter(t => t.accuracy < 60).map(t => t.topic).join(', ')}`
-                    : topicStats.filter(t => t.accuracy < 80).length > 0
-                    ? `Almost there! Review: ${topicStats.filter(t => t.accuracy >= 60 && t.accuracy < 80).map(t => t.topic).join(', ')}`
-                    : 'Excellent! You\'re performing well across all topics. Try harder difficulty levels!'}
-                </p>
-              </div>
-            </div>
-          ) : null;
-        })()}
-
-        {/* Recommendations Section */}
-        {quiz.recommendations && quiz.recommendations.recommendations.length > 0 && (
-          <div className="bg-gradient-to-br from-[#A8C5B5]/10 to-blue-50 border-2 border-[#A8C5B5]/30 rounded-xl shadow-lg p-6 mb-6">
-            <div className="flex items-center mb-4">
-              <span className="text-3xl mr-3">💡</span>
-              <div className="flex-1">
-                <h2 className="text-2xl font-bold text-gray-900">Personalized Study Plan</h2>
-                <p className="text-sm text-gray-700">
-                  {quiz.recommendations.message || 'Based on your performance, here are specific sections to focus on'}
-                </p>
-              </div>
-              {quiz.recommendations.status && (
-                <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                  quiz.recommendations.status === 'STRONG' ? 'bg-green-100 text-green-800' :
-                  quiz.recommendations.status === 'NEEDS_ATTENTION' ? 'bg-red-100 text-red-800' :
-                  'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {quiz.recommendations.status.replace('_', ' ')}
-                </span>
-              )}
-            </div>
-
-            {/* Focus Sections - Priority Areas */}
-            {quiz.recommendations.focusSections && quiz.recommendations.focusSections.length > 0 && (
-              <div className="mb-6 p-5 bg-white rounded-lg border-2 border-[#A8C5B5]/40 shadow-sm">
-                <h3 className="font-bold text-lg text-gray-900 mb-3 flex items-center">
-                  🎯 Priority Focus Areas
-                  <span className="ml-2 text-xs font-normal text-gray-600">
-                    ({quiz.recommendations.focusSections.length} {quiz.recommendations.focusSections.length === 1 ? 'topic' : 'topics'})
-                  </span>
-                </h3>
-                <div className="grid gap-3">
-                  {quiz.recommendations.focusSections.map((section, idx) => {
-                    const priorityColors = {
-                      CRITICAL: 'bg-red-50 border-red-400 text-red-900',
-                      HIGH: 'bg-orange-50 border-orange-400 text-orange-900',
-                      MEDIUM: 'bg-yellow-50 border-yellow-400 text-yellow-900'
-                    };
-
-                    const priorityIcons = {
-                      CRITICAL: '🚨',
-                      HIGH: '⚠️',
-                      MEDIUM: '📚'
-                    };
-
-                    return (
-                      <div
-                        key={idx}
-                        className={`p-4 rounded-lg border-2 ${priorityColors[section.priority] || priorityColors.MEDIUM} transition-all hover:shadow-md`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-lg">{priorityIcons[section.priority]}</span>
-                              <span className="font-bold text-lg">{idx + 1}. {section.topic}</span>
-                              <span className="text-xs px-2 py-0.5 bg-white rounded font-semibold">
-                                {section.priority} PRIORITY
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-3 text-sm">
-                              <div>Current Performance: <strong>{section.accuracy}%</strong></div>
-                              <div className="text-gray-600">•</div>
-                              <div>{section.estimatedTime}</div>
-                              {section.attempts && (
-                                <>
-                                  <div className="text-gray-600">•</div>
-                                  <div>{section.attempts} questions attempted</div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                          <div className="text-right ml-4">
-                            <div className="text-4xl font-bold">{section.accuracy}%</div>
-                          </div>
-                        </div>
-                        {/* Progress bar */}
-                        <div className="mt-3 w-full bg-gray-200 rounded-full h-3">
-                          <div
-                            className={`h-3 rounded-full transition-all ${
-                              section.accuracy >= 80 ? 'bg-green-500' :
-                              section.accuracy >= 60 ? 'bg-yellow-500' : 'bg-red-500'
-                            }`}
-                            style={{ width: `${section.accuracy}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div className="mt-4 p-3 bg-[#A8C5B5]/10 border border-[#A8C5B5]/30 rounded-lg text-sm text-gray-800">
-                  💡 <strong>Study Tip:</strong> Focus on these topics in order. Master each one before moving to the next for best results!
-                </div>
-              </div>
-            )}
-
-            {/* Detailed Recommendations */}
-            <h3 className="font-bold text-lg text-gray-900 mb-3 flex items-center">
-              📋 Recommended Actions
-              <span className="ml-2 text-xs font-normal text-gray-600">
-                ({quiz.recommendations.recommendations.length} recommendations)
-              </span>
-            </h3>
-            <div className="space-y-3">
-              {quiz.recommendations.recommendations.map((rec, index) => {
-                const priorityStyles = {
-                  SUCCESS: 'bg-green-50 border-green-400 text-green-900',
-                  CRITICAL: 'bg-red-50 border-red-400 text-red-900',
-                  HIGH: 'bg-orange-50 border-orange-400 text-orange-900',
-                  MEDIUM: 'bg-yellow-50 border-yellow-400 text-yellow-900',
-                  LOW: 'bg-blue-50 border-blue-400 text-blue-900',
-                  INFO: 'bg-indigo-50 border-indigo-400 text-indigo-900'
-                };
-
-                const priorityIcons = {
-                  SUCCESS: '🎉',
-                  CRITICAL: '🚨',
-                  HIGH: '⚠️',
-                  MEDIUM: '📚',
-                  LOW: '💡',
-                  INFO: '📋'
-                };
-
-                return (
-                  <div
-                    key={index}
-                    className={`p-4 rounded-lg border-l-4 ${priorityStyles[rec.priority] || priorityStyles.MEDIUM} hover:shadow-md transition-all`}
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-start flex-1">
-                        <span className="text-2xl mr-3 mt-0.5">{priorityIcons[rec.priority] || '📌'}</span>
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-lg mb-1">{rec.message}</h3>
-                          
-                          {rec.topic && (
-                            <p className="text-sm mb-1.5">
-                              <span className="font-medium">📍 Topic:</span> {rec.topic}
-                              {rec.difficulty && ` (${rec.difficulty} level)`}
-                            </p>
-                          )}
-                          
-                          <p className="text-sm mb-1.5 bg-white/50 p-2 rounded">
-                            <span className="font-medium">✅ Action:</span> {rec.action}
-                          </p>
-                          
-                          <p className="text-sm">
-                            <span className="font-medium">⏱️ Time:</span> {rec.estimatedTime}
-                          </p>
-
-                          {/* Quick Wins - Fast tips to get started */}
-                          {rec.quickWins && rec.quickWins.length > 0 && (
-                            <div className="mt-3 bg-green-50 rounded-lg p-3 border-l-4 border-green-400">
-                              <p className="text-xs font-bold mb-2 text-green-900 flex items-center">
-                                ⚡ Quick Wins - Start Here!
-                              </p>
-                              <ul className="text-xs space-y-1.5 list-none">
-                                {rec.quickWins.map((tip, idx) => (
-                                  <li key={idx} className="flex items-start text-green-800">
-                                    <span className="mr-2">✓</span>
-                                    <span className="flex-1 font-medium">{tip}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {/* Specific Focus Areas */}
-                          {rec.specificFocus && rec.specificFocus.length > 0 && (
-                            <div className="mt-3 bg-blue-50 rounded-lg p-3 border border-blue-200">
-                              <p className="text-xs font-semibold mb-2 text-blue-900 flex items-center">
-                                🎯 Specific Areas to Focus On:
-                              </p>
-                              <ul className="text-xs space-y-1.5 list-none">
-                                {rec.specificFocus.map((area, idx) => (
-                                  <li key={idx} className="flex items-start text-blue-800">
-                                    <span className="mr-2 text-blue-500">•</span>
-                                    <span className="flex-1">{area}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {/* Step-by-Step Study Plan */}
-                          {rec.studySteps && rec.studySteps.length > 0 && (
-                            <div className="mt-3 bg-purple-50 rounded-lg p-4 border-2 border-purple-300">
-                              <p className="text-sm font-bold mb-3 text-purple-900 flex items-center">
-                                📖 Step-by-Step Study Plan
-                              </p>
-                              <div className="space-y-3">
-                                {rec.studySteps.map((step, idx) => (
-                                  <div key={idx} className="bg-white rounded-lg p-3 border border-purple-200">
-                                    <div className="flex items-start gap-2 mb-2">
-                                      <span className="flex-shrink-0 w-6 h-6 bg-purple-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
-                                        {step.step}
-                                      </span>
-                                      <div className="flex-1">
-                                        <h4 className="font-bold text-sm text-purple-900">{step.title}</h4>
-                                        <p className="text-xs text-gray-600 mt-0.5">{step.description}</p>
-                                        <p className="text-xs text-purple-700 font-medium mt-1">⏱️ {step.duration}</p>
-                                      </div>
-                                    </div>
-                                    <div className="ml-8 mt-2">
-                                      <p className="text-xs font-semibold text-gray-700 mb-1">Action Items:</p>
-                                      <ul className="text-xs space-y-1">
-                                        {step.actionItems.map((item, itemIdx) => (
-                                          <li key={itemIdx} className="flex items-start text-gray-700">
-                                            <span className="mr-2 text-[#A8C5B5]">▸</span>
-                                            <span className="flex-1">{item}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Resources list */}
-                          {rec.resources && rec.resources.length > 0 && (
-                            <div className="mt-3 bg-white/70 rounded-lg p-3 border border-gray-200">
-                              <p className="text-xs font-semibold mb-2 text-gray-800">📚 Study Resources:</p>
-                              <ul className="text-xs space-y-1.5 list-none">
-                                {rec.resources.map((resource, idx) => (
-                                  <li key={idx} className="flex items-start">
-                                    <span className="mr-2 text-[#A8C5B5]">▸</span>
-                                    <span className="flex-1">{resource}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-
-                          {rec.topics && rec.topics.length > 0 && (
-                            <div className="mt-3 bg-white/70 rounded-lg p-3 border border-gray-200">
-                              <p className="text-xs font-semibold mb-2 text-gray-800">📖 Topics to Review:</p>
-                              <div className="space-y-1.5">
-                                {rec.topics.map((topic, idx) => (
-                                  <div key={idx} className="text-xs flex justify-between items-center bg-gray-50 p-2 rounded">
-                                    <span>{topic.topic} <span className="text-gray-500">({topic.module})</span></span>
-                                    <span className={`font-bold ${
-                                      topic.accuracy >= 80 ? 'text-green-600' :
-                                      topic.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'
-                                    }`}>{topic.accuracy}%</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      {rec.priority !== 'SUCCESS' && rec.priority !== 'INFO' && (
-                        <span className={`ml-3 px-2.5 py-1 text-xs font-bold rounded shadow-sm ${
-                          rec.priority === 'CRITICAL' ? 'bg-red-200 text-red-900' :
-                          rec.priority === 'HIGH' ? 'bg-orange-200 text-orange-900' :
-                          rec.priority === 'MEDIUM' ? 'bg-yellow-200 text-yellow-900' :
-                          'bg-blue-200 text-blue-900'
-                        }`}>
-                          {rec.priority}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {quiz.recommendations.totalWeakAreas && quiz.recommendations.totalWeakAreas > 0 && (
-              <div className="mt-5 text-center p-4 bg-white/50 rounded-lg border border-[#A8C5B5]/30">
-                <p className="text-sm text-gray-700">
-                  💪 <strong>Keep practicing!</strong> You have {quiz.recommendations.totalWeakAreas} area{quiz.recommendations.totalWeakAreas > 1 ? 's' : ''} to improve.
-                  Regular practice will help you master {quiz.recommendations.totalWeakAreas > 1 ? 'them' : 'it'}!
-                </p>
               </div>
             )}
           </div>
         )}
 
-      {/* Positive Feedback for Strong Performance */}
-      {quiz.recommendations && quiz.recommendations.status === 'STRONG' && quiz.recommendations.recommendations.length === 0 && (
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl shadow-lg p-8 mb-6 text-center">
-          <span className="text-6xl mb-4 block animate-bounce">🎉</span>
-          <h2 className="text-3xl font-bold text-green-900 mb-3">Outstanding Performance!</h2>
-          <p className="text-lg text-green-800 mb-2">
-            {quiz.recommendations.message || 'You\'re doing great! Keep up the excellent work.'}
-          </p>
-          <div className="mt-4 inline-block bg-green-100 px-6 py-3 rounded-lg border border-green-300">
-            <p className="text-sm text-green-900 font-semibold">
-              ✨ You're mastering this material! Consider challenging yourself with harder difficulty levels.
-            </p>
+        {/* ── Answer Review ── */}
+        <div>
+          <h2 className="text-base font-semibold text-gray-900 mb-3">Answer Review</h2>
+          <div className="space-y-3">
+            {quiz.answerDetails.map((answer) => {
+              const options = parseOptions(answer.options);
+              return (
+                <div
+                  key={answer.questionNumber}
+                  className={`bg-white rounded-xl shadow-sm border-l-4 p-5 ${
+                    answer.isCorrect ? 'border-green-500' : 'border-red-400'
+                  }`}
+                >
+                  <div className="flex items-start gap-3 mb-3">
+                    <h3 className="text-sm font-medium text-gray-800 flex-1 leading-relaxed">
+                      <span className="text-gray-400 mr-1">Q{answer.questionNumber}.</span>
+                      {answer.question}
+                    </h3>
+                    <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                      answer.isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                    }`}>
+                      {answer.isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5 mb-3">
+                    {options.map((option, idx) => {
+                      const isSelected = option === answer.selectedAnswer;
+                      const isCorrect = option === answer.correctAnswer;
+                      let style = 'bg-gray-50 border border-gray-100 text-gray-700';
+                      if (isCorrect) style = 'bg-green-50 border border-green-300 text-green-800';
+                      else if (isSelected && !isCorrect) style = 'bg-red-50 border border-red-300 text-red-800';
+                      return (
+                        <div key={idx} className={`px-3 py-2 rounded-lg text-sm ${style}`}>
+                          <span className="font-medium">{String.fromCharCode(65 + idx)}. </span>
+                          {option}
+                          {isCorrect && (
+                            <span className="ml-2 text-green-600 text-xs font-semibold">✓ Correct</span>
+                          )}
+                          {isSelected && !isCorrect && (
+                            <span className="ml-2 text-red-600 text-xs font-semibold">✗ Your answer</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {answer.explanation && (
+                    <div className="bg-blue-50 border-l-4 border-blue-400 px-3 py-2.5 rounded-r-lg mb-2.5">
+                      <p className="text-xs font-semibold text-blue-800 mb-0.5">Explanation</p>
+                      <p className="text-xs text-blue-700 leading-relaxed">{answer.explanation}</p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-1.5 mt-1">
+                    {answer.topic && (
+                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                        {answer.topic}
+                      </span>
+                    )}
+                    <span className={`text-xs px-2 py-0.5 rounded ${
+                      answer.difficulty === 'EASY' ? 'bg-green-100 text-green-700' :
+                      answer.difficulty === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
+                      'bg-red-100 text-red-700'
+                    }`}>
+                      {answer.difficulty}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-      )}
 
-      {/* Answer Review */}
-      <div className="space-y-6">
-        <h2 className="text-2xl font-bold mb-4">Answer Review</h2>
-        
-        {quiz.answerDetails.map((answer) => {
-          const options = parseOptions(answer.options);
-          return (
-            <div
-              key={answer.questionNumber}
-              className={`bg-white rounded-lg shadow p-6 border-l-4 ${
-                answer.isCorrect ? 'border-green-500' : 'border-red-500'
-              }`}
-            >
-              <div className="flex items-start justify-between mb-3">
-                <h3 className="font-semibold text-lg flex-1">
-                  Q{answer.questionNumber}. {answer.question}
-                </h3>
-                <span className={`px-3 py-1 rounded-full text-sm ${
-                  answer.isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  {answer.isCorrect ? '✓ Correct' : '✗ Incorrect'}
-                </span>
-              </div>
-
-              <div className="space-y-2 mb-4">
-                {options.map((option, idx) => {
-                  const isSelected = option === answer.selectedAnswer;
-                  const isCorrect = option === answer.correctAnswer;
-                  
-                  let bgColor = 'bg-gray-50';
-                  if (isCorrect) bgColor = 'bg-green-50 border-2 border-green-500';
-                  else if (isSelected && !isCorrect) bgColor = 'bg-red-50 border-2 border-red-500';
-
-                  return (
-                    <div
-                      key={idx}
-                      className={`p-3 rounded ${bgColor}`}
-                    >
-                      <span className="font-medium">{String.fromCharCode(65 + idx)}. </span>
-                      {option}
-                      {isCorrect && <span className="ml-2 text-green-600 font-semibold">✓ Correct Answer</span>}
-                      {isSelected && !isCorrect && <span className="ml-2 text-red-600 font-semibold">✗ Your Answer</span>}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {answer.explanation && (
-                <div className="bg-blue-50 p-4 rounded border-l-4 border-blue-500">
-                  <p className="font-semibold text-blue-900 mb-1">💡 Explanation:</p>
-                  <p className="text-blue-800">{answer.explanation}</p>
-                </div>
-              )}
-
-              <div className="flex gap-3 mt-3 text-sm text-gray-600">
-                {answer.topic && <span className="bg-gray-100 px-2 py-1 rounded">📚 {answer.topic}</span>}
-                <span className={`px-2 py-1 rounded ${
-                  answer.difficulty === 'EASY' ? 'bg-green-100 text-green-800' :
-                  answer.difficulty === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
-                  'bg-red-100 text-red-800'
-                }`}>
-                  {answer.difficulty}
-                </span>
-              </div>
-            </div>
-          );
-        })}
       </div>
-    </div>
-  );
-}
+    );
+  }
 
   // Quiz interface
   return (
@@ -1164,7 +894,7 @@ export default function MCQPracticePage() {
 
         <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
           <div
-            className="bg-blue-600 h-2 rounded-full transition-all"
+            className="bg-primary h-2 rounded-full transition-all"
             style={{ width: `${(Object.keys(quiz.answers).length / quiz.questions.length) * 100}%` }}
           ></div>
         </div>
@@ -1197,8 +927,8 @@ export default function MCQPracticePage() {
                     key={idx}
                     className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all ${
                       quiz.answers[question.id] === option
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
+                        ? 'border-primary bg-primary/10'
+                        : 'border-gray-200 hover:border-primary/50 hover:bg-gray-50'
                     }`}
                   >
                     <input
@@ -1247,7 +977,7 @@ export default function MCQPracticePage() {
             <button
               onClick={handleSubmit}
               disabled={quiz.isSubmitting}
-              className="bg-blue-600 text-white px-8 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="bg-primary text-white px-8 py-2 rounded-lg hover:bg-primary/90 disabled:bg-gray-400 disabled:cursor-not-allowed"
             >
               {quiz.isSubmitting ? 'Submitting...' : 'Submit Quiz'}
             </button>

@@ -4,12 +4,21 @@
  */
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
-import { collegeAPI, userAPI, llmConfigAPI, College, UserData, LLMConfig, CreateLLMConfigData } from '../../services/api';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import { Switch } from '../components/ui/switch';
+import { Separator } from '../components/ui/separator';
+import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
+import { Badge } from '../components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { authAPI, collegeAPI, userAPI, llmConfigAPI, College, UserData, LLMConfig, CreateLLMConfigData } from '../../services/api';
 import { toast } from 'sonner';
-import { Plus, Building2, Users, BookOpen, GraduationCap, Edit, Trash2, X, Check, Search, Settings, CheckCircle, Circle } from 'lucide-react';
+import { Plus, Building2, Users, BookOpen, GraduationCap, Edit, Trash2, X, Check, Search, Settings, CheckCircle, Circle, User, Lock, Bell, Palette, Camera, Save, Mail, Phone, Monitor, Moon, Sun, Globe, FileText, Shield, LogOut } from 'lucide-react';
 
 interface Stats {
   totalColleges: number;
@@ -20,7 +29,8 @@ interface Stats {
 }
 
 export default function SuperAdminDashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'overview' | 'colleges' | 'users' | 'llm-config'>('overview');
   const [colleges, setColleges] = useState<College[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
@@ -355,6 +365,13 @@ export default function SuperAdminDashboard() {
           >
             <Settings className="w-5 h-5" />
             LLM Config
+          </button>
+          <button 
+            onClick={() => navigate('/superadmin/settings')}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium mb-2 transition-colors text-gray-600 hover:bg-gray-100"
+          >
+            <User className="w-5 h-5" />
+            Settings
           </button>
         </nav>
         <div className="p-4 border-t border-gray-200">

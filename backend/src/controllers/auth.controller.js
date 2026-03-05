@@ -435,6 +435,9 @@ export const getMe = async (req, res) => {
                 email: true,
                 first_name: true,
                 last_name: true,
+                phone: true,
+                bio: true,
+                avatar: true,
                 role: true,
                 collegeId: true,
                 college: {
@@ -622,6 +625,158 @@ export const resendOTP = async (req, res) => {
         console.error('Resend OTP error:', error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
             error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR
+        });
+    }
+};
+
+/**
+ * Update user profile
+ * @route PUT /api/auth/profile
+ * @access Private (authenticated user)
+ */
+export const updateProfile = async (req, res) => {
+    const { username, email, first_name, last_name, phone, bio, avatar } = req.body;
+    const userId = req.user.id;
+
+    try {
+        // Check if username or email is being changed to one that already exists
+        if (username || email) {
+            const existingUser = await prisma.user.findFirst({
+                where: {
+                    AND: [
+                        {
+                            id: { not: userId }
+                        },
+                        {
+                            OR: [
+                                username ? { username } : {},
+                                email ? { email: email.toLowerCase() } : {}
+                            ]
+                        }
+                    ]
+                }
+            });
+
+            if (existingUser) {
+                return res.status(HTTP_STATUS.CONFLICT).json({
+                    error: existingUser.username === username 
+                        ? 'Username already taken' 
+                        : 'Email already in use'
+                });
+            }
+        }
+
+        // Build update data object
+        const updateData = {};
+        if (username !== undefined) updateData.username = username;
+        if (email !== undefined) updateData.email = email.toLowerCase();
+        if (first_name !== undefined) updateData.first_name = first_name;
+        if (last_name !== undefined) updateData.last_name = last_name;
+        if (phone !== undefined) updateData.phone = phone;
+        if (bio !== undefined) updateData.bio = bio;
+        if (avatar !== undefined) updateData.avatar = avatar;
+
+        // Update user
+        const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: updateData,
+            select: {
+                id: true,
+                username: true,
+                email: true,
+                first_name: true,
+                last_name: true,
+                phone: true,
+                bio: true,
+                avatar: true,
+                role: true,
+                collegeId: true,
+                college: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true
+                    }
+                },
+                createdAt: true
+            }
+        });
+
+        res.status(HTTP_STATUS.OK).json({
+            message: 'Profile updated successfully',
+            user: updatedUser
+        });
+    } catch (error) {
+        console.error('Update profile error:', error);
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+            error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+            details: error.message
+        });
+    }
+};
+
+/**
+ * Change user password
+ * @route PUT /api/auth/change-password
+ * @access Private (authenticated user)
+ */
+export const changePassword = async (req, res) => {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user.id;
+
+    if (!currentPassword || !newPassword) {
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
+            error: 'Current password and new password are required'
+        });
+    }
+
+    if (newPassword.length < 6) {
+        return res.status(HTTP_STATUS.BAD_REQUEST).json({
+            error: 'New password must be at least 6 characters long'
+        });
+    }
+
+    try {
+        // Get user with password
+        const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                password: true
+            }
+        });
+
+        if (!user) {
+            return res.status(HTTP_STATUS.NOT_FOUND).json({
+                error: 'User not found'
+            });
+        }
+
+        // Verify current password
+        const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isPasswordValid) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                error: 'Current password is incorrect'
+            });
+        }
+
+        // Hash new password
+        const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+        // Update password
+        await prisma.user.update({
+            where: { id: userId },
+            data: { password: hashedPassword }
+        });
+
+        res.status(HTTP_STATUS.OK).json({
+            message: 'Password changed successfully'
+        });
+    } catch (error) {
+        console.error('Change password error:', error);
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+            error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+            details: error.message
         });
     }
 };

@@ -10,7 +10,6 @@ import AdminOverview from './AdminOverview';
 import AdminResourcesPage from './AdminResourcesPage';
 import AdminModulesPage from './AdminModulesPage';
 import AdminMCQSetsPage from './AdminMCQSetsPage';
-import AdminSettingsPage from './AdminSettingsPage';
 import { LayoutDashboard, FileText, BookOpen, Settings, LogOut, Brain } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -55,12 +54,12 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F5F5F5]">
+    <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col fixed h-screen">
-        <div className="p-6 border-b border-gray-200">
-          <h1 className="text-xl font-bold text-gray-900">LearnBox</h1>
-          <p className="text-xs text-gray-500 mt-1">Admin Portal</p>
+      <aside className="w-64 bg-card border-r border-border flex flex-col fixed h-screen">
+        <div className="p-6 border-b border-border">
+          <h1 className="text-xl font-bold text-foreground">LearnBox</h1>
+          <p className="text-xs text-muted-foreground mt-1">Admin Portal</p>
         </div>
         
         <nav className="flex-1 px-4 py-4 overflow-y-auto">
@@ -75,8 +74,8 @@ export default function AdminDashboard() {
                 className={`
                   w-full text-left px-4 py-3 rounded-lg mb-1 flex items-center gap-3 transition-colors
                   ${active 
-                    ? 'text-gray-900 bg-gray-100 font-medium' 
-                    : 'text-gray-600 hover:bg-gray-50'
+                    ? 'text-foreground bg-accent font-medium' 
+                    : 'text-muted-foreground hover:bg-muted'
                   }
                 `}
               >
@@ -88,22 +87,22 @@ export default function AdminDashboard() {
         </nav>
 
         {/* User Info */}
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-border">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-[#A8C5B5] flex items-center justify-center text-white font-medium">
+            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
               {user?.first_name?.[0] || user?.username?.[0] || 'A'}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-medium text-gray-900 text-sm truncate">
+              <div className="font-medium text-foreground text-sm truncate">
                 {user?.first_name} {user?.last_name}
               </div>
-              <div className="text-xs text-gray-500">College Admin</div>
+              <div className="text-xs text-muted-foreground">College Admin</div>
             </div>
           </div>
           <Button
             onClick={logout}
             variant="outline"
-            className="w-full text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="w-full"
             size="sm"
           >
             <LogOut className="h-4 w-4 mr-2" />
@@ -115,14 +114,14 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <main className="flex-1 ml-64 min-h-screen overflow-auto">
         {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-8 py-4 sticky top-0 z-10">
+        <header className="bg-card border-b border-border px-8 py-4 sticky top-0 z-10">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-xl font-bold text-foreground">
                 {navItems.find(item => isActive(item.path, item.exact))?.label || 'Admin Dashboard'}
               </h2>
             </div>
-            <button className="p-2 hover:bg-gray-100 rounded-lg">
+            <button className="p-2 hover:bg-muted rounded-lg transition-colors">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
@@ -138,13 +137,12 @@ export default function AdminDashboard() {
             <Route path="resources" element={<AdminResourcesPage />} />
             <Route path="modules" element={<AdminModulesPage />} />
             <Route path="mcq-sets" element={<AdminMCQSetsPage />} />
-            <Route path="settings" element={<AdminSettingsPage />} />
           </Routes>
         </div>
 
         {/* Footer */}
-        <footer className="bg-[#D5E3DF] py-6 border-t border-gray-200">
-          <div className="text-center text-sm text-gray-600">
+        <footer className="bg-muted py-6 border-t border-border">
+          <div className="text-center text-sm text-muted-foreground">
             2025 LearnBox. All rights reserved.
           </div>
         </footer>

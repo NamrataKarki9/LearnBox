@@ -17,6 +17,9 @@ model User {
   password   String
   first_name String?
   last_name  String?
+  phone      String?
+  bio        String?
+  avatar     String?
   role       Role      @default(STUDENT)
   is_verified Boolean  @default(false)  // Added for email verification
   collegeId  Int?
