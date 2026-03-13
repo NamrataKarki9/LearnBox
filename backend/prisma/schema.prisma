@@ -38,6 +38,7 @@ model User {
   quizSessions QuizSession[]
   analytics  PerformanceAnalytics[]
   llmConfigs LLMConfig[]
+  learningSites LearningSite[]
   
   @@index([email])
   @@index([collegeId])
@@ -61,6 +62,7 @@ model College {
   faculties   Faculty[]
   mcqSets     MCQSet[]
   quizSessions QuizSession[]
+  learningSites LearningSite[]
   
   @@index([code])
 }
@@ -74,6 +76,7 @@ model Faculty {
   college     College    @relation(fields: [collegeId], references: [id])
   modules     Module[]
   resources   Resource[]
+  learningSites LearningSite[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
   
@@ -121,6 +124,7 @@ model Module {
   quizSessions QuizSession[]
   analytics   PerformanceAnalytics[]
   resources   Resource[]
+  learningSites LearningSite[]
   mcqs        MCQ[]
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -128,6 +132,29 @@ model Module {
   @@unique([code, collegeId, facultyId, year])
   @@index([collegeId])
   @@index([facultyId])
+  @@index([year])
+}
+
+model LearningSite {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  url         String
+  year        Int
+  facultyId   Int
+  moduleId    Int
+  collegeId   Int
+  addedBy     Int
+  college     College  @relation(fields: [collegeId], references: [id])
+  faculty     Faculty  @relation(fields: [facultyId], references: [id])
+  module      Module   @relation(fields: [moduleId], references: [id])
+  creator     User     @relation(fields: [addedBy], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([collegeId])
+  @@index([facultyId])
+  @@index([moduleId])
   @@index([year])
 }
 

@@ -10,6 +10,7 @@ import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import DashboardPage from "./pages/DashboardPage";
 import StudentDashboard from "./pages/StudentDashboard";
 import StudentResourcesPage from "./pages/StudentResourcesPage";
+import StudentLearningSitesPage from "./pages/StudentLearningSitesPage";
 import StudentSettingsPage from "./pages/StudentSettingsPage";
 import Summaries from "./pages/Summaries";
 import MCQPracticeSelectionPage from "./pages/MCQPracticeSelectionPage";
@@ -85,6 +86,15 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <Summaries />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/student/learning-sites"
+            element={
+              <ProtectedRoute>
+                <StudentLearningSitesPage />
               </ProtectedRoute>
             }
           />

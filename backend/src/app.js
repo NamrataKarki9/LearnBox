@@ -14,6 +14,7 @@ import summaryRoutes from './routes/summary.routes.js';
 import quizRoutes from './routes/quiz.routes.js';
 import analyticsRoutes from './routes/analytics.routes.js';
 import llmConfigRoutes from './routes/llm-config.routes.js';
+import learningSiteRoutes from './routes/learning-site.routes.js';
 import { connectDatabase } from './prisma.js';
 
 const app = express();
@@ -44,6 +45,7 @@ app.use('/api/summary', summaryRoutes);
 app.use('/api/quiz', quizRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/llm-config', llmConfigRoutes);
+app.use('/api/learning-sites', learningSiteRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

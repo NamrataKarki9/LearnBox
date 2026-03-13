@@ -193,6 +193,42 @@ export interface Resource {
   };
 }
 
+export interface LearningSite {
+  id: number;
+  title: string;
+  description?: string;
+  url: string;
+  year: number;
+  facultyId: number;
+  moduleId: number;
+  collegeId: number;
+  addedBy: number;
+  createdAt: string;
+  updatedAt: string;
+  faculty?: {
+    id: number;
+    name: string;
+    code: string;
+  };
+  module?: {
+    id: number;
+    name: string;
+    code: string;
+  };
+  creator?: {
+    id: number;
+    username: string;
+    first_name?: string;
+    last_name?: string;
+  };
+}
+
+interface LearningSitesResponse {
+  success: boolean;
+  count: number;
+  data: LearningSite[];
+}
+
 interface ResourcesResponse {
   success: boolean;
   count: number;
@@ -245,6 +281,23 @@ export const resourceAPI = {
     api.delete<{ success: boolean; message: string }>(`/resources/${id}`),
 
   getDownloadUrl: (id: number) => `http://localhost:5000/api/resources/${id}/download`
+};
+
+export const learningSiteAPI = {
+  getAll: (params?: { facultyId?: number; year?: number; moduleId?: number; search?: string }) =>
+    api.get<LearningSitesResponse>('/learning-sites', { params }),
+
+  create: (data: {
+    title: string;
+    description?: string;
+    url: string;
+    facultyId: number;
+    year: number;
+    moduleId: number;
+  }) => api.post<{ success: boolean; message: string; data: LearningSite }>('/learning-sites', data),
+
+  delete: (id: number) =>
+    api.delete<{ success: boolean; message: string }>(`/learning-sites/${id}`),
 };
 
 // Module API endpoints

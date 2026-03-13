@@ -10,7 +10,8 @@ import AdminOverview from './AdminOverview';
 import AdminResourcesPage from './AdminResourcesPage';
 import AdminModulesPage from './AdminModulesPage';
 import AdminMCQSetsPage from './AdminMCQSetsPage';
-import { LayoutDashboard, FileText, BookOpen, Settings, LogOut, Brain } from 'lucide-react';
+import AdminLearningSitesPage from './AdminLearningSitesPage';
+import { LayoutDashboard, FileText, BookOpen, Settings, LogOut, Brain, Link2 } from 'lucide-react';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -38,6 +39,11 @@ export default function AdminDashboard() {
       path: '/admin/mcq-sets', 
       label: 'MCQ Sets', 
       icon: Brain 
+    },
+    {
+      path: '/admin/learning-sites',
+      label: 'Learning Sites',
+      icon: Link2
     },
     { 
       path: '/admin/settings', 
@@ -137,6 +143,7 @@ export default function AdminDashboard() {
             <Route path="resources" element={<AdminResourcesPage />} />
             <Route path="modules" element={<AdminModulesPage />} />
             <Route path="mcq-sets" element={<AdminMCQSetsPage />} />
+            <Route path="learning-sites" element={<AdminLearningSitesPage />} />
           </Routes>
         </div>
 

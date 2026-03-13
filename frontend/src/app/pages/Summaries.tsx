@@ -233,7 +233,10 @@ export default function Summaries() {
           <button className="w-full text-left px-4 py-3 text-gray-900 bg-gray-100 rounded-lg font-medium mb-1">
             Summaries
           </button>
-          <button className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1">
+          <button 
+            onClick={() => navigate('/student/learning-sites')}
+            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
+          >
             Useful Learning Sites
           </button>
           <button 
