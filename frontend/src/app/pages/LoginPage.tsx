@@ -6,6 +6,9 @@ import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { useAuth } from "../../context/AuthContext";
 import { toast } from "sonner";
+import { FieldError } from "../components/FieldValidation";
+import { validateEmail } from "../../utils/validators";
+import { Eye, EyeOff } from "lucide-react";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -17,6 +20,18 @@ export function LoginPage() {
   const [college, setCollege] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  
+  // Field validation state
+  const [fieldErrors, setFieldErrors] = useState({
+    email: "",
+    password: ""
+  });
+  
+  const [touched, setTouched] = useState({
+    email: false,
+    password: false
+  });
 
   // Fetch colleges on mount
   useEffect(() => {
@@ -42,7 +57,23 @@ export function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-
+    
+    // Mark fields as touched
+    setTouched({ email: true, password: true });
+    
+    // Validate email
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      setFieldErrors(prev => ({ ...prev, email: emailValidation.error || "Invalid email" }));
+      return;
+    }
+    
+    // Validate password exists
+    if (!password) {
+      setFieldErrors(prev => ({ ...prev, password: "Password is required." }));
+      return;
+    }
+    
     setLoading(true);
 
     // Pass collegeId if selected
@@ -120,6 +151,20 @@ export function LoginPage() {
     }
   };
 
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    if (touched.email) {
+      const validation = validateEmail(value);
+      setFieldErrors(prev => ({ ...prev, email: validation.error || "" }));
+    }
+  };
+
+  const handleEmailBlur = () => {
+    setTouched(prev => ({ ...prev, email: true }));
+    const validation = validateEmail(email);
+    setFieldErrors(prev => ({ ...prev, email: validation.error || "" }));
+  };
+
   return (
     <div className="min-h-screen bg-accent flex flex-col">
       {/* Header */}
@@ -176,23 +221,38 @@ export function LoginPage() {
                 type="email"
                 placeholder="your.email@example.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="bg-input-background border-0 rounded-xl py-6"
+                onChange={(e) => handleEmailChange(e.target.value)}
+                onBlur={handleEmailBlur}
+                className={`bg-input-background border-0 rounded-xl py-6 ${
+                  touched.email && fieldErrors.email ? "border-2 border-red-500" : ""
+                }`}
                 required
               />
+              {touched.email && fieldErrors.email && (
+                <FieldError error={fieldErrors.email} />
+              )}
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-sm font-semibold">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="....."
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="bg-input-background border-0 rounded-xl py-6"
-                required
-              />
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="....."
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="bg-input-background border-0 rounded-xl py-6 pr-10"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             <Button 

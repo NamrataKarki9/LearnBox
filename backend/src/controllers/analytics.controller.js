@@ -20,10 +20,17 @@ export const getStudentWeakPoints = async (req, res) => {
     try {
         const { threshold = 60 } = req.query;
         
-        const weakPoints = await getWeakPoints(
-            req.user.id,
-            parseFloat(threshold)
-        );
+        // Validate threshold parameter
+        const parsedThreshold = parseFloat(threshold);
+        if (isNaN(parsedThreshold) || parsedThreshold < 0 || parsedThreshold > 100) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'Threshold must be a number between 0 and 100',
+                field: 'threshold'
+            });
+        }
+        
+        const weakPoints = await getWeakPoints(req.user.id, parsedThreshold);
 
         res.status(HTTP_STATUS.OK).json({
             success: true,
@@ -33,7 +40,9 @@ export const getStudentWeakPoints = async (req, res) => {
     } catch (error) {
         console.error('Get weak points error:', error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR
+            success: false,
+            error: ERROR_MESSAGES.DATABASE_ERROR,
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
@@ -45,16 +54,25 @@ export const getStudentWeakPoints = async (req, res) => {
  */
 export const getRecommendations = async (req, res) => {
     try {
+        if (!req.user || !req.user.id) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                error: 'User authentication required'
+            });
+        }
+
         const recommendations = await getStudyRecommendations(req.user.id);
 
         res.status(HTTP_STATUS.OK).json({
             success: true,
-            data: recommendations
+            data: recommendations || []
         });
     } catch (error) {
         console.error('Get recommendations error:', error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR
+            success: false,
+            error: ERROR_MESSAGES.DATABASE_ERROR,
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
@@ -66,16 +84,25 @@ export const getRecommendations = async (req, res) => {
  */
 export const getStudentStats = async (req, res) => {
     try {
+        if (!req.user || !req.user.id) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                error: 'User authentication required'
+            });
+        }
+
         const stats = await getOverallStats(req.user.id);
 
         res.status(HTTP_STATUS.OK).json({
             success: true,
-            data: stats
+            data: stats || {}
         });
     } catch (error) {
         console.error('Get stats error:', error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR
+            success: false,
+            error: ERROR_MESSAGES.DATABASE_ERROR,
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
@@ -89,10 +116,17 @@ export const getStudentHistory = async (req, res) => {
     try {
         const { days = 30 } = req.query;
         
-        const history = await getPracticeHistory(
-            req.user.id,
-            parseInt(days)
-        );
+        // Validate days parameter
+        const parsedDays = parseInt(days);
+        if (isNaN(parsedDays) || parsedDays <= 0 || parsedDays > 365) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'Days must be a number between 1 and 365',
+                field: 'days'
+            });
+        }
+        
+        const history = await getPracticeHistory(req.user.id, parsedDays);
 
         res.status(HTTP_STATUS.OK).json({
             success: true,
@@ -101,7 +135,9 @@ export const getStudentHistory = async (req, res) => {
     } catch (error) {
         console.error('Get history error:', error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR
+            success: false,
+            error: ERROR_MESSAGES.DATABASE_ERROR,
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
@@ -113,17 +149,26 @@ export const getStudentHistory = async (req, res) => {
  */
 export const getStudentModulePerformance = async (req, res) => {
     try {
+        if (!req.user || !req.user.id) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                error: 'User authentication required'
+            });
+        }
+
         const performance = await getModulePerformance(req.user.id);
 
         res.status(HTTP_STATUS.OK).json({
             success: true,
-            count: performance.length,
-            data: performance
+            count: (performance || []).length,
+            data: performance || []
         });
     } catch (error) {
         console.error('Get module performance error:', error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR
+            success: false,
+            error: ERROR_MESSAGES.DATABASE_ERROR,
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
@@ -135,29 +180,54 @@ export const getStudentModulePerformance = async (req, res) => {
  */
 export const getAnalyticsDashboard = async (req, res) => {
     try {
+        // Validate user is authenticated
+        if (!req.user || !req.user.id) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                error: 'User authentication required'
+            });
+        }
+
         const [stats, weakPoints, recommendations, history, modulePerformance] = await Promise.all([
-            getOverallStats(req.user.id),
-            getWeakPoints(req.user.id, 60),
-            getStudyRecommendations(req.user.id),
-            getPracticeHistory(req.user.id, 30),
-            getModulePerformance(req.user.id)
+            getOverallStats(req.user.id).catch(err => {
+                console.error('Error fetching stats:', err);
+                return null;
+            }),
+            getWeakPoints(req.user.id, 60).catch(err => {
+                console.error('Error fetching weak points:', err);
+                return [];
+            }),
+            getStudyRecommendations(req.user.id).catch(err => {
+                console.error('Error fetching recommendations:', err);
+                return [];
+            }),
+            getPracticeHistory(req.user.id, 30).catch(err => {
+                console.error('Error fetching history:', err);
+                return { recentSessions: [], dailyHistory: [] };
+            }),
+            getModulePerformance(req.user.id).catch(err => {
+                console.error('Error fetching module performance:', err);
+                return [];
+            })
         ]);
 
         res.status(HTTP_STATUS.OK).json({
             success: true,
             data: {
-                overview: stats,
-                weakAreas: weakPoints.slice(0, 5), // Top 5 weak areas
-                recommendations,
-                recentActivity: history.recentSessions,
-                dailyProgress: history.dailyHistory.slice(0, 14), // Last 14 days
-                modulePerformance: modulePerformance.slice(0, 5) // Top 5 modules
+                overview: stats || {},
+                weakAreas: (weakPoints || []).slice(0, 5),
+                recommendations: recommendations || [],
+                recentActivity: (history?.recentSessions) || [],
+                dailyProgress: (history?.dailyHistory || []).slice(0, 14),
+                modulePerformance: (modulePerformance || []).slice(0, 5)
             }
         });
     } catch (error) {
         console.error('Get dashboard error:', error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR
+            success: false,
+            error: ERROR_MESSAGES.DATABASE_ERROR,
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };

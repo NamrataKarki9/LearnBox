@@ -31,6 +31,15 @@ interface Stats {
 export default function SuperAdminDashboard() {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
+  
+  // Log user info for debugging
+  useEffect(() => {
+    console.log('=== SuperAdminDashboard Debug ===');
+    console.log('User object:', user);
+    console.log('User role:', user?.role);
+    console.log('Has SUPER_ADMIN role:', user?.role === 'SUPER_ADMIN');
+  }, [user]);
+  
   const [activeTab, setActiveTab] = useState<'overview' | 'colleges' | 'users' | 'llm-config'>('overview');
   const [colleges, setColleges] = useState<College[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
@@ -43,6 +52,7 @@ export default function SuperAdminDashboard() {
     activeColleges: 0
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [showCollegeModal, setShowCollegeModal] = useState(false);
   const [editingCollege, setEditingCollege] = useState<College | null>(null);
   const [collegeView, setCollegeView] = useState<'all' | 'active' | 'inactive'>('active');
@@ -88,38 +98,62 @@ export default function SuperAdminDashboard() {
 
   // Fetch data on component mount
   useEffect(() => {
+    console.log('Effect triggered - user:', user?.id, 'role:', user?.role);
     fetchAllData();
-  }, []);
+  }, [user?.id]);
 
   const fetchAllData = async () => {
+    console.log('Starting fetchAllData');
     setLoading(true);
+    setError(null);
     try {
+      console.log('Calling APIs...');
       const [collegesRes, usersRes, llmConfigsRes] = await Promise.all([
         collegeAPI.getAll(true),
         userAPI.getAll(),
         llmConfigAPI.getAll()
       ]);
 
-      setColleges(collegesRes.data.data);
-      setUsers(usersRes.data);
-      setLlmConfigs(llmConfigsRes.data.data);
+      console.log('API Responses received');
+      console.log('Colleges:', collegesRes.data.data);
+      console.log('Users:', usersRes.data.data);
+      console.log('LLM Configs:', llmConfigsRes.data.data);
+
+      // Safely extract data - handle both data.data and data response formats
+      const collegesData = collegesRes.data?.data || collegesRes.data || [];
+      const usersData = usersRes.data?.data || usersRes.data || [];
+      const llmData = llmConfigsRes.data?.data || llmConfigsRes.data || [];
+
+      setColleges(collegesData);
+      setUsers(usersData);
+      setLlmConfigs(llmData);
 
       // Calculate stats
-      const activeColleges = collegesRes.data.data.filter((c: College) => c.isActive).length;
-      const students = usersRes.data.filter((u: UserData) => u.roles.includes('STUDENT')).length;
-      const admins = usersRes.data.filter((u: UserData) => 
-        u.roles.includes('COLLEGE_ADMIN') || u.roles.includes('SUPER_ADMIN')
+      const activeColleges = collegesData.filter((c: College) => c.isActive).length;
+      const students = usersData.filter((u: UserData) => u.roles && u.roles.includes('STUDENT')).length;
+      const admins = usersData.filter((u: UserData) => 
+        u.roles && (u.roles.includes('COLLEGE_ADMIN') || u.roles.includes('SUPER_ADMIN'))
       ).length;
 
       setStats({
-        totalColleges: collegesRes.data.count,
-        totalUsers: usersRes.data.length,
+        totalColleges: collegesData.length,
+        totalUsers: usersData.length,
         totalStudents: students,
         totalAdmins: admins,
         activeColleges
       });
+      console.log('Stats set successfully');
     } catch (error: any) {
-      toast.error('Failed to load data: ' + (error.response?.data?.error || error.message));
+      console.error('=== Dashboard fetch error ===');
+      console.error('Error object:', error);
+      console.error('Response status:', error.response?.status);
+      console.error('Response data:', error.response?.data);
+      console.error('Error message:', error.message);
+      
+      const errorMessage = error.response?.data?.error || error.message || 'Failed to load dashboard data';
+      setError(errorMessage);
+      toast.error(errorMessage);
+      console.error('Dashboard fetch error:', error);
     } finally {
       setLoading(false);
     }
@@ -155,28 +189,14 @@ export default function SuperAdminDashboard() {
   };
 
   const handleDeleteCollege = async (id: number, name: string) => {
-    if (!confirm(`Are you sure you want to delete ${name}?`)) return;
+    if (!confirm(`Delete college "${name}" and ALL associated users and resources?\n\n⚠️ This action cannot be undone!`)) return;
     
     try {
       await collegeAPI.delete(id, true);
-      toast.success('College deleted successfully');
+      toast.success(`College "${name}" and all associated data deleted successfully`);
       fetchAllData();
     } catch (error: any) {
       const backendMessage = error.response?.data?.error || error.message;
-
-      // If hard delete is blocked by dependent data, fall back to deactivation.
-      if (backendMessage?.includes('associated data')) {
-        try {
-          await collegeAPI.delete(id, false);
-          toast.success('College deactivated successfully');
-          fetchAllData();
-          return;
-        } catch (fallbackError: any) {
-          toast.error('Failed to deactivate college: ' + (fallbackError.response?.data?.error || fallbackError.message));
-          return;
-        }
-      }
-
       toast.error('Failed to delete college: ' + backendMessage);
     }
   };
@@ -412,6 +432,30 @@ export default function SuperAdminDashboard() {
 
   return (
     <div className="flex min-h-screen bg-gray-50">
+      {!user ? (
+        <div className="w-full flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-[#7C9E9E] border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <p className="text-gray-500 mt-4">Loading user...</p>
+          </div>
+        </div>
+      ) : user.role !== 'SUPER_ADMIN' ? (
+        <div className="w-full flex items-center justify-center">
+          <div className="text-center">
+            <Shield className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Access Denied</h1>
+            <p className="text-gray-600 mb-6">Your role: <strong>{user.role}</strong></p>
+            <p className="text-gray-600 mb-6">This dashboard is only available to Super Admins.</p>
+            <Button 
+              onClick={() => navigate('/student/dashboard')}
+              className="bg-[#7C9E9E] hover:bg-[#6B8D8D] text-white"
+            >
+              Back to Dashboard
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Sidebar */}
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col shadow-sm">
         <div className="p-6 border-b border-gray-200">
@@ -512,6 +556,24 @@ export default function SuperAdminDashboard() {
         </header>
 
         <div className="p-8">
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+              <div className="flex-shrink-0 text-red-600 mt-0.5">
+                <Shield className="w-5 h-5" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-900">Error Loading Dashboard</h3>
+                <p className="text-red-700 text-sm mt-1">{error}</p>
+                <button 
+                  onClick={fetchAllData}
+                  className="mt-3 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  Retry
+                </button>
+              </div>
+            </div>
+          )}
+          
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
@@ -1480,6 +1542,8 @@ export default function SuperAdminDashboard() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

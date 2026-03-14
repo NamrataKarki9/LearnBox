@@ -96,8 +96,15 @@ export default function MCQPracticeSelectionPage() {
   };
 
   const handleGenerateFromPDF = async () => {
+    // Validation: Check if PDF is selected
     if (!pdfFile) {
-      toast.error('Please select a PDF file');
+      toast.error('Please upload a PDF to generate MCQs', {
+        duration: 3000,
+        style: {
+          background: '#ef4444',
+          color: '#fff',
+        }
+      });
       return;
     }
 
@@ -367,7 +374,7 @@ export default function MCQPracticeSelectionPage() {
                             )}
                             <Button 
                               onClick={() => handleStartQuiz(set.id)}
-                              className="w-full"
+                              className="w-full bg-[#A8C5B5] hover:bg-[#96B5A5] text-white font-medium"
                               size="sm"
                               disabled={!set.questionCount || set.questionCount === 0}
                             >
@@ -490,9 +497,9 @@ export default function MCQPracticeSelectionPage() {
 
                         <Button
                           onClick={handleGenerateFromPDF}
-                          className="w-full bg-[#A8C5B5] hover:bg-[#96B5A5]"
+                          className="w-full bg-[#A8C5B5] hover:bg-[#96B5A5] text-white font-semibold"
                           size="lg"
-                          disabled={!pdfFile || isGenerating}
+                          disabled={isGenerating}
                         >
                           {isGenerating ? (
                             <>
@@ -507,21 +514,12 @@ export default function MCQPracticeSelectionPage() {
                           )}
                         </Button>
 
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                          <p className="text-xs text-blue-800">
-                            💡 <strong>Tip:</strong> Upload study materials, notes, or textbook chapters. 
-                            Our AI will analyze the content and create relevant multiple-choice questions.
-                          </p>
-                        </div>
+
                       </div>
                     </CardContent>
                   </Card>
 
-                  <Alert className="mt-4 border-yellow-200 bg-yellow-50">
-                    <AlertDescription className="text-xs text-yellow-800">
-                      ⚡ Make sure Ollama is running on your system for AI generation to work.
-                    </AlertDescription>
-                  </Alert>
+
                 </div>
               </div>
             </div>

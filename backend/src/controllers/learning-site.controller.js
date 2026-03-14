@@ -48,16 +48,19 @@ const buildWhereClause = (user, query) => {
 
 export const getAllLearningSites = async (req, res) => {
     try {
-        const learningSiteDelegate = getLearningSiteDelegate();
-        if (!learningSiteDelegate) {
-            return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-                error: 'Learning Sites is not initialized yet. Run prisma generate and prisma db push, then restart backend.'
+        // Validate user authentication
+        if (!req.user || !req.user.id) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                error: ERROR_MESSAGES.UNAUTHORIZED
             });
         }
 
-        if (!req.user) {
-            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
-                error: ERROR_MESSAGES.UNAUTHORIZED
+        const learningSiteDelegate = getLearningSiteDelegate();
+        if (!learningSiteDelegate) {
+            return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+                success: false,
+                error: 'Learning Sites is not initialized yet. Run prisma generate and prisma db push, then restart backend.'
             });
         }
 

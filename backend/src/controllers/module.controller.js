@@ -92,10 +92,28 @@ export const getAllModules = async (req, res) => {
  */
 export const getModuleById = async (req, res) => {
     try {
+        // Validate user authentication
+        if (!req.user || !req.user.id) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                error: ERROR_MESSAGES.UNAUTHORIZED
+            });
+        }
+
         const { id } = req.params;
 
+        // Validate ID format
+        const parsedId = parseInt(id);
+        if (isNaN(parsedId)) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'Invalid module ID format',
+                field: 'id'
+            });
+        }
+
         const module = await prisma.module.findUnique({
-            where: { id: parseInt(id) },
+            where: { id: parsedId },
             include: {
                 college: true,
                 creator: {

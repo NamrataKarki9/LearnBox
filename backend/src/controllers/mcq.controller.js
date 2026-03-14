@@ -108,21 +108,43 @@ export const createMCQ = async (req, res) => {
  */
 export const attemptMCQ = async (req, res) => {
     try {
+        // Validate user authentication
+        if (!req.user || !req.user.id) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                error: ERROR_MESSAGES.UNAUTHORIZED
+            });
+        }
+
         const { id } = req.params;
         const { selectedAnswer } = req.body;
 
-        if (!selectedAnswer) {
+        // Validate ID format
+        const parsedId = parseInt(id);
+        if (isNaN(parsedId)) {
             return res.status(HTTP_STATUS.BAD_REQUEST).json({
-                error: 'Selected answer is required'
+                success: false,
+                error: 'Invalid MCQ ID format',
+                field: 'id'
+            });
+        }
+
+        // Validate selectedAnswer
+        if (!selectedAnswer || typeof selectedAnswer !== 'string' || selectedAnswer.trim().length === 0) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'Selected answer is required and must be a non-empty string',
+                field: 'selectedAnswer'
             });
         }
 
         const mcq = await prisma.mCQ.findUnique({
-            where: { id: parseInt(id) }
+            where: { id: parsedId }
         });
 
         if (!mcq) {
             return res.status(HTTP_STATUS.NOT_FOUND).json({
+                success: false,
                 error: 'MCQ not found'
             });
         }
@@ -130,6 +152,7 @@ export const attemptMCQ = async (req, res) => {
         // Verify student has access to this MCQ (same college)
         if (mcq.collegeId !== req.user.collegeId) {
             return res.status(HTTP_STATUS.FORBIDDEN).json({
+                success: false,
                 error: ERROR_MESSAGES.COLLEGE_ACCESS_DENIED
             });
         }

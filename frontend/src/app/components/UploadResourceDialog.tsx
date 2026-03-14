@@ -11,7 +11,7 @@ import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Alert, AlertDescription } from './ui/alert';
+import { toast } from 'sonner';
 
 interface Module {
   id: number;
@@ -43,16 +43,83 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
   const [modules, setModules] = useState<Module[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   // Fetch faculties when dialog opens
   useEffect(() => {
     if (open) {
-      setError(''); // Clear any previous errors
       fetchFaculties();
     }
   }, [open]);
+
+  // Validation functions
+  const validateTitle = (value: string): string => {
+    if (!value.trim()) {
+      return 'Title is required';
+    }
+    if (value.trim().length < 3) {
+      return 'Title must be at least 3 characters';
+    }
+    return '';
+  };
+
+  const validateFaculty = (value: string): string => {
+    if (!value) {
+      return 'Faculty is required';
+    }
+    return '';
+  };
+
+  const validateYear = (value: string): string => {
+    if (!value) {
+      return 'Academic year is required';
+    }
+    return '';
+  };
+
+  const validateModule = (value: string): string => {
+    if (!formData.facultyId || !formData.year) {
+      return 'Select faculty and year first';
+    }
+    if (!value) {
+      return 'Module is required';
+    }
+    if (modules.length === 0) {
+      return 'No modules available for this selection';
+    }
+    return '';
+  };
+
+  const validateFile = (selectedFile: File | null): string => {
+    if (!selectedFile) {
+      return 'Please select a file to upload';
+    }
+    
+    const allowedTypes = ['application/pdf', 'application/msword', 
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/vnd.ms-powerpoint',
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+    
+    if (!allowedTypes.includes(selectedFile.type)) {
+      return 'Invalid file type. Only PDF, DOC, DOCX, PPT, and PPTX are allowed.';
+    }
+    
+    if (selectedFile.size > 10 * 1024 * 1024) {
+      return 'File size must be less than 10MB.';
+    }
+    
+    return '';
+  };
+
+  // Check if all fields are valid
+  const isFormValid = (): boolean => {
+    const titleError = validateTitle(formData.title);
+    const facultyError = validateFaculty(formData.facultyId);
+    const yearError = validateYear(formData.year);
+    const moduleError = validateModule(formData.moduleId);
+    const fileError = validateFile(file);
+    
+    return !titleError && !facultyError && !yearError && !moduleError && !fileError;
+  };
 
   // Fetch modules when faculty and year are selected
   useEffect(() => {
@@ -75,7 +142,6 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
 
   const fetchFaculties = async () => {
     try {
-      // Debug: Check token and user
       const token = sessionStorage.getItem('access_token');
       const user = sessionStorage.getItem('user');
       console.log('Auth Token exists:', !!token);
@@ -89,12 +155,11 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
       
       let errorMessage = err.response?.data?.error || 'Failed to load faculties';
       
-      // Add debugging info if it's a role error
       if (err.response?.data?.userRole && err.response?.data?.requiredRoles) {
         errorMessage += `\n(Your role: ${err.response.data.userRole}, Required: ${err.response.data.requiredRoles.join(' or ')})`;
       }
       
-      setError(errorMessage);
+      toast.error(errorMessage);
       setFaculties([]);
     }
   };
@@ -102,72 +167,45 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
-      
-      // Validate file type
-      const allowedTypes = ['application/pdf', 'application/msword', 
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
-      
-      if (!allowedTypes.includes(selectedFile.type)) {
-        setError('Invalid file type. Only PDF, DOC, DOCX, PPT, and PPTX files are allowed.');
-        return;
-      }
-      
-      // Validate file size (10MB)
-      if (selectedFile.size > 10 * 1024 * 1024) {
-        setError('File size must be less than 10MB.');
-        return;
-      }
-      
       setFile(selectedFile);
-      setError('');
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setSuccess('');
     
-    // Validation - all fields mandatory except description
-    if (!formData.title.trim()) {
-      setError('Title is required');
-      return;
-    }
-
-    if (!formData.facultyId) {
-      setError('Faculty is required');
-      return;
-    }
+    // Validate all fields
+    const titleError = validateTitle(formData.title);
+    const facultyError = validateFaculty(formData.facultyId);
+    const yearError = validateYear(formData.year);
+    const moduleError = validateModule(formData.moduleId);
+    const fileError = validateFile(file);
     
-    if (!formData.year) {
-      setError('Academic year is required');
-      return;
-    }
+    // Collect all errors
+    const errors = [];
+    if (titleError) errors.push(titleError);
+    if (facultyError) errors.push(facultyError);
+    if (yearError) errors.push(yearError);
+    if (moduleError) errors.push(moduleError);
+    if (fileError) errors.push(fileError);
     
-    if (!formData.moduleId) {
-      setError('Module is required');
-      return;
-    }
-    
-    if (!file) {
-      setError('Please select a file to upload');
+    // If any errors exist, show them in a toast and don't submit
+    if (errors.length > 0) {
+      toast.error(errors.join('\n'));
       return;
     }
     
     setLoading(true);
     
     // Show info message for large files
-    if (file.size > 5 * 1024 * 1024) { // > 5MB
-      setError(''); // Clear any previous errors
+    if (file && file.size > 5 * 1024 * 1024) { // > 5MB
       console.log('⏳ Uploading large file... This may take several minutes.');
     }
     
     try {
       // Create FormData for file upload
       const uploadData = new FormData();
-      uploadData.append('file', file);
+      uploadData.append('file', file!);
       uploadData.append('title', formData.title);
       uploadData.append('facultyId', formData.facultyId);
       uploadData.append('year', formData.year);
@@ -179,13 +217,12 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
       
       const response = await resourceAPI.upload(uploadData);
       
-      setSuccess('Resource uploaded successfully!');
+      toast.success('Resource uploaded successfully!');
       
       // Reset form
       setTimeout(() => {
         setFormData({ title: '', description: '', facultyId: '', year: '', moduleId: '' });
         setFile(null);
-        setSuccess('');
         onSuccess();
         onClose();
       }, 1500);
@@ -193,7 +230,7 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
     } catch (err: any) {
       console.error('Upload error:', err);
       const errorMessage = err.response?.data?.error || err.message || 'Failed to upload resource';
-      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -203,8 +240,6 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
     if (!loading) {
       setFormData({ title: '', description: '', facultyId: '', year: '', moduleId: '' });
       setFile(null);
-      setError('');
-      setSuccess('');
       onClose();
     }
   };
@@ -217,18 +252,6 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          
-          {success && (
-            <Alert className="bg-green-50 border-green-200 text-green-800">
-              <AlertDescription>{success}</AlertDescription>
-            </Alert>
-          )}
-          
           {/* Title */}
           <div>
             <Label htmlFor="title">Title *</Label>
@@ -237,7 +260,6 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               placeholder="Enter resource title"
-              required
               disabled={loading}
             />
           </div>
@@ -265,7 +287,6 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
                 setModules([]);
               }}
               disabled={loading}
-              required
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select faculty" />
@@ -289,7 +310,6 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
                 setFormData({ ...formData, year: value, moduleId: '' });
               }}
               disabled={loading || !formData.facultyId}
-              required
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select year" />
@@ -313,7 +333,6 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
               value={formData.moduleId}
               onValueChange={(value) => setFormData({ ...formData, moduleId: value })}
               disabled={loading || !formData.facultyId || !formData.year || modules.length === 0}
-              required
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select module" />
@@ -341,7 +360,6 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
               type="file"
               onChange={handleFileChange}
               accept=".pdf,.doc,.docx,.ppt,.pptx"
-              required
               disabled={loading}
             />
             <p className="text-xs text-gray-500 mt-1">

@@ -572,7 +572,17 @@ export const deleteResource = async (req, res) => {
  */
 export const downloadResource = async (req, res) => {
     try {
-        const resourceId = parseInt(req.params.id);
+        const { id } = req.params;
+
+        // Validate ID format
+        const resourceId = parseInt(id);
+        if (isNaN(resourceId)) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'Invalid resource ID format',
+                field: 'id'
+            });
+        }
         
         const resource = await prisma.resource.findUnique({
             where: { id: resourceId }
@@ -580,7 +590,16 @@ export const downloadResource = async (req, res) => {
 
         if (!resource) {
             return res.status(HTTP_STATUS.NOT_FOUND).json({
+                success: false,
                 error: 'Resource not found'
+            });
+        }
+
+        // Validate file URL exists
+        if (!resource.fileUrl) {
+            return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+                success: false,
+                error: 'Resource file URL is missing'
             });
         }
 

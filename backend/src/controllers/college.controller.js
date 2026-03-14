@@ -235,24 +235,11 @@ export const deleteCollege = async (req, res) => {
     try {
         const { id } = req.params;
         const { hardDelete = false } = req.query;
+        const collegeId = parseInt(id);
 
         // Check if college exists
         const existingCollege = await prisma.college.findUnique({
-            where: { id: parseInt(id) },
-            include: {
-                _count: {
-                    select: {
-                        users: true,
-                        resources: true,
-                        modules: true,
-                        mcqs: true,
-                        faculties: true,
-                        mcqSets: true,
-                        quizSessions: true,
-                        learningSites: true
-                    }
-                }
-            }
+            where: { id: collegeId }
         });
 
         if (!existingCollege) {
@@ -263,40 +250,110 @@ export const deleteCollege = async (req, res) => {
 
         // Soft delete by default (deactivate)
         if (hardDelete === 'true') {
-            const dependencies = [
-                { key: 'users', label: 'users' },
-                { key: 'resources', label: 'resources' },
-                { key: 'modules', label: 'modules' },
-                { key: 'mcqs', label: 'mcqs' },
-                { key: 'faculties', label: 'faculties' },
-                { key: 'mcqSets', label: 'mcq sets' },
-                { key: 'quizSessions', label: 'quiz sessions' },
-                { key: 'learningSites', label: 'learning sites' }
-            ].filter(item => (existingCollege._count[item.key] || 0) > 0);
+            // Hard delete: cascade delete all associated data using transaction
+            console.log(`Starting cascade delete for college ${collegeId}`);
+            
+            try {
+                // Use transaction to ensure all-or-nothing deletion
+                await prisma.$transaction(async (tx) => {
+                    // 1. Get all users in this college
+                    const collegUsers = await tx.user.findMany({
+                        where: { collegeId },
+                        select: { id: true }
+                    });
+                    const userIds = collegUsers.map(u => u.id);
+                    console.log(`Found ${userIds.length} users to delete`);
 
-            // Check if college has associated data
-            if (dependencies.length > 0) {
-                const dependencySummary = dependencies
-                    .map(item => `${existingCollege._count[item.key]} ${item.label}`)
-                    .join(', ');
+                    // 2. Delete MCQ Attempts (references users and MCQs)
+                    if (userIds.length > 0) {
+                        const deletedAttempts = await tx.mCQAttempt.deleteMany({
+                            where: { studentId: { in: userIds } }
+                        });
+                        console.log(`✓ Deleted ${deletedAttempts.count} MCQ attempts`);
+                    }
 
-                return res.status(HTTP_STATUS.BAD_REQUEST).json({
-                    error: `Cannot permanently delete college with associated data: ${dependencySummary}`
+                    // 3. Delete Progress records (references users)
+                    if (userIds.length > 0) {
+                        const deletedProgress = await tx.progress.deleteMany({
+                            where: { studentId: { in: userIds } }
+                        });
+                        console.log(`✓ Deleted ${deletedProgress.count} progress records`);
+                    }
+
+                    // 4. Delete Performance Analytics (references users)
+                    if (userIds.length > 0) {
+                        const deletedAnalytics = await tx.performanceAnalytics.deleteMany({
+                            where: { studentId: { in: userIds } }
+                        });
+                        console.log(`✓ Deleted ${deletedAnalytics.count} performance analytics`);
+                    }
+
+                    // 5. Delete Document Summaries (references users)
+                    if (userIds.length > 0) {
+                        const deletedSummaries = await tx.documentSummary.deleteMany({
+                            where: { userId: { in: userIds } }
+                        });
+                        console.log(`✓ Deleted ${deletedSummaries.count} document summaries`);
+                    }
+
+                    // 6. Delete Quiz Sessions
+                    const deletedSessions = await tx.quizSession.deleteMany({ where: { collegeId } });
+                    console.log(`✓ Deleted ${deletedSessions.count} quiz sessions`);
+
+                    // 7. Delete SetMCQ entries (junction table - has cascade delete)
+                    // But manually delete them first to be safe
+                    const deletedSetMCQ = await tx.setMCQ.deleteMany({
+                        where: { set: { collegeId } }
+                    });
+                    console.log(`✓ Deleted ${deletedSetMCQ.count} set-MCQ mappings`);
+
+                    // 8. Delete MCQs
+                    const deletedMCQs = await tx.mCQ.deleteMany({ where: { collegeId } });
+                    console.log(`✓ Deleted ${deletedMCQs.count} MCQs`);
+
+                    // 9. Delete MCQ Sets
+                    const deletedSets = await tx.mCQSet.deleteMany({ where: { collegeId } });
+                    console.log(`✓ Deleted ${deletedSets.count} MCQ sets`);
+
+                    // 10. Delete Learning Sites
+                    const deletedSites = await tx.learningSite.deleteMany({ where: { collegeId } });
+                    console.log(`✓ Deleted ${deletedSites.count} learning sites`);
+
+                    // 11. Delete Resources
+                    const deletedResources = await tx.resource.deleteMany({ where: { collegeId } });
+                    console.log(`✓ Deleted ${deletedResources.count} resources`);
+
+                    // 12. Delete Modules
+                    const deletedModules = await tx.module.deleteMany({ where: { collegeId } });
+                    console.log(`✓ Deleted ${deletedModules.count} modules`);
+
+                    // 13. Delete Faculties
+                    const deletedFaculties = await tx.faculty.deleteMany({ where: { collegeId } });
+                    console.log(`✓ Deleted ${deletedFaculties.count} faculties`);
+
+                    // 14. Delete Users
+                    const deletedUsers = await tx.user.deleteMany({ where: { collegeId } });
+                    console.log(`✓ Deleted ${deletedUsers.count} users`);
+
+                    // 15. Delete the College
+                    const deletedCollege = await tx.college.delete({ where: { id: collegeId } });
+                    console.log(`✓ Deleted college: ${deletedCollege.name}`);
                 });
+
+                console.log(`✅ College ${collegeId} and all associated data deleted successfully`);
+                
+                res.status(HTTP_STATUS.OK).json({
+                    success: true,
+                    message: 'College and all associated data permanently deleted'
+                });
+            } catch (transactionError) {
+                console.error('Transaction error during cascade delete:', transactionError.message);
+                throw transactionError;
             }
-
-            await prisma.college.delete({
-                where: { id: parseInt(id) }
-            });
-
-            res.status(HTTP_STATUS.OK).json({
-                success: true,
-                message: 'College permanently deleted'
-            });
         } else {
-            // Soft delete
+            // Soft delete (deactivate)
             await prisma.college.update({
-                where: { id: parseInt(id) },
+                where: { id: collegeId },
                 data: { isActive: false }
             });
 
@@ -306,17 +363,12 @@ export const deleteCollege = async (req, res) => {
             });
         }
     } catch (error) {
-        console.error('Delete college error:', error);
-
-        if (error.code === 'P2003') {
-            return res.status(HTTP_STATUS.BAD_REQUEST).json({
-                error: 'Cannot permanently delete college due to related records. Deactivate it instead.'
-            });
-        }
+        console.error('❌ Delete college error:', error.message);
 
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR,
-            details: error.message
+            success: false,
+            error: 'Failed to delete college: ' + error.message,
+            details: process.env.NODE_ENV === 'development' ? error : undefined
         });
     }
 };

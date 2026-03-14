@@ -16,13 +16,31 @@ export const startQuizSession = async (req, res) => {
     try {
         const { setId, moduleId, customMCQIds } = req.body;
         
+        // Validate user authentication
+        if (!req.user || !req.user.id) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                error: 'User authentication required'
+            });
+        }
+        
         let mcqIds = [];
         let setInfo = null;
 
         if (setId) {
+            // Validate setId format
+            const parsedSetId = parseInt(setId);
+            if (isNaN(parsedSetId)) {
+                return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                    success: false,
+                    error: 'Invalid MCQ set ID format',
+                    field: 'setId'
+                });
+            }
+
             // Using predefined MCQ set
             const mcqSet = await prisma.mCQSet.findUnique({
-                where: { id: parseInt(setId) },
+                where: { id: parsedSetId },
                 include: {
                     mcqs: {
                         orderBy: { order: 'asc' },
@@ -33,6 +51,7 @@ export const startQuizSession = async (req, res) => {
 
             if (!mcqSet) {
                 return res.status(HTTP_STATUS.NOT_FOUND).json({
+                    success: false,
                     error: 'MCQ set not found'
                 });
             }
@@ -47,22 +66,53 @@ export const startQuizSession = async (req, res) => {
             mcqIds = mcqSet.mcqs.map(m => m.mcqId);
             setInfo = mcqSet;
         } else if (customMCQIds && Array.isArray(customMCQIds)) {
-            // Custom selection of MCQs
-            mcqIds = customMCQIds.map(id => parseInt(id));
+            // Validate custom MCQ IDs
+            if (customMCQIds.length === 0) {
+                return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                    success: false,
+                    error: 'At least one MCQ ID must be provided',
+                    field: 'customMCQIds'
+                });
+            }
+            mcqIds = customMCQIds.map(id => {
+                const parsed = parseInt(id);
+                if (isNaN(parsed)) {
+                    throw new Error(`Invalid MCQ ID format: ${id}`);
+                }
+                return parsed;
+            });
         } else if (moduleId) {
+            // Validate moduleId format
+            const parsedModuleId = parseInt(moduleId);
+            if (isNaN(parsedModuleId)) {
+                return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                    success: false,
+                    error: 'Invalid module ID format',
+                    field: 'moduleId'
+                });
+            }
+
             // Get random MCQs from module
             const mcqs = await prisma.mCQ.findMany({
                 where: {
-                    moduleId: parseInt(moduleId),
+                    moduleId: parsedModuleId,
                     collegeId: req.user.collegeId
                 },
                 select: { id: true },
                 take: 10
             });
+            if (mcqs.length === 0) {
+                return res.status(HTTP_STATUS.NOT_FOUND).json({
+                    success: false,
+                    error: 'No MCQs available in this module'
+                });
+            }
             mcqIds = mcqs.map(m => m.id);
         } else {
             return res.status(HTTP_STATUS.BAD_REQUEST).json({
-                error: 'Either setId, customMCQIds, or moduleId is required'
+                success: false,
+                error: 'Either setId, customMCQIds, or moduleId is required',
+                fields: ['setId', 'customMCQIds', 'moduleId']
             });
         }
 
@@ -120,7 +170,9 @@ export const startQuizSession = async (req, res) => {
     } catch (error) {
         console.error('Start quiz session error:', error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR
+            success: false,
+            error: ERROR_MESSAGES.DATABASE_ERROR,
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
@@ -132,21 +184,55 @@ export const startQuizSession = async (req, res) => {
  */
 export const submitQuizSession = async (req, res) => {
     try {
-        const { sessionId } = req.params;
-        const { answers, timeSpent } = req.body; // answers: [{ mcqId, selectedAnswer }]
-
-        if (!answers || !Array.isArray(answers)) {
-            return res.status(HTTP_STATUS.BAD_REQUEST).json({
-                error: 'Answers array is required'
+        // Validate user authentication
+        if (!req.user || !req.user.id) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                error: 'User authentication required'
             });
         }
 
+        const { sessionId } = req.params;
+        const { answers, timeSpent } = req.body;
+
+        // Validate sessionId format
+        const parsedSessionId = parseInt(sessionId);
+        if (isNaN(parsedSessionId)) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'Invalid session ID format',
+                field: 'sessionId'
+            });
+        }
+
+        // Validate answers array
+        if (!answers || !Array.isArray(answers) || answers.length === 0) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'Answers array is required and must contain at least one answer',
+                field: 'answers'
+            });
+        }
+
+        // Validate each answer object
+        for (let i = 0; i < answers.length; i++) {
+            const answer = answers[i];
+            if (!answer.mcqId || !answer.selectedAnswer) {
+                return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                    success: false,
+                    error: `Answer at index ${i} is missing mcqId or selectedAnswer`,
+                    field: `answers[${i}]`
+                });
+            }
+        }
+
         const session = await prisma.quizSession.findUnique({
-            where: { id: parseInt(sessionId) }
+            where: { id: parsedSessionId }
         });
 
         if (!session) {
             return res.status(HTTP_STATUS.NOT_FOUND).json({
+                success: false,
                 error: 'Quiz session not found'
             });
         }
@@ -154,14 +240,16 @@ export const submitQuizSession = async (req, res) => {
         // Verify ownership
         if (session.studentId !== req.user.id) {
             return res.status(HTTP_STATUS.FORBIDDEN).json({
-                error: 'Access denied'
+                success: false,
+                error: 'You do not have permission to submit this quiz session'
             });
         }
 
         // Check if already submitted
         if (session.status === 'SUBMITTED') {
             return res.status(HTTP_STATUS.BAD_REQUEST).json({
-                error: 'Quiz already submitted'
+                success: false,
+                error: 'This quiz has already been submitted'
             });
         }
 
@@ -195,7 +283,7 @@ export const submitQuizSession = async (req, res) => {
                     studentId: req.user.id,
                     selectedAnswer: answer.selectedAnswer,
                     isCorrect,
-                    sessionId: parseInt(sessionId)
+                    sessionId: parsedSessionId
                 }
             });
 
@@ -217,7 +305,7 @@ export const submitQuizSession = async (req, res) => {
 
         // Update session
         await prisma.quizSession.update({
-            where: { id: parseInt(sessionId) },
+            where: { id: parsedSessionId },
             data: {
                 status: 'SUBMITTED',
                 score,
@@ -249,7 +337,7 @@ export const submitQuizSession = async (req, res) => {
         res.status(HTTP_STATUS.OK).json({
             success: true,
             results: {
-                sessionId: parseInt(sessionId),
+                sessionId: parsedSessionId,
                 score,
                 totalQuestions: answers.length,
                 correctAnswers: correctCount,
@@ -270,7 +358,9 @@ export const submitQuizSession = async (req, res) => {
     } catch (error) {
         console.error('Submit quiz session error:', error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR
+            success: false,
+            error: ERROR_MESSAGES.DATABASE_ERROR,
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
@@ -282,10 +372,28 @@ export const submitQuizSession = async (req, res) => {
  */
 export const getQuizSession = async (req, res) => {
     try {
+        // Validate user authentication
+        if (!req.user || !req.user.id) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                error: 'User authentication required'
+            });
+        }
+
         const { sessionId } = req.params;
 
+        // Validate sessionId format
+        const parsedSessionId = parseInt(sessionId);
+        if (isNaN(parsedSessionId)) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'Invalid session ID format',
+                field: 'sessionId'
+            });
+        }
+
         const session = await prisma.quizSession.findUnique({
-            where: { id: parseInt(sessionId) },
+            where: { id: parsedSessionId },
             include: {
                 set: {
                     select: { title: true, description: true }
@@ -321,7 +429,9 @@ export const getQuizSession = async (req, res) => {
     } catch (error) {
         console.error('Get quiz session error:', error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR
+            success: false,
+            error: ERROR_MESSAGES.DATABASE_ERROR,
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };
@@ -333,16 +443,47 @@ export const getQuizSession = async (req, res) => {
  */
 export const getQuizHistory = async (req, res) => {
     try {
+        // Validate user authentication
+        if (!req.user || !req.user.id) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                error: 'User authentication required'
+            });
+        }
+
         console.log('📚 Getting quiz history for student:', req.user.id);
         const { moduleId, limit = 20 } = req.query;
+
+        // Validate limit parameter
+        const parsedLimit = parseInt(limit);
+        if (isNaN(parsedLimit) || parsedLimit <= 0 || parsedLimit > 100) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'Limit must be a number between 1 and 100',
+                field: 'limit'
+            });
+        }
+
+        // Validate moduleId if provided
+        let parsedModuleId = null;
+        if (moduleId) {
+            parsedModuleId = parseInt(moduleId);
+            if (isNaN(parsedModuleId)) {
+                return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                    success: false,
+                    error: 'Invalid module ID format',
+                    field: 'moduleId'
+                });
+            }
+        }
 
         const whereClause = {
             studentId: req.user.id,
             status: 'SUBMITTED'
         };
 
-        if (moduleId) {
-            whereClause.moduleId = parseInt(moduleId);
+        if (parsedModuleId) {
+            whereClause.moduleId = parsedModuleId;
         }
 
         console.log('🔍 Query params:', { moduleId, limit, whereClause });
@@ -358,7 +499,7 @@ export const getQuizHistory = async (req, res) => {
                 }
             },
             orderBy: { submittedAt: 'desc' },
-            take: parseInt(limit)
+            take: parsedLimit
         });
 
         console.log('✅ Found sessions:', sessions.length);
@@ -398,37 +539,75 @@ export const getQuizHistory = async (req, res) => {
  */
 export const abandonQuizSession = async (req, res) => {
     try {
+        // Validate user authentication
+        if (!req.user || !req.user.id) {
+            return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                success: false,
+                error: 'User authentication required'
+            });
+        }
+
         const { sessionId } = req.params;
 
+        // Validate sessionId format
+        const parsedSessionId = parseInt(sessionId);
+        if (isNaN(parsedSessionId)) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'Invalid session ID format',
+                field: 'sessionId'
+            });
+        }
+
         const session = await prisma.quizSession.findUnique({
-            where: { id: parseInt(sessionId) }
+            where: { id: parsedSessionId }
         });
 
         if (!session) {
             return res.status(HTTP_STATUS.NOT_FOUND).json({
+                success: false,
                 error: 'Quiz session not found'
             });
         }
 
+        // Verify ownership
         if (session.studentId !== req.user.id) {
             return res.status(HTTP_STATUS.FORBIDDEN).json({
-                error: 'Access denied'
+                success: false,
+                error: 'You do not have permission to abandon this quiz session'
+            });
+        }
+
+        // Validate session can be abandoned
+        if (session.status === 'SUBMITTED') {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'Cannot abandon a quiz that has already been submitted'
+            });
+        }
+
+        if (session.status === 'ABANDONED') {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'This quiz session is already abandoned'
             });
         }
 
         await prisma.quizSession.update({
-            where: { id: parseInt(sessionId) },
-            data: { status: 'ABANDONED' }
+            where: { id: parsedSessionId },
+            data: { status: 'ABANDONED', abandonedAt: new Date() }
         });
 
         res.status(HTTP_STATUS.OK).json({
             success: true,
-            message: 'Quiz session abandoned'
+            message: 'Quiz session abandoned successfully'
         });
     } catch (error) {
         console.error('Abandon quiz session error:', error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
-            error: ERROR_MESSAGES.DATABASE_ERROR
+            success: false,
+            error: ERROR_MESSAGES.DATABASE_ERROR,
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
         });
     }
 };

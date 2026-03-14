@@ -131,11 +131,29 @@ export const uploadAndSummarize = async (req, res) => {
  */
 export const getDetailedSummary = async (req, res) => {
   try {
+    // Validate user authentication
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
     const { id } = req.params;
+
+    // Validate ID format
+    const parsedId = parseInt(id);
+    if (isNaN(parsedId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid summary ID format',
+        field: 'id'
+      });
+    }
     
     const summary = await prisma.documentSummary.findUnique({
       where: { 
-        id: parseInt(id),
+        id: parsedId,
         userId: req.user.id 
       }
     });
@@ -182,11 +200,29 @@ export const getDetailedSummary = async (req, res) => {
  */
 export const getStudyNotes = async (req, res) => {
   try {
+    // Validate user authentication
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
     const { id } = req.params;
+
+    // Validate ID format
+    const parsedId = parseInt(id);
+    if (isNaN(parsedId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid summary ID format',
+        field: 'id'
+      });
+    }
     
     const summary = await prisma.documentSummary.findUnique({
       where: { 
-        id: parseInt(id),
+        id: parsedId,
         userId: req.user.id 
       }
     });
@@ -233,19 +269,47 @@ export const getStudyNotes = async (req, res) => {
  */
 export const askQuestion = async (req, res) => {
   try {
+    // Validate user authentication
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
     const { id } = req.params;
     const { question } = req.body;
-    
-    if (!question || question.trim().length === 0) {
+
+    // Validate ID format
+    const parsedId = parseInt(id);
+    if (isNaN(parsedId)) {
       return res.status(400).json({
         success: false,
-        message: 'Question is required'
+        message: 'Invalid summary ID format',
+        field: 'id'
+      });
+    }
+    
+    // Validate question input
+    if (!question || typeof question !== 'string' || question.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Question must be a non-empty string',
+        field: 'question'
+      });
+    }
+
+    if (question.trim().length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: 'Question must be less than 500 characters',
+        field: 'question'
       });
     }
     
     const summary = await prisma.documentSummary.findUnique({
       where: { 
-        id: parseInt(id),
+        id: parsedId,
         userId: req.user.id 
       }
     });
@@ -288,6 +352,14 @@ export const askQuestion = async (req, res) => {
  */
 export const getSummaryHistory = async (req, res) => {
   try {
+    // Validate user authentication
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
     const summaries = await prisma.documentSummary.findMany({
       where: { userId: req.user.id },
       orderBy: { createdAt: 'desc' },
@@ -320,11 +392,29 @@ export const getSummaryHistory = async (req, res) => {
  */
 export const getSummaryById = async (req, res) => {
   try {
+    // Validate user authentication
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
     const { id } = req.params;
+
+    // Validate ID format
+    const parsedId = parseInt(id);
+    if (isNaN(parsedId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid summary ID format',
+        field: 'id'
+      });
+    }
     
     const summary = await prisma.documentSummary.findUnique({
       where: { 
-        id: parseInt(id),
+        id: parsedId,
         userId: req.user.id 
       },
       include: {
@@ -360,11 +450,29 @@ export const getSummaryById = async (req, res) => {
  */
 export const deleteSummary = async (req, res) => {
   try {
+    // Validate user authentication
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: 'User authentication required'
+      });
+    }
+
     const { id } = req.params;
+
+    // Validate ID format
+    const parsedId = parseInt(id);
+    if (isNaN(parsedId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid summary ID format',
+        field: 'id'
+      });
+    }
     
     const summary = await prisma.documentSummary.findUnique({
       where: { 
-        id: parseInt(id),
+        id: parsedId,
         userId: req.user.id 
       }
     });

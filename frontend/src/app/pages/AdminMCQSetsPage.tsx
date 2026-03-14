@@ -227,13 +227,18 @@ export default function AdminMCQSetsPage() {
   };
 
   const handleUploadSet = async () => {
-    if (!setForm.title || !setForm.moduleId) {
-      toast.error('Please provide set title and select a module');
-      return;
-    }
+    // Validate all fields
+    const errors = [];
     
-    if (mcqsData.length === 0) {
-      toast.error('Please add at least one MCQ');
+    if (!setForm.title) errors.push('Please provide a set title');
+    if (!setForm.facultyId) errors.push('Please select a faculty');
+    if (!setForm.year) errors.push('Please select an academic year');
+    if (!setForm.moduleId) errors.push('Please select a module');
+    if (mcqsData.length === 0) errors.push('Please add at least one MCQ');
+    
+    // If any errors exist, show them in a toast and don't submit
+    if (errors.length > 0) {
+      toast.error(errors.join('\n'));
       return;
     }
     
@@ -900,8 +905,7 @@ export default function AdminMCQSetsPage() {
               <Button
                 type="button"
                 onClick={handleUploadSet}
-                disabled={!setForm.title || !setForm.moduleId || mcqsData.length === 0}
-                className="bg-[#4A7C59] hover:bg-[#3d6b4a] text-white disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="bg-[#4A7C59] hover:bg-[#3d6b4a] text-white"
               >
                 Create MCQ Set ({mcqsData.length} questions)
               </Button>

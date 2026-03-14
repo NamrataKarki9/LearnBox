@@ -52,6 +52,20 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { authAPI } from '../../services/api';
+import { FieldError } from '../components/FieldValidation';
+import {
+  validateFirstName,
+  validateLastName,
+  validateEmail,
+  validateUsername,
+  validatePhone,
+  validatePassword,
+  validatePasswordMatch,
+  sanitizeFirstName,
+  sanitizeLastName,
+  sanitizePhone,
+  sanitizeUsername,
+} from '../../utils/validators';
 
 interface UserProfile {
   id: number;
@@ -104,11 +118,41 @@ export default function StudentSettingsPage() {
     college: user?.college,
   });
 
+  // Profile field errors and touched states
+  const [profileErrors, setProfileErrors] = useState({
+    first_name: '',
+    last_name: '',
+    username: '',
+    email: '',
+    phone: '',
+  });
+
+  const [profileTouched, setProfileTouched] = useState({
+    first_name: false,
+    last_name: false,
+    username: false,
+    email: false,
+    phone: false,
+  });
+
   // State for password change
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
+  });
+
+  // Password field errors and touched states
+  const [passwordErrors, setPasswordErrors] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
+  const [passwordTouched, setPasswordTouched] = useState({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false,
   });
 
   // State for notifications
@@ -154,27 +198,106 @@ export default function StudentSettingsPage() {
   };
 
   const handleProfileUpdate = async () => {
+    // Validate only required fields
+    const newErrors = {
+      first_name: '',
+      last_name: '',
+      username: '',
+      email: '',
+      phone: '',
+    };
+
+    // Validate first name (optional, but if provided must be letters only)
+    if (profile.first_name && profile.first_name.trim()) {
+      const firstNameValidation = validateFirstName(profile.first_name);
+      if (!firstNameValidation.valid) {
+        newErrors.first_name = firstNameValidation.error || '';
+      }
+    }
+
+    // Validate last name (optional, but if provided must be letters only)
+    if (profile.last_name && profile.last_name.trim()) {
+      const lastNameValidation = validateLastName(profile.last_name);
+      if (!lastNameValidation.valid) {
+        newErrors.last_name = lastNameValidation.error || '';
+      }
+    }
+
+    // Validate username (required)
+    if (profile.username && profile.username.trim()) {
+      const usernameValidation = validateUsername(profile.username);
+      if (!usernameValidation.valid) {
+        newErrors.username = usernameValidation.error || '';
+      }
+    }
+
+    // Validate email (required)
+    if (profile.email && profile.email.trim()) {
+      const emailValidation = validateEmail(profile.email);
+      if (!emailValidation.valid) {
+        newErrors.email = emailValidation.error || '';
+      }
+    }
+
+    // Validate phone (optional)
+    if (profile.phone && profile.phone.trim()) {
+      const phoneValidation = validatePhone(profile.phone);
+      if (!phoneValidation.valid) {
+        newErrors.phone = phoneValidation.error || '';
+      }
+    }
+
+    setProfileErrors(newErrors);
+
+    // Check if there are any validation errors
+    const hasErrors = Object.values(newErrors).some(err => err !== '');
+    if (hasErrors) {
+      toast.error('Please fix validation errors marked in red.');
+      return;
+    }
+
     setIsSaving(true);
     try {
+      // Prepare update data - only send fields that have values
+      const updateData: any = {};
+      
+      // Always include username and email if they exist
+      if (profile.username?.trim()) updateData.username = profile.username.trim();
+      if (profile.email?.trim()) updateData.email = profile.email.trim();
+      
+      // Only add optional fields if they have values
+      if (profile.first_name?.trim()) updateData.first_name = profile.first_name.trim();
+      if (profile.last_name?.trim()) updateData.last_name = profile.last_name.trim();
+      if (profile.phone?.trim()) updateData.phone = profile.phone.trim();
+      if (profile.bio?.trim()) updateData.bio = profile.bio.trim();
+      
+      // Send avatar if user uploaded a new one (base64 format)
+      // Or explicitly send empty string if user clicked remove
+      if (profile.avatar?.startsWith('data:')) {
+        // New avatar was uploaded
+        updateData.avatar = profile.avatar;
+      } else if (profile.avatar === '') {
+        // User explicitly removed the avatar
+        updateData.avatar = null;
+      }
+      // Otherwise, don't include avatar field to keep existing avatar
+
+      console.log('Sending profile update:', { ...updateData, avatar: updateData.avatar ? `[base64 image, size: ${updateData.avatar.length} bytes]` : updateData.avatar });
+      
       // Call backend API to update profile
-      const response = await authAPI.updateProfile({
-        username: profile.username,
-        email: profile.email,
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-        phone: profile.phone,
-        bio: profile.bio,
-        avatar: profile.avatar,
-      });
+      const response = await authAPI.updateProfile(updateData);
       
       // Update session storage and AuthContext with the updated user data
       const updatedUser = response.data.user as any;
       updateUser(updatedUser);
       
       // Update local profile state
+      // Preserve locally-set avatar if it's a new upload (base64 format)
+      const avatarToUse = profile.avatar?.startsWith('data:') ? profile.avatar : updatedUser.avatar;
       setProfile({
         ...profile,
         ...updatedUser,
+        avatar: avatarToUse, // Use new avatar if uploaded, otherwise server's avatar
         college: user?.college, // Preserve college data
       });
       
@@ -189,13 +312,40 @@ export default function StudentSettingsPage() {
   };
 
   const handlePasswordChange = async () => {
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast.error('New passwords do not match');
-      return;
+    // Validate all password fields
+    const newErrors = {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    };
+
+    if (!passwordForm.currentPassword) {
+      newErrors.currentPassword = 'Current password is required.';
     }
 
-    if (passwordForm.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters long');
+    if (!passwordForm.newPassword) {
+      newErrors.newPassword = 'New password is required.';
+    } else {
+      const passwordValidation = validatePassword(passwordForm.newPassword);
+      if (!passwordValidation.valid) {
+        newErrors.newPassword = passwordValidation.errors[0] || 'Invalid password';
+      }
+    }
+
+    if (!passwordForm.confirmPassword) {
+      newErrors.confirmPassword = 'Please confirm your new password.';
+    } else {
+      const passwordMatchValidation = validatePasswordMatch(passwordForm.newPassword, passwordForm.confirmPassword);
+      if (!passwordMatchValidation.valid) {
+        newErrors.confirmPassword = passwordMatchValidation.error || '';
+      }
+    }
+
+    setPasswordErrors(newErrors);
+
+    // Check if there are any errors
+    if (Object.values(newErrors).some(err => err !== '')) {
+      toast.error('Please fix all validation errors before changing password.');
       return;
     }
 
@@ -209,6 +359,8 @@ export default function StudentSettingsPage() {
       
       toast.success('Password changed successfully');
       setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordErrors({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      setPasswordTouched({ currentPassword: false, newPassword: false, confirmPassword: false });
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || 'Failed to change password';
       toast.error(errorMessage);
@@ -216,6 +368,116 @@ export default function StudentSettingsPage() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Profile field validation helpers
+  const handleProfileFieldChange = (field: keyof typeof profile, value: string) => {
+    let sanitizedValue = value;
+
+    // Sanitize based on field type
+    if (field === 'first_name') {
+      sanitizedValue = sanitizeFirstName(value);
+    } else if (field === 'last_name') {
+      sanitizedValue = sanitizeLastName(value);
+    } else if (field === 'username') {
+      sanitizedValue = sanitizeUsername(value);
+    } else if (field === 'phone') {
+      sanitizedValue = sanitizePhone(value);
+    }
+
+    setProfile({ ...profile, [field]: sanitizedValue });
+
+    // Validate in real-time if field was touched
+    if (profileTouched[field as keyof typeof profileTouched]) {
+      validateProfileField(field as keyof typeof profileTouched, sanitizedValue);
+    }
+  };
+
+  const validateProfileField = (fieldName: keyof typeof profileTouched, value: string) => {
+    let error = '';
+
+    switch (fieldName) {
+      case 'first_name':
+        if (value && value.trim()) {
+          const validation = validateFirstName(value);
+          if (!validation.valid) error = validation.error || '';
+        }
+        break;
+      case 'last_name':
+        if (value && value.trim()) {
+          const validation = validateLastName(value);
+          if (!validation.valid) error = validation.error || '';
+        }
+        break;
+      case 'username':
+        if (value && value.trim()) {
+          const usernameVal = validateUsername(value);
+          if (!usernameVal.valid) error = usernameVal.error || '';
+        }
+        break;
+      case 'email':
+        if (value && value.trim()) {
+          const emailVal = validateEmail(value);
+          if (!emailVal.valid) error = emailVal.error || '';
+        }
+        break;
+      case 'phone':
+        if (value && value.trim()) {
+          const phoneVal = validatePhone(value);
+          if (!phoneVal.valid) error = phoneVal.error || '';
+        }
+        break;
+    }
+
+    setProfileErrors({ ...profileErrors, [fieldName]: error });
+  };
+
+  const handleProfileFieldBlur = (fieldName: keyof typeof profileTouched) => {
+    setProfileTouched({ ...profileTouched, [fieldName]: true });
+    const value = profile[fieldName as keyof typeof profile];
+    validateProfileField(fieldName, typeof value === 'string' ? value : '');
+  };
+
+  // Password field validation helpers
+  const handlePasswordFieldChange = (field: keyof typeof passwordForm, value: string) => {
+    setPasswordForm({ ...passwordForm, [field]: value });
+
+    // Validate in real-time if field was touched
+    if (passwordTouched[field as keyof typeof passwordTouched]) {
+      validatePasswordField(field as keyof typeof passwordTouched, value);
+    }
+  };
+
+  const validatePasswordField = (fieldName: keyof typeof passwordTouched, value: string) => {
+    let error = '';
+
+    switch (fieldName) {
+      case 'currentPassword':
+        if (!value) error = 'Current password is required.';
+        break;
+      case 'newPassword':
+        if (!value) {
+          error = 'New password is required.';
+        } else {
+          const validation = validatePassword(value);
+          if (!validation.valid) error = validation.errors[0] || '';
+        }
+        break;
+      case 'confirmPassword':
+        if (!value) {
+          error = 'Please confirm your new password.';
+        } else if (value !== passwordForm.newPassword) {
+          error = 'Passwords do not match.';
+        }
+        break;
+    }
+
+    setPasswordErrors({ ...passwordErrors, [fieldName]: error });
+  };
+
+  const handlePasswordFieldBlur = (fieldName: keyof typeof passwordTouched) => {
+    setPasswordTouched({ ...passwordTouched, [fieldName]: true });
+    validatePasswordField(fieldName, passwordForm[fieldName]);
   };
 
   const handleNotificationUpdate = async () => {
@@ -278,9 +540,10 @@ export default function StudentSettingsPage() {
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image size must be less than 5MB');
+      // Validate file size (max 3MB to account for base64 encoding overhead)
+      // Base64 encoding increases size by ~33%, so 3MB becomes ~4MB
+      if (file.size > 3 * 1024 * 1024) {
+        toast.error('Image size must be less than 3MB');
         return;
       }
 
@@ -442,7 +705,7 @@ export default function StudentSettingsPage() {
                           Profile Picture
                         </h3>
                         <p className="text-sm text-muted-foreground mb-3">
-                          JPG, PNG or GIF. Max size 5MB.
+                          JPG, PNG or GIF. Max size 3MB.
                         </p>
                         <div className="flex items-center space-x-3">
                           <Button
@@ -483,10 +746,15 @@ export default function StudentSettingsPage() {
                           id="first_name"
                           value={profile.first_name}
                           onChange={(e) =>
-                            setProfile({ ...profile, first_name: e.target.value })
+                            handleProfileFieldChange('first_name', e.target.value)
                           }
+                          onBlur={() => handleProfileFieldBlur('first_name')}
                           placeholder="Enter your first name"
+                          className={profileTouched.first_name && profileErrors.first_name ? "border-2 border-red-500" : ""}
                         />
+                        {profileTouched.first_name && profileErrors.first_name && (
+                          <FieldError error={profileErrors.first_name} />
+                        )}
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="last_name">Last Name</Label>
@@ -494,10 +762,15 @@ export default function StudentSettingsPage() {
                           id="last_name"
                           value={profile.last_name}
                           onChange={(e) =>
-                            setProfile({ ...profile, last_name: e.target.value })
+                            handleProfileFieldChange('last_name', e.target.value)
                           }
+                          onBlur={() => handleProfileFieldBlur('last_name')}
                           placeholder="Enter your last name"
+                          className={profileTouched.last_name && profileErrors.last_name ? "border-2 border-red-500" : ""}
                         />
+                        {profileTouched.last_name && profileErrors.last_name && (
+                          <FieldError error={profileErrors.last_name} />
+                        )}
                       </div>
                     </div>
 
@@ -507,10 +780,15 @@ export default function StudentSettingsPage() {
                         id="username"
                         value={profile.username}
                         onChange={(e) =>
-                          setProfile({ ...profile, username: e.target.value })
+                          handleProfileFieldChange('username', e.target.value)
                         }
-                        placeholder="Enter your username"
+                        onBlur={() => handleProfileFieldBlur('username')}
+                        placeholder="Letters and underscores only (e.g., john_doe)"
+                        className={profileTouched.username && profileErrors.username ? "border-2 border-red-500" : ""}
                       />
+                      {profileTouched.username && profileErrors.username && (
+                        <FieldError error={profileErrors.username} />
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -522,11 +800,16 @@ export default function StudentSettingsPage() {
                           type="email"
                           value={profile.email}
                           onChange={(e) =>
-                            setProfile({ ...profile, email: e.target.value })
+                            handleProfileFieldChange('email', e.target.value)
                           }
+                          onBlur={() => handleProfileFieldBlur('email')}
                           placeholder="Enter your email"
+                          className={profileTouched.email && profileErrors.email ? "border-2 border-red-500" : ""}
                         />
                       </div>
+                      {profileTouched.email && profileErrors.email && (
+                        <FieldError error={profileErrors.email} />
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -538,11 +821,16 @@ export default function StudentSettingsPage() {
                           type="tel"
                           value={profile.phone}
                           onChange={(e) =>
-                            setProfile({ ...profile, phone: e.target.value })
+                            handleProfileFieldChange('phone', e.target.value)
                           }
-                          placeholder="+1 (555) 000-0000"
+                          onBlur={() => handleProfileFieldBlur('phone')}
+                          placeholder="+977 .........."
+                          className={profileTouched.phone && profileErrors.phone ? "border-2 border-red-500" : ""}
                         />
                       </div>
+                      {profileTouched.phone && profileErrors.phone && (
+                        <FieldError error={profileErrors.phone} />
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -633,13 +921,15 @@ export default function StudentSettingsPage() {
                             type="password"
                             value={passwordForm.currentPassword}
                             onChange={(e) =>
-                              setPasswordForm({
-                                ...passwordForm,
-                                currentPassword: e.target.value,
-                              })
+                              handlePasswordFieldChange('currentPassword', e.target.value)
                             }
+                            onBlur={() => handlePasswordFieldBlur('currentPassword')}
                             placeholder="Enter current password"
+                            className={passwordTouched.currentPassword && passwordErrors.currentPassword ? "border-2 border-red-500" : ""}
                           />
+                          {passwordTouched.currentPassword && passwordErrors.currentPassword && (
+                            <FieldError error={passwordErrors.currentPassword} />
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="new_password">New Password</Label>
@@ -648,13 +938,15 @@ export default function StudentSettingsPage() {
                             type="password"
                             value={passwordForm.newPassword}
                             onChange={(e) =>
-                              setPasswordForm({
-                                ...passwordForm,
-                                newPassword: e.target.value,
-                              })
+                              handlePasswordFieldChange('newPassword', e.target.value)
                             }
-                            placeholder="Enter new password (min 8 characters)"
+                            onBlur={() => handlePasswordFieldBlur('newPassword')}
+                            placeholder="Enter new password (min 8 characters, must include number and special character)"
+                            className={passwordTouched.newPassword && passwordErrors.newPassword ? "border-2 border-red-500" : ""}
                           />
+                          {passwordTouched.newPassword && passwordErrors.newPassword && (
+                            <FieldError error={passwordErrors.newPassword} />
+                          )}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="confirm_password">Confirm New Password</Label>
@@ -663,13 +955,15 @@ export default function StudentSettingsPage() {
                             type="password"
                             value={passwordForm.confirmPassword}
                             onChange={(e) =>
-                              setPasswordForm({
-                                ...passwordForm,
-                                confirmPassword: e.target.value,
-                              })
+                              handlePasswordFieldChange('confirmPassword', e.target.value)
                             }
+                            onBlur={() => handlePasswordFieldBlur('confirmPassword')}
                             placeholder="Confirm new password"
+                            className={passwordTouched.confirmPassword && passwordErrors.confirmPassword ? "border-2 border-red-500" : ""}
                           />
+                          {passwordTouched.confirmPassword && passwordErrors.confirmPassword && (
+                            <FieldError error={passwordErrors.confirmPassword} />
+                          )}
                         </div>
                       </div>
                       <div className="flex justify-end">
