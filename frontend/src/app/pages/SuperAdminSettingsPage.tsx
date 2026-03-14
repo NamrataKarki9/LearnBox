@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../components/ui/button';
@@ -48,27 +48,56 @@ export default function SuperAdminSettingsPage() {
     confirmPassword: '',
   });
 
-  const [notifications, setNotifications] = useState(() => {
-    try {
-      const saved = localStorage.getItem('adminNotificationSettings');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return {
-      emailNotifications: true,
-      collegeUpdates: true,
-      userRegistrations: true,
-      systemAnnouncements: true,
-      weeklyReport: false,
-    };
+  const [notifications, setNotifications] = useState({
+    emailNotifications: true,
+    collegeUpdates: true,
+    userRegistrations: true,
+    systemAnnouncements: true,
+    weeklyReport: false,
   });
 
-  const [preferences, setPreferences] = useState<{ theme: ThemeMode; language: string }>(() => {
-    try {
-      const saved = localStorage.getItem('adminPreferences');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return { theme: 'system', language: 'en' };
+  const [preferences, setPreferences] = useState<{ theme: ThemeMode; language: string }>({
+    theme: 'system',
+    language: 'en'
   });
+
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const [meRes, settingsRes] = await Promise.all([
+          authAPI.getMe(),
+          authAPI.getSettings()
+        ]);
+
+        const mePayload: any = meRes.data;
+        const meUser = mePayload.user ? mePayload.user : mePayload;
+
+        setProfile((prev) => ({
+          ...prev,
+          first_name: meUser?.first_name || '',
+          last_name: meUser?.last_name || '',
+          username: meUser?.username || '',
+          email: meUser?.email || '',
+          phone: meUser?.phone || '',
+          bio: meUser?.bio || '',
+          avatar: meUser?.avatar || '',
+        }));
+
+        const settings = settingsRes.data?.data;
+        if (settings?.notifications) {
+          setNotifications(settings.notifications);
+        }
+        if (settings?.preferences) {
+          setPreferences(settings.preferences);
+          applyTheme(settings.preferences.theme || 'system');
+        }
+      } catch (error: any) {
+        toast.error(error.response?.data?.error || 'Failed to load settings');
+      }
+    };
+
+    loadSettings();
+  }, []);
 
   const getInitials = () => {
     if (profile.first_name && profile.last_name) {
@@ -137,11 +166,10 @@ export default function SuperAdminSettingsPage() {
   const handleNotificationSave = async () => {
     setIsSaving(true);
     try {
-      localStorage.setItem('adminNotificationSettings', JSON.stringify(notifications));
-      await new Promise(r => setTimeout(r, 300));
+      await authAPI.updateNotificationSettings(notifications);
       toast.success('Notification preferences saved');
-    } catch {
-      toast.error('Failed to save notification preferences');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to save notification preferences');
     } finally {
       setIsSaving(false);
     }
@@ -150,12 +178,11 @@ export default function SuperAdminSettingsPage() {
   const handlePreferencesSave = async () => {
     setIsSaving(true);
     try {
-      localStorage.setItem('adminPreferences', JSON.stringify(preferences));
+      await authAPI.updatePreferences(preferences);
       applyTheme(preferences.theme);
-      await new Promise(r => setTimeout(r, 300));
       toast.success('Preferences saved');
-    } catch {
-      toast.error('Failed to save preferences');
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to save preferences');
     } finally {
       setIsSaving(false);
     }

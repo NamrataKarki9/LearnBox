@@ -241,7 +241,16 @@ export const deleteCollege = async (req, res) => {
             where: { id: parseInt(id) },
             include: {
                 _count: {
-                    select: { users: true, resources: true }
+                    select: {
+                        users: true,
+                        resources: true,
+                        modules: true,
+                        mcqs: true,
+                        faculties: true,
+                        mcqSets: true,
+                        quizSessions: true,
+                        learningSites: true
+                    }
                 }
             }
         });
@@ -254,10 +263,25 @@ export const deleteCollege = async (req, res) => {
 
         // Soft delete by default (deactivate)
         if (hardDelete === 'true') {
+            const dependencies = [
+                { key: 'users', label: 'users' },
+                { key: 'resources', label: 'resources' },
+                { key: 'modules', label: 'modules' },
+                { key: 'mcqs', label: 'mcqs' },
+                { key: 'faculties', label: 'faculties' },
+                { key: 'mcqSets', label: 'mcq sets' },
+                { key: 'quizSessions', label: 'quiz sessions' },
+                { key: 'learningSites', label: 'learning sites' }
+            ].filter(item => (existingCollege._count[item.key] || 0) > 0);
+
             // Check if college has associated data
-            if (existingCollege._count.users > 0 || existingCollege._count.resources > 0) {
+            if (dependencies.length > 0) {
+                const dependencySummary = dependencies
+                    .map(item => `${existingCollege._count[item.key]} ${item.label}`)
+                    .join(', ');
+
                 return res.status(HTTP_STATUS.BAD_REQUEST).json({
-                    error: 'Cannot delete college with associated users or resources'
+                    error: `Cannot permanently delete college with associated data: ${dependencySummary}`
                 });
             }
 
@@ -283,6 +307,13 @@ export const deleteCollege = async (req, res) => {
         }
     } catch (error) {
         console.error('Delete college error:', error);
+
+        if (error.code === 'P2003') {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                error: 'Cannot permanently delete college due to related records. Deactivate it instead.'
+            });
+        }
+
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
             error: ERROR_MESSAGES.DATABASE_ERROR,
             details: error.message

@@ -12,6 +12,7 @@ export const getAllUsers = async (req, res) => {
                 first_name: true,
                 last_name: true,
                 role: true,
+                isActive: true,
                 collegeId: true,
                 college: {
                     select: {
@@ -21,6 +22,7 @@ export const getAllUsers = async (req, res) => {
                     }
                 },
                 createdAt: true,
+                updatedAt: true,
             },
         });
         
@@ -40,26 +42,49 @@ export const getAllUsers = async (req, res) => {
 // Update user (roles, details)
 export const updateUser = async (req, res) => {
     const { id } = req.params;
-    const { roles, first_name, last_name, email, username } = req.body;
+    const { roles, first_name, last_name, email, username, collegeId, isActive } = req.body;
 
     try {
+        const userId = parseInt(id);
+
+        // Prevent super admin from deactivating themselves.
+        if (req.user?.id === userId && isActive === false) {
+            return res.status(400).json({ error: 'You cannot deactivate your own account' });
+        }
+
         // Convert roles array to single role (take first role)
         const role = roles && roles.length > 0 ? roles[0] : undefined;
+
+        const updateData = {};
+        if (role !== undefined) updateData.role = role;
+        if (first_name !== undefined) updateData.first_name = first_name;
+        if (last_name !== undefined) updateData.last_name = last_name;
+        if (email !== undefined) updateData.email = email;
+        if (username !== undefined) updateData.username = username;
+        if (collegeId !== undefined) updateData.collegeId = collegeId;
+        if (isActive !== undefined) updateData.isActive = isActive;
         
         const updatedUser = await prisma.user.update({
-            where: { id: parseInt(id) },
-            data: {
-                role: role || undefined,
-                first_name: first_name || undefined,
-                last_name: last_name || undefined,
-                email: email || undefined,
-                username: username || undefined,
-            },
+            where: { id: userId },
+            data: updateData,
             select: {
                 id: true,
                 username: true,
                 email: true,
+                first_name: true,
+                last_name: true,
                 role: true,
+                isActive: true,
+                collegeId: true,
+                college: {
+                    select: {
+                        id: true,
+                        name: true,
+                        code: true,
+                    }
+                },
+                createdAt: true,
+                updatedAt: true,
             },
         });
         

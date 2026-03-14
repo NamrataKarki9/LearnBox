@@ -320,6 +320,12 @@ export const login = async (req, res) => {
             });
         }
 
+        if (user.isActive === false) {
+            return res.status(HTTP_STATUS.FORBIDDEN).json({
+                error: 'Your account is inactive. Please contact support.'
+            });
+        }
+
         // NEW: Check if email is verified
         if (!user.is_verified) {
             return res.status(HTTP_STATUS.FORBIDDEN).json({
@@ -709,6 +715,138 @@ export const updateProfile = async (req, res) => {
     } catch (error) {
         console.error('Update profile error:', error);
         res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+            error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+            details: error.message
+        });
+    }
+};
+
+/**
+ * Get user settings
+ * @route GET /api/auth/settings
+ * @access Private (authenticated user)
+ */
+export const getUserSettings = async (req, res) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: {
+                notificationSettings: true,
+                preferences: true
+            }
+        });
+
+        if (!user) {
+            return res.status(HTTP_STATUS.NOT_FOUND).json({
+                error: 'User not found'
+            });
+        }
+
+        const defaultNotifications = {
+            emailNotifications: true,
+            collegeUpdates: true,
+            userRegistrations: true,
+            systemAnnouncements: true,
+            weeklyReport: false
+        };
+
+        const defaultPreferences = {
+            theme: 'system',
+            language: 'en'
+        };
+
+        return res.status(HTTP_STATUS.OK).json({
+            success: true,
+            data: {
+                notifications: {
+                    ...defaultNotifications,
+                    ...(user.notificationSettings || {})
+                },
+                preferences: {
+                    ...defaultPreferences,
+                    ...(user.preferences || {})
+                }
+            }
+        });
+    } catch (error) {
+        console.error('Get user settings error:', error);
+        return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+            error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+            details: error.message
+        });
+    }
+};
+
+/**
+ * Update notification settings
+ * @route PUT /api/auth/settings/notifications
+ * @access Private (authenticated user)
+ */
+export const updateNotificationSettings = async (req, res) => {
+    try {
+        const settings = req.body;
+
+        const updatedUser = await prisma.user.update({
+            where: { id: req.user.id },
+            data: {
+                notificationSettings: settings
+            },
+            select: {
+                id: true
+            }
+        });
+
+        if (!updatedUser) {
+            return res.status(HTTP_STATUS.NOT_FOUND).json({
+                error: 'User not found'
+            });
+        }
+
+        return res.status(HTTP_STATUS.OK).json({
+            success: true,
+            message: 'Notification settings updated successfully'
+        });
+    } catch (error) {
+        console.error('Update notification settings error:', error);
+        return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+            error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+            details: error.message
+        });
+    }
+};
+
+/**
+ * Update preferences settings
+ * @route PUT /api/auth/settings/preferences
+ * @access Private (authenticated user)
+ */
+export const updatePreferences = async (req, res) => {
+    try {
+        const settings = req.body;
+
+        const updatedUser = await prisma.user.update({
+            where: { id: req.user.id },
+            data: {
+                preferences: settings
+            },
+            select: {
+                id: true
+            }
+        });
+
+        if (!updatedUser) {
+            return res.status(HTTP_STATUS.NOT_FOUND).json({
+                error: 'User not found'
+            });
+        }
+
+        return res.status(HTTP_STATUS.OK).json({
+            success: true,
+            message: 'Preferences updated successfully'
+        });
+    } catch (error) {
+        console.error('Update preferences error:', error);
+        return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
             error: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
             details: error.message
         });

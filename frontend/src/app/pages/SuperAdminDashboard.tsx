@@ -45,9 +45,13 @@ export default function SuperAdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [showCollegeModal, setShowCollegeModal] = useState(false);
   const [editingCollege, setEditingCollege] = useState<College | null>(null);
+  const [collegeView, setCollegeView] = useState<'all' | 'active' | 'inactive'>('active');
   const [showLLMModal, setShowLLMModal] = useState(false);
   const [editingLLM, setEditingLLM] = useState<LLMConfig | null>(null);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<UserData | null>(null);
   const [filterRole, setFilterRole] = useState('All');
+  const [filterStatus, setFilterStatus] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
 
   // College form state
@@ -57,6 +61,15 @@ export default function SuperAdminDashboard() {
     location: '',
     description: '',
     isActive: true
+  });
+
+  const [userForm, setUserForm] = useState({
+    username: '',
+    email: '',
+    first_name: '',
+    last_name: '',
+    roles: ['STUDENT'],
+    collegeId: ''
   });
 
   // LLM Config form state
@@ -142,14 +155,29 @@ export default function SuperAdminDashboard() {
   };
 
   const handleDeleteCollege = async (id: number, name: string) => {
-    if (!confirm(`Are you sure you want to deactivate ${name}?`)) return;
+    if (!confirm(`Are you sure you want to delete ${name}?`)) return;
     
     try {
-      await collegeAPI.delete(id, false);
-      toast.success('College deactivated successfully');
+      await collegeAPI.delete(id, true);
+      toast.success('College deleted successfully');
       fetchAllData();
     } catch (error: any) {
-      toast.error('Failed to deactivate college: ' + (error.response?.data?.error || error.message));
+      const backendMessage = error.response?.data?.error || error.message;
+
+      // If hard delete is blocked by dependent data, fall back to deactivation.
+      if (backendMessage?.includes('associated data')) {
+        try {
+          await collegeAPI.delete(id, false);
+          toast.success('College deactivated successfully');
+          fetchAllData();
+          return;
+        } catch (fallbackError: any) {
+          toast.error('Failed to deactivate college: ' + (fallbackError.response?.data?.error || fallbackError.message));
+          return;
+        }
+      }
+
+      toast.error('Failed to delete college: ' + backendMessage);
     }
   };
 
@@ -162,6 +190,69 @@ export default function SuperAdminDashboard() {
       fetchAllData();
     } catch (error: any) {
       toast.error('Failed to delete user: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const handleToggleCollegeStatus = async (college: College) => {
+    try {
+      await collegeAPI.update(college.id, { isActive: !college.isActive });
+      toast.success(`College ${college.isActive ? 'deactivated' : 'activated'} successfully`);
+      fetchAllData();
+    } catch (error: any) {
+      toast.error('Failed to update college status: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const openEditUserModal = (targetUser: UserData) => {
+    setEditingUser(targetUser);
+    setUserForm({
+      username: targetUser.username || '',
+      email: targetUser.email || '',
+      first_name: targetUser.first_name || '',
+      last_name: targetUser.last_name || '',
+      roles: targetUser.roles?.length ? targetUser.roles : ['STUDENT'],
+      collegeId: targetUser.collegeId ? targetUser.collegeId.toString() : ''
+    });
+    setShowUserModal(true);
+  };
+
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+
+    try {
+      await userAPI.update(editingUser.id, {
+        username: userForm.username,
+        email: userForm.email,
+        first_name: userForm.first_name,
+        last_name: userForm.last_name,
+        roles: userForm.roles,
+        collegeId: userForm.roles.includes('SUPER_ADMIN')
+          ? null
+          : (userForm.collegeId ? parseInt(userForm.collegeId) : null)
+      });
+
+      toast.success('User updated successfully');
+      setShowUserModal(false);
+      setEditingUser(null);
+      fetchAllData();
+    } catch (error: any) {
+      toast.error('Failed to update user: ' + (error.response?.data?.error || error.message));
+    }
+  };
+
+  const handleToggleUserStatus = async (targetUser: UserData) => {
+    if (targetUser.id === user?.id) {
+      toast.error('You cannot deactivate your own account');
+      return;
+    }
+
+    try {
+      await userAPI.update(targetUser.id, { isActive: !(targetUser.isActive ?? true) });
+      toast.success(`User ${(targetUser.isActive ?? true) ? 'deactivated' : 'activated'} successfully`);
+      fetchAllData();
+    } catch (error: any) {
+      toast.error('Failed to update user status: ' + (error.response?.data?.error || error.message));
     }
   };
 
@@ -288,12 +379,21 @@ export default function SuperAdminDashboard() {
   // Filter users
   const filteredUsers = users.filter(u => {
     const roleMatch = filterRole === 'All' || u.roles.includes(filterRole);
+    const statusMatch =
+      filterStatus === 'All' ||
+      (filterStatus === 'Active' ? (u.isActive ?? true) : !(u.isActive ?? true));
     const searchMatch = searchTerm === '' || 
       u.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (u.first_name && u.first_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (u.last_name && u.last_name.toLowerCase().includes(searchTerm.toLowerCase()));
-    return roleMatch && searchMatch;
+    return roleMatch && statusMatch && searchMatch;
+  });
+
+  const visibleColleges = colleges.filter((college) => {
+    if (collegeView === 'all') return true;
+    if (collegeView === 'active') return college.isActive;
+    return !college.isActive;
   });
 
   const getUserRoleDisplay = (roles: string[]) => {
@@ -548,19 +648,41 @@ export default function SuperAdminDashboard() {
                   <div className="flex justify-between items-center mb-6">
                     <div>
                       <h2 className="text-2xl font-bold text-gray-900">College Management</h2>
-                      <p className="text-gray-500 mt-1">{colleges.length} total colleges</p>
+                      <p className="text-gray-500 mt-1">{visibleColleges.length} shown of {colleges.length} total colleges</p>
                     </div>
-                    <Button 
-                      onClick={openCreateModal}
-                      className="bg-[#7C9E9E] hover:bg-[#6B8D8D] text-white flex items-center gap-2"
-                    >
-                      <Plus className="w-5 h-5" />
-                      Add New College
-                    </Button>
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center rounded-lg border border-gray-300 p-1 bg-white">
+                        <button
+                          onClick={() => setCollegeView('active')}
+                          className={`px-3 py-1 text-sm rounded ${collegeView === 'active' ? 'bg-[#7C9E9E] text-white' : 'text-gray-600'}`}
+                        >
+                          Active
+                        </button>
+                        <button
+                          onClick={() => setCollegeView('inactive')}
+                          className={`px-3 py-1 text-sm rounded ${collegeView === 'inactive' ? 'bg-[#7C9E9E] text-white' : 'text-gray-600'}`}
+                        >
+                          Inactive
+                        </button>
+                        <button
+                          onClick={() => setCollegeView('all')}
+                          className={`px-3 py-1 text-sm rounded ${collegeView === 'all' ? 'bg-[#7C9E9E] text-white' : 'text-gray-600'}`}
+                        >
+                          All
+                        </button>
+                      </div>
+                      <Button 
+                        onClick={openCreateModal}
+                        className="bg-[#7C9E9E] hover:bg-[#6B8D8D] text-white flex items-center gap-2"
+                      >
+                        <Plus className="w-5 h-5" />
+                        Add New College
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {colleges.map(college => (
+                    {visibleColleges.map(college => (
                       <Card key={college.id} className="shadow-md hover:shadow-lg transition-shadow">
                         <CardContent className="p-6">
                           <div className="flex justify-between items-start mb-4">
@@ -601,6 +723,14 @@ export default function SuperAdminDashboard() {
                             >
                               <Edit className="w-4 h-4" />
                               Edit
+                            </Button>
+                            <Button
+                              onClick={() => handleToggleCollegeStatus(college)}
+                              variant="outline"
+                              size="sm"
+                              className={`flex-1 flex items-center justify-center gap-1 ${college.isActive ? 'text-amber-700 hover:text-amber-800 hover:bg-amber-50' : 'text-green-700 hover:text-green-800 hover:bg-green-50'}`}
+                            >
+                              {college.isActive ? 'Deactivate' : 'Activate'}
                             </Button>
                             <Button
                               onClick={() => handleDeleteCollege(college.id, college.name)}
@@ -650,6 +780,15 @@ export default function SuperAdminDashboard() {
                             <option value="COLLEGE_ADMIN">College Admins</option>
                             <option value="SUPER_ADMIN">Super Admins</option>
                           </select>
+                          <select 
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                          >
+                            <option value="All">All Status</option>
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                          </select>
                         </div>
                       </div>
                       
@@ -661,6 +800,7 @@ export default function SuperAdminDashboard() {
                               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Email</th>
                               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Name</th>
                               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Role</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Status</th>
                               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">College</th>
                               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase">Action</th>
                             </tr>
@@ -681,18 +821,41 @@ export default function SuperAdminDashboard() {
                                     {getUserRoleDisplay(user.roles)}
                                   </span>
                                 </td>
+                                <td className="px-4 py-4">
+                                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${(user.isActive ?? true) ? 'bg-green-100 text-green-800' : 'bg-gray-200 text-gray-700'}`}>
+                                    {(user.isActive ?? true) ? 'Active' : 'Inactive'}
+                                  </span>
+                                </td>
                                 <td className="px-4 py-4 text-sm text-gray-600">
                                   {user.college?.name || 'N/A'}
                                 </td>
                                 <td className="px-4 py-4">
-                                  <Button
-                                    onClick={() => handleDeleteUser(user.id, user.username)}
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
+                                  <div className="flex items-center gap-1">
+                                    <Button
+                                      onClick={() => openEditUserModal(user)}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    >
+                                      <Edit className="w-4 h-4" />
+                                    </Button>
+                                    <Button
+                                      onClick={() => handleToggleUserStatus(user)}
+                                      variant="ghost"
+                                      size="sm"
+                                      className={(user.isActive ?? true) ? 'text-amber-700 hover:text-amber-800 hover:bg-amber-50' : 'text-green-700 hover:text-green-800 hover:bg-green-50'}
+                                    >
+                                      {(user.isActive ?? true) ? 'Deactivate' : 'Activate'}
+                                    </Button>
+                                    <Button
+                                      onClick={() => handleDeleteUser(user.id, user.username)}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </div>
                                 </td>
                               </tr>
                             ))}
@@ -961,6 +1124,124 @@ export default function SuperAdminDashboard() {
                     className="flex-1 bg-[#7C9E9E] hover:bg-[#6B8D8D] text-white"
                   >
                     {editingCollege ? 'Update' : 'Create'}
+                  </Button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Modal */}
+      {showUserModal && editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Edit User</h2>
+                <button
+                  onClick={() => {
+                    setShowUserModal(false);
+                    setEditingUser(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <form onSubmit={handleUpdateUser}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Username *</label>
+                    <input
+                      type="text"
+                      required
+                      value={userForm.username}
+                      onChange={(e) => setUserForm({ ...userForm, username: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                    <input
+                      type="email"
+                      required
+                      value={userForm.email}
+                      onChange={(e) => setUserForm({ ...userForm, email: e.target.value })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                      <input
+                        type="text"
+                        value={userForm.first_name}
+                        onChange={(e) => setUserForm({ ...userForm, first_name: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                      <input
+                        type="text"
+                        value={userForm.last_name}
+                        onChange={(e) => setUserForm({ ...userForm, last_name: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                    <select
+                      value={userForm.roles[0]}
+                      onChange={(e) => setUserForm({ ...userForm, roles: [e.target.value] })}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                    >
+                      <option value="STUDENT">Student</option>
+                      <option value="COLLEGE_ADMIN">College Admin</option>
+                      <option value="SUPER_ADMIN">Super Admin</option>
+                    </select>
+                  </div>
+
+                  {!userForm.roles.includes('SUPER_ADMIN') && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">College</label>
+                      <select
+                        value={userForm.collegeId}
+                        onChange={(e) => setUserForm({ ...userForm, collegeId: e.target.value })}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#7C9E9E]"
+                      >
+                        <option value="">Select a college</option>
+                        {colleges.filter(c => c.isActive).map((college) => (
+                          <option key={college.id} value={college.id}>{college.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-3 mt-6">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      setShowUserModal(false);
+                      setEditingUser(null);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    className="flex-1 bg-[#7C9E9E] hover:bg-[#6B8D8D] text-white"
+                  >
+                    Update
                   </Button>
                 </div>
               </form>

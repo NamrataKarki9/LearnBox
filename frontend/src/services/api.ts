@@ -140,9 +140,14 @@ export const authAPI = {
   register: (data: RegisterData) => api.post<AuthResponse>('/auth/register', data),
   login: (data: LoginData) => api.post<AuthResponse>('/auth/login', data),
   refreshToken: (refreshToken: string) => api.post<RefreshTokenResponse>('/auth/token/refresh', { refresh: refreshToken }),
-  getMe: () => api.get<{ user: User }>('/auth/me'),
+  getMe: () => api.get<User | { user: User }>('/auth/me'),
   updateProfile: (data: UpdateProfileData) => api.put<UpdateProfileResponse>('/auth/profile', data),
   changePassword: (data: ChangePasswordData) => api.put<ChangePasswordResponse>('/auth/change-password', data),
+  getSettings: () => api.get<{ success: boolean; data: { notifications: any; preferences: any } }>('/auth/settings'),
+  updateNotificationSettings: (settings: any) =>
+    api.put<{ success: boolean; message: string }>('/auth/settings/notifications', settings),
+  updatePreferences: (preferences: any) =>
+    api.put<{ success: boolean; message: string }>('/auth/settings/preferences', preferences),
 };
 
 // Resource types
@@ -377,6 +382,7 @@ export interface UserData {
   email: string;
   first_name?: string;
   last_name?: string;
+  isActive?: boolean;
   roles: string[];
   collegeId?: number;
   college?: {
@@ -395,7 +401,7 @@ export const userAPI = {
     api.get<UserData[]>('/users'),
   
   // Update user
-  update: (id: number, data: { roles?: string[]; first_name?: string; last_name?: string; email?: string; username?: string }) =>
+  update: (id: number, data: { roles?: string[]; first_name?: string; last_name?: string; email?: string; username?: string; collegeId?: number | null; isActive?: boolean }) =>
     api.put<UserData>(`/users/${id}`, data),
   
   // Delete user

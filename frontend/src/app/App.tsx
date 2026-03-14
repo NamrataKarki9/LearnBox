@@ -7,6 +7,9 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { VerifyOTPPage } from "./pages/VerifyOTPPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { AboutPage } from "./pages/AboutPage";
+import { ContactPage } from "./pages/ContactPage";
+import { HelpPage } from "./pages/HelpPage";
 import DashboardPage from "./pages/DashboardPage";
 import StudentDashboard from "./pages/StudentDashboard";
 import StudentResourcesPage from "./pages/StudentResourcesPage";
@@ -45,6 +48,11 @@ export default function App() {
         <Routes>
           {/* Landing Page - Has its own header/footer */}
           <Route path="/" element={<LandingPage />} />
+
+          {/* Info Pages - Has their own header/footer  */}
+          <Route path="/about" element={<AboutPage />} />
+          <Route path="/contact" element={<ContactPage />} />
+          <Route path="/help" element={<HelpPage />} />
 
           {/* Auth Routes - No Header/Footer */}
           <Route path="/login" element={<LoginPage />} />
