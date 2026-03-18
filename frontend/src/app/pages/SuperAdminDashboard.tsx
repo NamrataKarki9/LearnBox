@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Textarea } from '../components/ui/textarea';
@@ -18,7 +19,7 @@ import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { authAPI, collegeAPI, userAPI, llmConfigAPI, College, UserData, LLMConfig, CreateLLMConfigData } from '../../services/api';
 import { toast } from 'sonner';
-import { Plus, Building2, Users, BookOpen, GraduationCap, Edit, Trash2, X, Check, Search, Settings, CheckCircle, Circle, User, Lock, Bell, Palette, Camera, Save, Mail, Phone, Monitor, Moon, Sun, Globe, FileText, Shield, LogOut } from 'lucide-react';
+import { Plus, Building2, Users, BookOpen, GraduationCap, Edit, Trash2, X, Check, Search, Settings, CheckCircle, Circle, User, Lock, Bell, Palette, Camera, Save, Mail, Phone, Monitor, Moon, Sun, Globe, FileText, Shield, LogOut, AlertCircle } from 'lucide-react';
 import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
 import { useLogoutConfirm } from '../../hooks/useLogoutConfirm';
 
@@ -66,6 +67,22 @@ export default function SuperAdminDashboard() {
   const [filterRole, setFilterRole] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Delete confirmation states
+  const [deleteCollegeConfirmOpen, setDeleteCollegeConfirmOpen] = useState(false);
+  const [deleteCollegeId, setDeleteCollegeId] = useState<number | null>(null);
+  const [deleteCollegeName, setDeleteCollegeName] = useState<string>('');
+  const [deleteUserConfirmOpen, setDeleteUserConfirmOpen] = useState(false);
+  const [deleteUserId, setDeleteUserId] = useState<number | null>(null);
+  const [deleteUsername, setDeleteUsername] = useState<string>('');
+  const [deleteLLMConfirmOpen, setDeleteLLMConfirmOpen] = useState(false);
+  const [deleteLLMId, setDeleteLLMId] = useState<number | null>(null);
+  const [deleteLLMName, setDeleteLLMName] = useState<string>('');
+  const [activateLLMConfirmOpen, setActivateLLMConfirmOpen] = useState(false);
+  const [activateLLMId, setActivateLLMId] = useState<number | null>(null);
+  const [activateLLMName, setActivateLLMName] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isActivating, setIsActivating] = useState(false);
 
   // College form state
   const [collegeForm, setCollegeForm] = useState({
@@ -192,27 +209,49 @@ export default function SuperAdminDashboard() {
   };
 
   const handleDeleteCollege = async (id: number, name: string) => {
-    if (!confirm(`Delete college "${name}" and ALL associated users and resources?\n\n⚠️ This action cannot be undone!`)) return;
-    
+    setDeleteCollegeId(id);
+    setDeleteCollegeName(name);
+    setDeleteCollegeConfirmOpen(true);
+  };
+
+  const confirmDeleteCollege = async () => {
+    if (!deleteCollegeId) return;
+    setIsDeleting(true);
     try {
-      await collegeAPI.delete(id, true);
-      toast.success(`College "${name}" and all associated data deleted successfully`);
+      await collegeAPI.delete(deleteCollegeId, true);
+      toast.success(`College "${deleteCollegeName}" and all associated data deleted successfully`);
       fetchAllData();
     } catch (error: any) {
       const backendMessage = error.response?.data?.error || error.message;
       toast.error('Failed to delete college: ' + backendMessage);
+    } finally {
+      setIsDeleting(false);
+      setDeleteCollegeConfirmOpen(false);
+      setDeleteCollegeId(null);
+      setDeleteCollegeName('');
     }
   };
 
   const handleDeleteUser = async (id: number, username: string) => {
-    if (!confirm(`Are you sure you want to delete user ${username}?`)) return;
-    
+    setDeleteUserId(id);
+    setDeleteUsername(username);
+    setDeleteUserConfirmOpen(true);
+  };
+
+  const confirmDeleteUser = async () => {
+    if (!deleteUserId) return;
+    setIsDeleting(true);
     try {
-      await userAPI.delete(id);
+      await userAPI.delete(deleteUserId);
       toast.success('User deleted successfully');
       fetchAllData();
     } catch (error: any) {
       toast.error('Failed to delete user: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsDeleting(false);
+      setDeleteUserConfirmOpen(false);
+      setDeleteUserId(null);
+      setDeleteUsername('');
     }
   };
 
@@ -310,26 +349,48 @@ export default function SuperAdminDashboard() {
   };
 
   const handleDeleteLLMConfig = async (id: number, name: string) => {
-    if (!confirm(`Are you sure you want to delete "${name}"?`)) return;
-    
+    setDeleteLLMId(id);
+    setDeleteLLMName(name);
+    setDeleteLLMConfirmOpen(true);
+  };
+
+  const confirmDeleteLLMConfig = async () => {
+    if (!deleteLLMId) return;
+    setIsDeleting(true);
     try {
-      await llmConfigAPI.delete(id);
+      await llmConfigAPI.delete(deleteLLMId);
       toast.success('LLM configuration deleted successfully');
       fetchAllData();
     } catch (error: any) {
       toast.error('Failed to delete LLM config: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsDeleting(false);
+      setDeleteLLMConfirmOpen(false);
+      setDeleteLLMId(null);
+      setDeleteLLMName('');
     }
   };
 
   const handleActivateLLMConfig = async (id: number, name: string) => {
-    if (!confirm(`Activate "${name}" as the active LLM configuration?`)) return;
-    
+    setActivateLLMId(id);
+    setActivateLLMName(name);
+    setActivateLLMConfirmOpen(true);
+  };
+
+  const confirmActivateLLMConfig = async () => {
+    if (!activateLLMId) return;
+    setIsActivating(true);
     try {
-      await llmConfigAPI.activate(id);
+      await llmConfigAPI.activate(activateLLMId);
       toast.success('LLM configuration activated successfully');
       fetchAllData();
     } catch (error: any) {
       toast.error('Failed to activate LLM config: ' + (error.response?.data?.error || error.message));
+    } finally {
+      setIsActivating(false);
+      setActivateLLMConfirmOpen(false);
+      setActivateLLMId(null);
+      setActivateLLMName('');
     }
   };
 
@@ -1548,6 +1609,98 @@ export default function SuperAdminDashboard() {
       )}
         </>
       )}
+
+      {/* Delete College Confirmation Dialog */}
+      <Dialog open={deleteCollegeConfirmOpen} onOpenChange={setDeleteCollegeConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete College</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="mb-3 flex items-start gap-3 bg-red-50 p-3 rounded-lg border border-red-200">
+              <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-700 font-semibold">This action cannot be undone!</p>
+            </div>
+            <p className="text-sm text-gray-600">
+              Delete college <span className="font-semibold">"{deleteCollegeName}"</span> and ALL associated users and resources?
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={() => setDeleteCollegeConfirmOpen(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button onClick={confirmDeleteCollege} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
+              {isDeleting ? 'Deleting...' : 'Delete College'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Confirmation Dialog */}
+      <Dialog open={deleteUserConfirmOpen} onOpenChange={setDeleteUserConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete User</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete user <span className="font-semibold">"{deleteUsername}"</span>? This action cannot be undone.
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={() => setDeleteUserConfirmOpen(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button onClick={confirmDeleteUser} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete LLM Config Confirmation Dialog */}
+      <Dialog open={deleteLLMConfirmOpen} onOpenChange={setDeleteLLMConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete LLM Configuration</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete <span className="font-semibold">"{deleteLLMName}"</span>? This action cannot be undone.
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={() => setDeleteLLMConfirmOpen(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button onClick={confirmDeleteLLMConfig} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Activate LLM Config Confirmation Dialog */}
+      <Dialog open={activateLLMConfirmOpen} onOpenChange={setActivateLLMConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Activate LLM Configuration</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-600">
+              Activate <span className="font-semibold">"{activateLLMName}"</span> as the active LLM configuration?
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={() => setActivateLLMConfirmOpen(false)} disabled={isActivating}>
+              Cancel
+            </Button>
+            <Button onClick={confirmActivateLLMConfig} disabled={isActivating} className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white">
+              {isActivating ? 'Activating...' : 'Activate'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Logout Confirmation Dialog */}
       <LogoutConfirmDialog

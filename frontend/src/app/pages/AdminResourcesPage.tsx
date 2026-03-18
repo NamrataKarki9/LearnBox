@@ -51,6 +51,11 @@ export default function AdminResourcesPage() {
   // Viewer state
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewingResource, setViewingResource] = useState<{ url: string; title: string } | null>(null);
+  
+  // Delete confirmation state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmResourceId, setDeleteConfirmResourceId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -211,17 +216,25 @@ export default function AdminResourcesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this resource?')) {
-      return;
-    }
+    setDeleteConfirmResourceId(id);
+    setDeleteConfirmOpen(true);
+  };
 
+  const confirmDelete = async () => {
+    if (!deleteConfirmResourceId) return;
+    
+    setIsDeleting(true);
     try {
-      await resourceAPI.delete(id);
+      await resourceAPI.delete(deleteConfirmResourceId);
       toast.success('Resource deleted successfully');
+      setDeleteConfirmOpen(false);
+      setDeleteConfirmResourceId(null);
       fetchData();
     } catch (error) {
       console.error('Error deleting resource:', error);
       toast.error('Failed to delete resource');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -591,6 +604,39 @@ export default function AdminResourcesPage() {
                 allow="fullscreen"
               />
             )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Resource</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete this resource? This action cannot be undone.
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteConfirmOpen(false);
+                setDeleteConfirmResourceId(null);
+              }}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmDelete}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

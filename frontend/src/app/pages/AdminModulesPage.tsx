@@ -37,6 +37,10 @@ export default function AdminModulesPage() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingModule, setEditingModule] = useState<Module | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmModuleId, setDeleteConfirmModuleId] = useState<number | null>(null);
+  const [deletingModuleName, setDeletingModuleName] = useState<string>('');
+  const [isDeleting, setIsDeleting] = useState(false);
   
   // Form state
   const [formData, setFormData] = useState({
@@ -175,10 +179,14 @@ export default function AdminModulesPage() {
   };
 
   const handleDeleteModule = async (module: Module) => {
-    if (!window.confirm(`Are you sure you want to delete "${module.name}"?`)) {
-      return;
-    }
+    setDeleteConfirmModuleId(module.id);
+    setDeletingModuleName(module.name);
+    setDeleteConfirmOpen(true);
+  };
 
+  const confirmDeleteModule = async () => {
+    if (!deleteConfirmModuleId) return;
+    setIsDeleting(true);
     try {
       // API call would go here
       toast.success('Module deleted successfully');
@@ -186,6 +194,11 @@ export default function AdminModulesPage() {
     } catch (error) {
       console.error('Error deleting module:', error);
       toast.error('Failed to delete module');
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmOpen(false);
+      setDeleteConfirmModuleId(null);
+      setDeletingModuleName('');
     }
   };
 
@@ -488,6 +501,28 @@ export default function AdminModulesPage() {
                 Create Module
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Module</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete <span className="font-semibold">"{deletingModuleName}"</span>? This action cannot be undone.
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button onClick={confirmDeleteModule} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

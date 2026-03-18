@@ -75,6 +75,11 @@ export default function AdminMCQSetsPage() {
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewingSet, setViewingSet] = useState<MCQSet | null>(null);
   const [viewingQuestions, setViewingQuestions] = useState<any[]>([]);
+  
+  // Delete confirmation state
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmSetId, setDeleteConfirmSetId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -294,18 +299,25 @@ export default function AdminMCQSetsPage() {
   };
 
   const handleDelete = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this MCQ set? This will also delete all associated questions.')) {
-      return;
-    }
+    setDeleteConfirmSetId(id);
+    setDeleteConfirmOpen(true);
+  };
 
+  const confirmDelete = async () => {
+    if (!deleteConfirmSetId) return;
+    setIsDeleting(true);
     try {
       // Note: You'll need to add this endpoint in the backend
-      await mcqAPI.deleteSet(id);
+      await mcqAPI.deleteSet(deleteConfirmSetId);
       toast.success('MCQ set deleted successfully');
       fetchData();
     } catch (error) {
       console.error('Error deleting set:', error);
       toast.error('Failed to delete MCQ set');
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmOpen(false);
+      setDeleteConfirmSetId(null);
     }
   };
 
@@ -910,6 +922,28 @@ export default function AdminMCQSetsPage() {
                 Create MCQ Set ({mcqsData.length} questions)
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete MCQ Set</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete this MCQ set? This will also delete all associated questions. This action cannot be undone.
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button onClick={confirmDelete} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>

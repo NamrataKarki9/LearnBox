@@ -182,7 +182,7 @@ export default function StudentDashboard() {
     fetchInitialData();
   }, []);
 
-  // Auto-refresh analytics data every 30 seconds for real-time updates
+  // Auto-refresh analytics data every 10 minutes for real-time updates
   useEffect(() => {
     const refreshInterval = setInterval(async () => {
       try {
@@ -209,7 +209,7 @@ export default function StudentDashboard() {
       } catch (error) {
         console.error('Error refreshing analytics:', error);
       }
-    }, 30000); // Refresh every 30 seconds
+    }, 600000); // Refresh every 10 minutes
 
     return () => clearInterval(refreshInterval);
   }, []);

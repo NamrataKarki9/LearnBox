@@ -26,6 +26,9 @@ export default function AdminLearningSitesPage() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteConfirmSiteId, setDeleteConfirmSiteId] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFaculty, setFilterFaculty] = useState('all');
@@ -185,17 +188,24 @@ export default function AdminLearningSitesPage() {
   };
 
   const handleDeleteSite = async (id: number) => {
-    if (!window.confirm('Are you sure you want to delete this learning site?')) {
-      return;
-    }
+    setDeleteConfirmSiteId(id);
+    setDeleteConfirmOpen(true);
+  };
 
+  const confirmDeleteSite = async () => {
+    if (!deleteConfirmSiteId) return;
+    setIsDeleting(true);
     try {
-      await learningSiteAPI.delete(id);
+      await learningSiteAPI.delete(deleteConfirmSiteId);
       toast.success('Learning site deleted successfully');
       fetchInitialData();
     } catch (error: any) {
       console.error('Error deleting learning site:', error);
       toast.error(error.response?.data?.error || 'Failed to delete learning site');
+    } finally {
+      setIsDeleting(false);
+      setDeleteConfirmOpen(false);
+      setDeleteConfirmSiteId(null);
     }
   };
 
@@ -375,6 +385,28 @@ export default function AdminLearningSitesPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Learning Site</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-600">
+              Are you sure you want to delete this learning site? This action cannot be undone.
+            </p>
+          </div>
+          <div className="flex gap-3 justify-end">
+            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} disabled={isDeleting}>
+              Cancel
+            </Button>
+            <Button onClick={confirmDeleteSite} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
+              {isDeleting ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={dialogOpen} onOpenChange={(open) => {
         setDialogOpen(open);
