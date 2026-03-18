@@ -27,6 +27,8 @@ export default function AdminResourcesPage() {
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [isFetching, setIsFetching] = useState(false); // Prevent concurrent fetches
   
   // Upload dialog
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -58,22 +60,57 @@ export default function AdminResourcesPage() {
     applyFiltersAndSort();
   }, [resources, searchQuery, filterFaculty, filterYear, filterModule, filterFileType, sortField, sortOrder]);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = async (retryCount = 0, maxRetries = 3) => {
+    // Prevent concurrent fetches
+    if (isFetching) {
+      console.log('Fetch already in progress, skipping...');
+      return;
+    }
+
+    setIsFetching(true);
+    // Only show loading spinner on initial load, not on refetch
+    if (resources.length === 0) {
+      setLoading(true);
+    }
+    setError('');
     try {
-      const [resourcesRes, facultiesRes, modulesRes] = await Promise.all([
+      // Fetch resources and faculties (critical)
+      const [resourcesRes, facultiesRes] = await Promise.all([
         resourceAPI.getAll(),
-        facultyAPI.getAll(),
-        moduleAPI.getAll()
+        facultyAPI.getAll()
       ]);
       
       setResources(resourcesRes.data.data || []);
       setFaculties(facultiesRes.data.data || []);
-      setModules(modulesRes.data.data || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load resources');
+      setError('');
+      
+      // Fetch modules separately (optional - not critical for the page)
+      try {
+        const modulesRes = await moduleAPI.getAll();
+        setModules(modulesRes.data.data || []);
+      } catch (moduleError) {
+        console.warn('Warning: Failed to load modules, proceeding without them:', moduleError);
+        setModules([]);
+      }
+    } catch (error: any) {
+      console.error(`Error fetching (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
+      
+      // Retry with exponential backoff
+      if (retryCount < maxRetries) {
+        const delayMs = Math.pow(2, retryCount) * 500;
+        setTimeout(() => {
+          setIsFetching(false);
+          fetchData(retryCount + 1, maxRetries);
+        }, delayMs);
+        return;
+      }
+      
+      // Failed after all retries
+      const errorMsg = 'Failed to load resources. Please try again.';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
+      setIsFetching(false);
       setLoading(false);
     }
   };
@@ -189,8 +226,17 @@ export default function AdminResourcesPage() {
   };
 
   const handleUploadSuccess = () => {
+    // Close dialog immediately
+    setUploadDialogOpen(false);
+    
+    // Show success message once
     toast.success('Resource uploaded successfully!');
-    fetchData();
+    
+    // Brief delay for backend processing, then fetch
+    setTimeout(() => {
+      setIsFetching(false); // Reset fetch flag
+      fetchData();
+    }, 1500);
   };
 
   const formatDate = (dateString: string) => {
@@ -230,6 +276,30 @@ export default function AdminResourcesPage() {
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Resource Management</h1>
         <p className="text-gray-600">View, upload, and manage all academic resources</p>
       </div>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start justify-between">
+          <div className="flex items-start gap-3">
+            <div className="text-red-600 font-bold">⚠️</div>
+            <div>
+              <p className="text-sm font-medium text-red-900">{error}</p>
+              <button
+                onClick={() => fetchData()}
+                className="text-xs text-red-600 hover:text-red-700 font-medium mt-1 underline"
+              >
+                Retry
+              </button>
+            </div>
+          </div>
+          <button
+            onClick={() => setError('')}
+            className="text-red-400 hover:text-red-600 text-lg"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Stats Card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { mcqAPI, quizAPI, resourceAPI, MCQ, QuizAnswerDetail, QuizResult, Recommendation, FocusSection, Resource } from '../../services/api';
+import { ConfirmDialog } from '../components/ConfirmDialog';
 
 interface QuizState {
   sessionId: number | null;
@@ -39,6 +40,26 @@ export default function MCQPracticePage() {
   const [error, setError] = useState<string | null>(null);
   const [relatedResources, setRelatedResources] = useState<Record<number, Resource[]>>({});
 
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmLabel: string;
+    cancelLabel: string;
+    onConfirm: () => void;
+    autoClose?: boolean;
+    closeDelay?: number;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmLabel: 'Confirm',
+    cancelLabel: 'Cancel',
+    onConfirm: () => {},
+    autoClose: false,
+    closeDelay: 3000
+  });
+
   useEffect(() => {
     startQuiz();
   }, []);
@@ -65,6 +86,31 @@ export default function MCQPracticePage() {
     };
     fetchResources();
   }, [quiz.answerDetails]);
+
+  const openConfirmDialog = useCallback((
+    title: string,
+    message: string,
+    onConfirm: () => void,
+    confirmLabel = 'Confirm',
+    cancelLabel = 'Cancel',
+    autoClose = false,
+    closeDelay = 3000
+  ) => {
+    setConfirmDialog({
+      isOpen: true,
+      title,
+      message,
+      confirmLabel,
+      cancelLabel,
+      onConfirm,
+      autoClose,
+      closeDelay
+    });
+  }, []);
+
+  const closeConfirmDialog = useCallback(() => {
+    setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+  }, []);
 
   const startQuiz = async () => {
     try {
@@ -504,10 +550,24 @@ export default function MCQPracticePage() {
 
   const handleSubmit = async () => {
     if (Object.keys(quiz.answers).length !== quiz.questions.length) {
-      const confirm = window.confirm('You haven\'t answered all questions. Submit anyway?');
-      if (!confirm) return;
+      openConfirmDialog(
+        "Incomplete Quiz",
+        "You haven't answered all questions.",
+        async () => {
+          closeConfirmDialog();
+        },
+        "Submit",
+        "Cancel",
+        true,
+        2000
+      );
+      return;
     }
 
+    await submitQuiz();
+  };
+
+  const submitQuiz = async () => {
     try {
       setQuiz(prev => ({ ...prev, isSubmitting: true }));
 
@@ -966,9 +1026,16 @@ export default function MCQPracticePage() {
           <div className="flex gap-3">
             <button
               onClick={() => {
-                if (window.confirm('Are you sure you want to abandon this quiz?')) {
-                  navigate('/student/dashboard');
-                }
+                openConfirmDialog(
+                  "Abandon Quiz",
+                  "Are you sure you want to abandon this quiz?",
+                  () => {
+                    closeConfirmDialog();
+                    navigate('/student/dashboard');
+                  },
+                  "Abandon",
+                  "Cancel"
+                );
               }}
               className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600"
             >
@@ -984,6 +1051,19 @@ export default function MCQPracticePage() {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmLabel={confirmDialog.confirmLabel}
+        cancelLabel={confirmDialog.cancelLabel}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={closeConfirmDialog}
+        autoClose={confirmDialog.autoClose}
+        closeDelay={confirmDialog.closeDelay}
+      />
     </div>
   );
 }

@@ -14,11 +14,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card'
 import { Badge } from '../components/ui/badge';
 import { Alert, AlertDescription } from '../components/ui/alert';
 import { Brain, Target, BookOpen, Trophy, Upload, FileText, Zap, Clock } from 'lucide-react';
+import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
+import { useLogoutConfirm } from '../../hooks/useLogoutConfirm';
 
 export default function MCQPracticeSelectionPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const filters = useFilters();
+  const logoutConfirm = useLogoutConfirm();
   
   const [mcqSets, setMcqSets] = useState<MCQSet[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
@@ -213,7 +216,7 @@ export default function MCQPracticeSelectionPage() {
             Settings
           </button>
           <button 
-            onClick={logout}
+            onClick={() => logoutConfirm.openConfirm(logout)}
             className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg"
           >
             Logout
@@ -526,6 +529,14 @@ export default function MCQPracticeSelectionPage() {
           </div>
         </div>
       </main>
+
+      {/* Logout Confirmation Dialog */}
+      <LogoutConfirmDialog
+        isOpen={logoutConfirm.isOpen}
+        onConfirm={logoutConfirm.onConfirm}
+        onCancel={logoutConfirm.onCancel}
+        isLoading={logoutConfirm.isLoading}
+      />
     </div>
   );
 }

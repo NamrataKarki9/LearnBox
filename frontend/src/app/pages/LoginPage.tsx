@@ -36,6 +36,24 @@ export function LoginPage() {
   // Fetch colleges on mount
   useEffect(() => {
     fetchColleges();
+    // Clear inputs on mount and override browser autofill
+    setEmail("");
+    setPassword("");
+    setCollege("");
+    
+    // Force clear after a small delay to override browser autofill
+    const timer = setTimeout(() => {
+      setEmail("");
+      setPassword("");
+      setCollege("");
+      // Also clear the input elements directly
+      const emailInput = document.getElementById("email") as HTMLInputElement;
+      const passwordInput = document.getElementById("password") as HTMLInputElement;
+      if (emailInput) emailInput.value = "";
+      if (passwordInput) passwordInput.value = "";
+    }, 0);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const fetchColleges = async () => {
@@ -213,7 +231,7 @@ export function LoginPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
             <div className="space-y-2">
               <Label htmlFor="email" className="text-sm font-semibold">Email</Label>
               <Input
@@ -223,6 +241,7 @@ export function LoginPage() {
                 value={email}
                 onChange={(e) => handleEmailChange(e.target.value)}
                 onBlur={handleEmailBlur}
+                autoComplete="off"
                 className={`bg-input-background border-0 rounded-xl py-6 ${
                   touched.email && fieldErrors.email ? "border-2 border-red-500" : ""
                 }`}
@@ -242,6 +261,7 @@ export function LoginPage() {
                   placeholder="....."
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="off"
                   className="bg-input-background border-0 rounded-xl py-6 pr-10"
                   required
                 />

@@ -63,6 +63,41 @@ export function RegisterPage() {
   // Fetch colleges on mount
   useEffect(() => {
     fetchColleges();
+    // Clear all fields on mount to prevent autofill
+    setFormData({
+      collegeId: "",
+      username: "",
+      fullName: "",
+      email: "",
+      password: "",
+      confirmPassword: ""
+    });
+    
+    // Force clear after a small delay to override browser autofill
+    const timer = setTimeout(() => {
+      setFormData({
+        collegeId: "",
+        username: "",
+        fullName: "",
+        email: "",
+        password: "",
+        confirmPassword: ""
+      });
+      // Also clear the input elements directly
+      const emailInput = document.getElementById("email") as HTMLInputElement;
+      const passwordInput = document.getElementById("password") as HTMLInputElement;
+      const confirmPasswordInput = document.getElementById("confirmPassword") as HTMLInputElement;
+      const usernameInput = document.getElementById("username") as HTMLInputElement;
+      const fullNameInput = document.getElementById("fullName") as HTMLInputElement;
+      
+      if (emailInput) emailInput.value = "";
+      if (passwordInput) passwordInput.value = "";
+      if (confirmPasswordInput) confirmPasswordInput.value = "";
+      if (usernameInput) usernameInput.value = "";
+      if (fullNameInput) fullNameInput.value = "";
+    }, 0);
+    
+    return () => clearTimeout(timer);
   }, []);
 
   const fetchColleges = async () => {
@@ -155,9 +190,8 @@ export function RegisterPage() {
 
     setFieldErrors(newErrors);
 
-    // If there are any errors, stop submission
+    // If there are any validation errors, show them
     if (Object.values(newErrors).some(err => err !== "")) {
-      setError("Please fix all errors before submitting.");
       return;
     }
 
@@ -307,7 +341,7 @@ export function RegisterPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
             <div className="space-y-2">
               <Label htmlFor="username" className="text-sm font-semibold">Username *</Label>
               <Input
@@ -317,6 +351,7 @@ export function RegisterPage() {
                 value={formData.username}
                 onChange={(e) => updateField("username", e.target.value)}
                 onBlur={() => handleFieldBlur("username")}
+                autoComplete="off"
                 className={`bg-input-background border-0 rounded-xl py-6 ${
                   touched.username && fieldErrors.username ? "border-2 border-red-500" : ""
                 }`}
@@ -336,6 +371,7 @@ export function RegisterPage() {
                 value={formData.fullName}
                 onChange={(e) => updateField("fullName", e.target.value)}
                 onBlur={() => handleFieldBlur("fullName")}
+                autoComplete="off"
                 className={`bg-input-background border-0 rounded-xl py-6 ${
                   touched.fullName && fieldErrors.fullName ? "border-2 border-red-500" : ""
                 }`}
@@ -355,6 +391,7 @@ export function RegisterPage() {
                 value={formData.email}
                 onChange={(e) => updateField("email", e.target.value)}
                 onBlur={() => handleFieldBlur("email")}
+                autoComplete="off"
                 className={`bg-input-background border-0 rounded-xl py-6 ${
                   touched.email && fieldErrors.email ? "border-2 border-red-500" : ""
                 }`}
@@ -375,6 +412,7 @@ export function RegisterPage() {
                   value={formData.password}
                   onChange={(e) => updateField("password", e.target.value)}
                   onBlur={() => handleFieldBlur("password")}
+                  autoComplete="new-password"
                   className={`bg-input-background border-0 rounded-xl py-6 pr-10 ${
                     touched.password && fieldErrors.password ? "border-2 border-red-500" : ""
                   }`}
@@ -391,9 +429,6 @@ export function RegisterPage() {
               {touched.password && fieldErrors.password && (
                 <FieldError error={fieldErrors.password} />
               )}
-              {formData.password && (
-                <PasswordStrengthIndicator password={formData.password} showRequirements={true} />
-              )}
             </div>
 
             <div className="space-y-2">
@@ -406,6 +441,7 @@ export function RegisterPage() {
                   value={formData.confirmPassword}
                   onChange={(e) => updateField("confirmPassword", e.target.value)}
                   onBlur={() => handleFieldBlur("confirmPassword")}
+                  autoComplete="new-password"
                   className={`bg-input-background border-0 rounded-xl py-6 pr-10 ${
                     touched.confirmPassword && fieldErrors.confirmPassword ? "border-2 border-red-500" : ""
                   }`}

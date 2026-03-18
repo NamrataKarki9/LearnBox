@@ -3,6 +3,7 @@
  * Wrapper with sidebar navigation for admin routes
  */
 
+import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
 import { Button } from '../components/ui/button';
@@ -12,11 +13,14 @@ import AdminModulesPage from './AdminModulesPage';
 import AdminMCQSetsPage from './AdminMCQSetsPage';
 import AdminLearningSitesPage from './AdminLearningSitesPage';
 import { LayoutDashboard, FileText, BookOpen, Settings, LogOut, Brain, Link2 } from 'lucide-react';
+import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
+import { useLogoutConfirm } from '../../hooks/useLogoutConfirm';
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const logoutConfirm = useLogoutConfirm();
 
   const navItems = [
     { 
@@ -106,7 +110,7 @@ export default function AdminDashboard() {
             </div>
           </div>
           <Button
-            onClick={logout}
+            onClick={() => logoutConfirm.openConfirm(logout)}
             variant="outline"
             className="w-full"
             size="sm"
@@ -154,6 +158,14 @@ export default function AdminDashboard() {
           </div>
         </footer>
       </main>
+
+      {/* Logout Confirmation Dialog */}
+      <LogoutConfirmDialog
+        isOpen={logoutConfirm.isOpen}
+        onConfirm={logoutConfirm.onConfirm}
+        onCancel={logoutConfirm.onCancel}
+        isLoading={logoutConfirm.isLoading}
+      />
     </div>
   );
 }

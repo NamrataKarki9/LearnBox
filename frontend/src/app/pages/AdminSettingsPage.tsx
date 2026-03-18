@@ -15,6 +15,8 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { ArrowLeft, Bell, BookOpen, Building2, Camera, HelpCircle, Lock, LogOut, Mail, Moon, Palette, Phone, Save, Settings, Sun, User, Monitor, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { authAPI } from '../../services/api';
+import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
+import { useLogoutConfirm } from '../../hooks/useLogoutConfirm';
 import {
   validateFirstName,
   validateLastName,
@@ -44,6 +46,7 @@ const applyTheme = (theme: ThemeMode) => {
 export default function AdminSettingsPage() {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
+  const logoutConfirm = useLogoutConfirm();
 
   const [activeTab, setActiveTab] = useState('profile');
   const [hasChanges, setHasChanges] = useState(false);
@@ -485,7 +488,7 @@ export default function AdminSettingsPage() {
                     <span>Help & Support</span>
                   </button>
                   <button
-                    onClick={logout}
+                    onClick={() => logoutConfirm.openConfirm(logout)}
                     className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
                     <LogOut className="h-5 w-5" />
@@ -773,6 +776,14 @@ export default function AdminSettingsPage() {
         </div>
         </div>
       </div>
+
+      {/* Logout Confirmation Dialog */}
+      <LogoutConfirmDialog
+        isOpen={logoutConfirm.isOpen}
+        onConfirm={logoutConfirm.onConfirm}
+        onCancel={logoutConfirm.onCancel}
+        isLoading={logoutConfirm.isLoading}
+      />
     </div>
   );
 }

@@ -14,11 +14,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
 import { ExternalLink, BookOpen, Globe } from 'lucide-react';
+import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
+import { useLogoutConfirm } from '../../hooks/useLogoutConfirm';
 
 export default function StudentLearningSitesPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const filters = useFilters();
+  const logoutConfirm = useLogoutConfirm();
 
   const [sites, setSites] = useState<LearningSite[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
@@ -166,7 +169,7 @@ export default function StudentLearningSitesPage() {
             Settings
           </button>
           <button
-            onClick={logout}
+            onClick={() => logoutConfirm.openConfirm(logout)}
             className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg"
           >
             Logout
@@ -293,6 +296,14 @@ export default function StudentLearningSitesPage() {
           )}
         </div>
       </main>
+
+      {/* Logout Confirmation Dialog */}
+      <LogoutConfirmDialog
+        isOpen={logoutConfirm.isOpen}
+        onConfirm={logoutConfirm.onConfirm}
+        onCancel={logoutConfirm.onCancel}
+        isLoading={logoutConfirm.isLoading}
+      />
     </div>
   );
 }

@@ -19,6 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { authAPI, collegeAPI, userAPI, llmConfigAPI, College, UserData, LLMConfig, CreateLLMConfigData } from '../../services/api';
 import { toast } from 'sonner';
 import { Plus, Building2, Users, BookOpen, GraduationCap, Edit, Trash2, X, Check, Search, Settings, CheckCircle, Circle, User, Lock, Bell, Palette, Camera, Save, Mail, Phone, Monitor, Moon, Sun, Globe, FileText, Shield, LogOut } from 'lucide-react';
+import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
+import { useLogoutConfirm } from '../../hooks/useLogoutConfirm';
 
 interface Stats {
   totalColleges: number;
@@ -31,6 +33,7 @@ interface Stats {
 export default function SuperAdminDashboard() {
   const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
+  const logoutConfirm = useLogoutConfirm();
   
   // Log user info for debugging
   useEffect(() => {
@@ -525,7 +528,7 @@ export default function SuperAdminDashboard() {
             <p className="text-xs text-gray-500">{user?.email}</p>
           </div>
           <button 
-            onClick={logout}
+            onClick={() => logoutConfirm.openConfirm(logout)}
             className="w-full px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors font-medium"
           >
             Logout
@@ -1545,6 +1548,14 @@ export default function SuperAdminDashboard() {
       )}
         </>
       )}
+
+      {/* Logout Confirmation Dialog */}
+      <LogoutConfirmDialog
+        isOpen={logoutConfirm.isOpen}
+        onConfirm={logoutConfirm.onConfirm}
+        onCancel={logoutConfirm.onCancel}
+        isLoading={logoutConfirm.isLoading}
+      />
     </div>
   );
 }

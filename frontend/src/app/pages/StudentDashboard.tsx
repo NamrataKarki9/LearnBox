@@ -18,9 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { facultyAPI, moduleAPI, resourceAPI, Faculty, searchAPI, SemanticSearchResult } from '../../services/api';
+import { facultyAPI, moduleAPI, resourceAPI, Faculty, searchAPI, SemanticSearchResult, analyticsAPI } from '../../services/api';
 import { toast } from 'sonner';
-import { Download, Eye } from 'lucide-react';
+import { Download, Eye, TrendingUp, Target, BookOpen, Clock } from 'lucide-react';
+import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
+import { useLogoutConfirm } from '../../hooks/useLogoutConfirm';
 
 interface Module {
   id: number;
@@ -37,16 +39,50 @@ interface Module {
   };
 }
 
+interface RecentSession {
+  id: number;
+  title: string;
+  module?: string;
+  score: number;
+  totalQuestions: number;
+  correctAnswers: number;
+  date: string;
+  timeSpent?: number;
+}
+
+interface WeakArea {
+  topic: string;
+  accuracy: number;
+  module?: string;
+  difficulty?: string;
+}
+
+interface Recommendation {
+  topic: string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  reason: string;
+  suggestedActions?: string[];
+}
+
 export default function StudentDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const filters = useFilters();
+  const logoutConfirm = useLogoutConfirm();
   
   // Data states
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
   const [filteredModules, setFilteredModules] = useState<Module[]>([]);
   const [availableYears, setAvailableYears] = useState<number[]>([]);
+  
+  // Analytics states
+  const [performanceStats, setPerformanceStats] = useState<any>(null);
+  const [recentSessions, setRecentSessions] = useState<RecentSession[]>([]);
+  const [weakAreas, setWeakAreas] = useState<WeakArea[]>([]);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [modulePerformance, setModulePerformance] = useState<any[]>([]);
+  const [dailyProgress, setDailyProgress] = useState<any[]>([]);
   
   // Search states
   const [searchQuery, setSearchQuery] = useState('');
@@ -60,22 +96,125 @@ export default function StudentDashboard() {
   
   // Loading state
   const [loading, setLoading] = useState(true);
+  const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const [error, setError] = useState<string>('');
 
-  // Fetch faculties on component mount
+  // Safety check for auth - if user not available, show loading
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#F5F5F5]">
+        <Card className="max-w-md">
+          <CardContent className="p-8 text-center">
+            <p className="text-gray-600 mb-4">Authenticating...</p>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  // Safety check for required hooks - early return before rendering
+  if (!filters || !navigate) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#F5F5F5]">
+        <Card className="max-w-md">
+          <CardContent className="p-8 text-center">
+            <p className="text-gray-600 mb-4">Initializing...</p>
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Fetch faculties and analytics on component mount
   useEffect(() => {
-    const fetchFaculties = async () => {
+    const fetchInitialData = async () => {
       try {
-        const response = await facultyAPI.getAll();
-        setFaculties(response.data.data);
+        console.log('Starting initial data fetch');
+        setError('');
+        
+        const [facultiesRes, analyticsRes] = await Promise.all([
+          facultyAPI.getAll().catch(err => {
+            console.error('Faculty fetch error:', err);
+            return { data: { data: [] } };
+          }),
+          analyticsAPI.getDashboard().catch(err => {
+            console.error('Analytics fetch error:', err);
+            return { data: { success: false, data: {} } };
+          })
+        ]);
+        
+        console.log('Faculties response:', facultiesRes);
+        setFaculties(facultiesRes?.data?.data || []);
+        
+        // Set analytics data
+        console.log('Analytics response:', analyticsRes);
+        if (analyticsRes?.data?.success && analyticsRes?.data?.data) {
+          const data = analyticsRes.data.data as any;
+          console.log('Setting performance stats:', data.overview);
+          setPerformanceStats(data.overview || null);
+          setRecentSessions(Array.isArray(data.recentActivity) ? data.recentActivity : []);
+          setWeakAreas(Array.isArray(data.weakAreas) ? data.weakAreas : []);
+          
+          // Extract recommendations array from nested object structure
+          const recs = Array.isArray(data.recommendations) 
+            ? data.recommendations 
+            : (data.recommendations?.recommendations || []);
+          setRecommendations(Array.isArray(recs) ? recs : []);
+          
+          setModulePerformance(Array.isArray(data.modulePerformance) ? data.modulePerformance : []);
+          setDailyProgress(Array.isArray(data.dailyProgress) ? data.dailyProgress : []);
+        } else {
+          console.warn('Analytics response not successful');
+        }
+        
+        setLoading(false);
       } catch (error) {
-        console.error('Error fetching faculties:', error);
+        console.error('Error fetching initial data:', error);
+        setError('Failed to load dashboard data. Please refresh the page.');
+        setLoading(false);
+      } finally {
+        setAnalyticsLoading(false);
       }
     };
 
-    fetchFaculties();
+    fetchInitialData();
   }, []);
 
-  // Fetch modules based on selected faculty and year
+  // Auto-refresh analytics data every 30 seconds for real-time updates
+  useEffect(() => {
+    const refreshInterval = setInterval(async () => {
+      try {
+        const analyticsRes = await analyticsAPI.getDashboard().catch(err => {
+          console.error('Analytics refresh error:', err);
+          return { data: { success: false, data: {} } };
+        });
+        
+        if (analyticsRes?.data?.success && analyticsRes?.data?.data) {
+          const data = analyticsRes.data.data as any;
+          setPerformanceStats(data.overview || null);
+          setRecentSessions(Array.isArray(data.recentActivity) ? data.recentActivity : []);
+          setWeakAreas(Array.isArray(data.weakAreas) ? data.weakAreas : []);
+          
+          // Extract recommendations array from nested object structure
+          const recs = Array.isArray(data.recommendations) 
+            ? data.recommendations 
+            : (data.recommendations?.recommendations || []);
+          setRecommendations(Array.isArray(recs) ? recs : []);
+          
+          setModulePerformance(Array.isArray(data.modulePerformance) ? data.modulePerformance : []);
+          setDailyProgress(Array.isArray(data.dailyProgress) ? data.dailyProgress : []);
+        }
+      } catch (error) {
+        console.error('Error refreshing analytics:', error);
+      }
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, []);
+
+  // Fetch modules based on selected faculty only (year filtering done client-side)
   useEffect(() => {
     const fetchModules = async () => {
       try {
@@ -85,10 +224,7 @@ export default function StudentDashboard() {
         if (filters.facultyId !== 'all') {
           params.facultyId = parseInt(filters.facultyId);
         }
-        
-        if (filters.year !== 'all') {
-          params.year = parseInt(filters.year);
-        }
+        // Don't include year in API params - filter client-side to preserve selection
 
         const response = await moduleAPI.getAll(params);
         setModules(response.data.data);
@@ -100,10 +236,12 @@ export default function StudentDashboard() {
     };
 
     fetchModules();
-  }, [filters.facultyId, filters.year]);
+  }, [filters.facultyId]); // Only depend on faculty, year changes don't need API refetch
 
   // Update available years when faculty changes
   useEffect(() => {
+    if (modules.length === 0) return; // Skip if modules not loaded
+    
     if (filters.facultyId === 'all') {
       // Get all unique years from all modules
       const years = new Set<number>();
@@ -118,12 +256,12 @@ export default function StudentDashboard() {
       facultyModules.forEach(module => years.add(module.year));
       setAvailableYears(Array.from(years).sort());
       
-      // Reset year if current selection is not available
-      if (filters.year !== 'all' && !years.has(parseInt(filters.year))) {
+      // Only reset year if current selection is invalid for this faculty
+      if (filters.year !== 'all' && years.size > 0 && !years.has(parseInt(filters.year))) {
         filters.setYear('all');
       }
     }
-  }, [filters.facultyId, modules, filters.year]);
+  }, [filters.facultyId, modules]);
 
   // Filter modules based on all selections
   useEffect(() => {
@@ -168,11 +306,9 @@ export default function StudentDashboard() {
     setShowSearchResults(true);
 
     try {
+      // Search globally across all faculties, years, and modules
       const response = await searchAPI.semanticSearch({
         query: searchQuery,
-        facultyId: filters.facultyId !== 'all' ? filters.facultyId : undefined,
-        year: filters.year !== 'all' ? filters.year : undefined,
-        moduleId: filters.moduleId !== 'all' ? filters.moduleId : undefined,
         limit: 10
       });
 
@@ -235,51 +371,124 @@ export default function StudentDashboard() {
     }
   };
 
-  // Calculate performance metrics
+  // Calculate performance metrics from real data
   const calculateMetrics = () => {
-    const totalModules = filteredModules.length;
-    const completedModules = filteredModules.filter(m => {
-      // Assuming we'll add progress field later, for now use placeholder logic
-      return false;
-    }).length;
+    try {
+      if (!performanceStats) {
+        return {
+          totalModules: filteredModules.length,
+          completedModules: 0,
+          inProgress: filteredModules.length,
+          averageScore: 0,
+          totalAttempts: 0,
+          correctAttempts: 0,
+          accuracy: 0
+        };
+      }
 
-    return {
-      totalModules,
-      completedModules,
-      inProgress: totalModules - completedModules,
-      averageScore: 0 // Will be calculated when we have actual progress data
-    };
+      const averageScore = parseFloat(performanceStats.averageQuizScore) || 0;
+      const accuracy = parseFloat(performanceStats.accuracy) || 0;
+
+      return {
+        totalModules: filteredModules.length,
+        completedModules: 0,
+        inProgress: Math.max(0, filteredModules.length),
+        averageScore: isNaN(averageScore) ? 0 : Math.round(averageScore * 10) / 10,
+        totalAttempts: performanceStats.totalAttempts || 0,
+        correctAttempts: performanceStats.correctAttempts || 0,
+        accuracy: isNaN(accuracy) ? 0 : Math.round(accuracy * 10) / 10
+      };
+    } catch (error) {
+      console.error('Error calculating metrics:', error);
+      return {
+        totalModules: filteredModules.length,
+        completedModules: 0,
+        inProgress: filteredModules.length,
+        averageScore: 0,
+        totalAttempts: 0,
+        correctAttempts: 0,
+        accuracy: 0
+      };
+    }
   };
-
-  const metrics = calculateMetrics();
 
   // Group modules by year
   const modulesByYear = filteredModules.reduce((acc, module) => {
-    if (!acc[module.year]) {
-      acc[module.year] = [];
+    const year = module.year || 1;
+    if (!acc[year]) {
+      acc[year] = [];
     }
-    acc[module.year].push(module);
+    acc[year].push(module);
     return acc;
   }, {} as Record<number, Module[]>);
 
-  const recentActivity = [
-    { title: 'Data Structures & Algorithm Class 3 ext', action: 'View' },
-    { title: 'Calculus I Lecture Notes', action: 'View' },
-    { title: 'Introduction to Programming Quiz 5', action: 'View' }
-  ];
+  const metrics = calculateMetrics();
 
-  const mcqsHistory = [
-    { quiz: 'Data structures, Quiz 1', score: '6/8' },
-    { quiz: 'Mathematical Midterm Mock', score: '70%' },
-    { quiz: 'Calculus 1 Chapter 2 Test', score: '8/8' }
-  ];
+  // Helper function to format date
+  const formatDate = (dateString: string | Date | undefined | null) => {
+    try {
+      if (!dateString) return '-';
+      
+      const date = new Date(dateString);
+      
+      // Check if date is valid
+      if (isNaN(date.getTime())) {
+        return '-';
+      }
+      
+      const now = new Date();
+      const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+      
+      if (diffInHours < 1) {
+        return 'Just now';
+      } else if (diffInHours < 24) {
+        return `${Math.floor(diffInHours)}h ago`;
+      } else if (diffInHours < 48) {
+        return 'Yesterday';
+      } else {
+        return date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric'
+        });
+      }
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return '-';
+    }
+  };
 
-  const roadmap = [
-    'Complete Introduction to Programming',
-    'Pass Discrete Mathematics Exam',
-    'Start Data Structures Project',
-    'Attend Algorithms Workshop'
-  ];
+  // Helper function to format time spent
+  const formatTimeSpent = (seconds: number | undefined | null) => {
+    try {
+      if (!seconds || seconds <= 0) return '-';
+      
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 1) return `${Math.round(seconds)}s`;
+      if (minutes < 60) return `${minutes}m`;
+      const hours = Math.floor(minutes / 60);
+      const remainingMinutes = minutes % 60;
+      return `${hours}h ${remainingMinutes}m`;
+    } catch (error) {
+      console.error('Error formatting time:', error);
+      return '-';
+    }
+  };
+
+  // Safe rendering function - converts any value to a safe string for JSX
+  const safeRender = (value: any, fallback: string = '-'): string => {
+    try {
+      if (value === null || value === undefined) return fallback;
+      if (typeof value === 'string') return value.trim() || fallback;
+      if (typeof value === 'number') return String(value);
+      if (typeof value === 'boolean') return String(value);
+      if (Array.isArray(value)) return fallback;
+      if (typeof value === 'object') return fallback;
+      return String(value) || fallback;
+    } catch (error) {
+      console.error('Error in safeRender:', error, value);
+      return fallback;
+    }
+  };
 
   return (
     <div className="flex min-h-screen bg-[#F5F5F5]">
@@ -323,7 +532,7 @@ export default function StudentDashboard() {
             Settings
           </button>
           <button 
-            onClick={logout}
+            onClick={() => logoutConfirm.openConfirm(logout)}
             className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg"
           >
             Logout
@@ -339,7 +548,7 @@ export default function StudentDashboard() {
             <div className="relative flex-1 max-w-md">
               <input
                 type="text"
-                placeholder="Search resources using AI (e.g., 'explain neural networks')..."
+                placeholder="Search resources"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyPress={handleSearchKeyPress}
@@ -569,8 +778,8 @@ export default function StudentDashboard() {
               </Card>
               <Card className="bg-primary/20 border-0">
                 <CardContent className="p-6 text-center">
-                  <p className="text-3xl font-bold text-gray-900 mb-2">{metrics.completedModules}</p>
-                  <p className="text-gray-700 font-medium">Completed Modules</p>
+                  <p className="text-3xl font-bold text-gray-900 mb-2">{metrics.accuracy}%</p>
+                  <p className="text-gray-700 font-medium">Quiz Accuracy</p>
                 </CardContent>
               </Card>
               <Card className="bg-primary/20 border-0">
@@ -643,61 +852,150 @@ export default function StudentDashboard() {
           </div>
           )}
 
-          {/* Bottom Grid: Recent Activity, MCQs History */}
+          {/* Bottom Grid: Recent Activity, MCQs History, Weak Areas */}
           {!showSearchResults && (
           <div className="grid grid-cols-2 gap-6 mb-8">
-            {/* Recent Activity */}
+            {/* Recent Activity - Quiz Sessions */}
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Recent Activity</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                Recent Quiz Sessions
+              </h2>
               <Card className="border border-gray-200">
                 <CardContent className="p-6">
-                  <div className="space-y-3">
-                    {recentActivity.map((activity, idx) => (
-                      <div key={idx} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
-                        <span className="text-sm text-gray-700">{activity.title}</span>
-                        <Button className="bg-primary hover:bg-primary/90 text-white text-xs px-3 py-1 rounded">
-                          {activity.action}
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+                  {analyticsLoading ? (
+                    <div className="text-center py-4 text-gray-500">Loading...</div>
+                  ) : recentSessions.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500">No quiz sessions yet. Start practicing!</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {recentSessions.slice(0, 5).map((session, idx) => (
+                        <div key={idx} className="py-3 border-b border-gray-100 last:border-0">
+                          <div className="flex justify-between items-start mb-1">
+                            <span className="text-sm font-semibold text-gray-900 flex-1">{safeRender(session.title, 'Quiz')}</span>
+                            {session.module && (
+                              <span className="text-xs bg-primary/20 text-primary px-2 py-1 rounded ml-2">
+                                {safeRender(session.module)}
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex justify-between items-center text-xs">
+                            <div className="flex gap-4">
+                              <span className="text-gray-600">
+                                Score: <span className="font-semibold text-green-600">{session.correctAnswers || 0}/{session.totalQuestions || 0}</span>
+                              </span>
+                              {session.timeSpent ? (
+                                <span className="text-gray-600">
+                                  Time: <span className="font-semibold">{formatTimeSpent(session.timeSpent)}</span>
+                                </span>
+                              ) : null}
+                            </div>
+                            <span className="text-gray-500">{formatDate(session.date)}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
 
-            {/* MCQs Practice History */}
+            {/* Weak Areas / Study Focus */}
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-4">MCQs Practice History</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+                <Target className="h-5 w-5 text-red-600" />
+                Areas to Focus
+              </h2>
               <Card className="border border-gray-200">
                 <CardContent className="p-6">
-                  <div className="space-y-3">
-                    {mcqsHistory.map((item, idx) => (
-                      <div key={idx} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
-                        <span className="text-sm text-gray-700">{item.quiz}</span>
-                        <span className="text-sm font-semibold text-gray-900">{item.score}</span>
-                      </div>
-                    ))}
-                  </div>
+                  {analyticsLoading ? (
+                    <div className="text-center py-4 text-gray-500">Loading...</div>
+                  ) : weakAreas.length === 0 ? (
+                    <div className="text-center py-4 text-gray-500">Great! No weak areas identified yet.</div>
+                  ) : (
+                    <div className="space-y-3">
+                      {weakAreas.slice(0, 5).map((area, idx) => {
+                        const safeAccuracy = typeof area.accuracy === 'number' ? area.accuracy : 0;
+                        const safeAccuracyPercent = Math.min(100, Math.max(0, safeAccuracy));
+                        
+                        return (
+                          <div key={idx} className="py-3 border-b border-gray-100 last:border-0">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold text-gray-900">{safeRender(area.topic, 'Unknown')}</p>
+                                {area.module && (
+                                  <p className="text-xs text-gray-500">{safeRender(area.module)}</p>
+                                )}
+                              </div>
+                              {area.difficulty && (
+                                <span className="text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800 ml-2">
+                                  {safeRender(area.difficulty)}
+                                </span>
+                              )}
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                              <div 
+                                className="bg-red-500 h-2 rounded-full"
+                                style={{ width: `${safeAccuracyPercent}%` }}
+                              ></div>
+                            </div>
+                            <p className="text-xs text-gray-600 mt-1">Accuracy: {safeAccuracy.toFixed(1)}%</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>
           </div>
           )}
 
-          {/* Course Roadmap */}
+          {/* Study Recommendations */}
           {!showSearchResults && (
           <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Course Roadmap</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" />
+              Personalized Study Recommendations
+            </h2>
             <Card className="border border-gray-200">
               <CardContent className="p-6">
-                <div className="space-y-2">
-                  <p className="text-sm font-semibold text-gray-900">Year 1</p>
-                  <p className="text-sm text-gray-700">{roadmap[0]}</p>
-                  <p className="text-sm text-gray-700">{roadmap[1]}</p>
-                  <p className="text-sm font-semibold text-gray-900 mt-4">Year 2</p>
-                  <p className="text-sm text-gray-700">{roadmap[2]}</p>
-                  <p className="text-sm text-gray-700">{roadmap[3]}</p>
-                </div>
+                {analyticsLoading ? (
+                  <div className="text-center py-4 text-gray-500">Loading...</div>
+                ) : !recommendations || recommendations.length === 0 ? (
+                  <div className="text-center py-4 text-gray-500">
+                    Keep practicing to get personalized study recommendations!
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {recommendations.slice(0, 5).map((rec, idx) => (
+                      <div key={idx} className="py-3 border-b border-gray-100 last:border-0 pl-3 border-l-4 border-l-primary">
+                        <div className="flex justify-between items-start gap-3">
+                          <div className="flex-1">
+                            <p className="text-sm font-semibold text-gray-900">{safeRender(rec.topic, 'Study Area')}</p>
+                            {rec.reason && (
+                              <p className="text-xs text-gray-600 mt-1">{safeRender(rec.reason)}</p>
+                            )}
+                            {rec.suggestedActions && Array.isArray(rec.suggestedActions) && rec.suggestedActions.length > 0 && (
+                              <ul className="text-xs text-gray-600 mt-2 ml-4 list-disc">
+                                {rec.suggestedActions.slice(0, 2).map((action, i) => (
+                                  <li key={i}>{safeRender(action)}</li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                          <span className={`text-xs font-semibold px-2 py-1 rounded whitespace-nowrap ${
+                            rec.priority === 'HIGH' ? 'bg-red-100 text-red-800' :
+                            rec.priority === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {safeRender(rec.priority, 'MEDIUM')}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -768,6 +1066,14 @@ export default function StudentDashboard() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Logout Confirmation Dialog */}
+      <LogoutConfirmDialog
+        isOpen={logoutConfirm.isOpen}
+        onConfirm={logoutConfirm.onConfirm}
+        onCancel={logoutConfirm.onCancel}
+        isLoading={logoutConfirm.isLoading}
+      />
     </div>
   );
 }

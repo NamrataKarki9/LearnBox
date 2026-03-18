@@ -217,9 +217,7 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
       
       const response = await resourceAPI.upload(uploadData);
       
-      toast.success('Resource uploaded successfully!');
-      
-      // Reset form
+      // Reset form and call parent callbacks (they will show toast)
       setTimeout(() => {
         setFormData({ title: '', description: '', facultyId: '', year: '', moduleId: '' });
         setFile(null);
