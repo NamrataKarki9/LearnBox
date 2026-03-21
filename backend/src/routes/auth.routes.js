@@ -10,6 +10,7 @@ import {
     resetPassword,
     resendOTP,
     updateProfile,
+    verifyPassword,
     changePassword,
     getUserSettings,
     updateNotificationSettings,
@@ -33,6 +34,7 @@ router.post('/resend-otp', resendOTP); // NEW: Resend OTP
 // Protected routes
 router.get('/me', authMiddleware, getMe);
 router.put('/profile', authMiddleware, updateProfile); // NEW: Update user profile
+router.post('/verify-password', authMiddleware, verifyPassword); // NEW: Verify current password
 router.put('/change-password', authMiddleware, changePassword); // NEW: Change password
 router.get('/settings', authMiddleware, getUserSettings);
 router.put('/settings/notifications', authMiddleware, updateNotificationSettings);

@@ -31,8 +31,8 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
     
-    // Handle 401 Unauthorized errors
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Handle 401 Unauthorized errors (but skip if marked to skip retry)
+    if (error.response?.status === 401 && !originalRequest._retry && !originalRequest.skipRetry) {
       originalRequest._retry = true;
       
       const refreshToken = sessionStorage.getItem('refresh_token');
@@ -135,6 +135,15 @@ interface ChangePasswordResponse {
   message: string;
 }
 
+interface VerifyPasswordData {
+  currentPassword: string;
+}
+
+interface VerifyPasswordResponse {
+  success: boolean;
+  message: string;
+}
+
 // Auth API endpoints
 export const authAPI = {
   register: (data: RegisterData) => api.post<AuthResponse>('/auth/register', data),
@@ -142,6 +151,7 @@ export const authAPI = {
   refreshToken: (refreshToken: string) => api.post<RefreshTokenResponse>('/auth/token/refresh', { refresh: refreshToken }),
   getMe: () => api.get<User | { user: User }>('/auth/me'),
   updateProfile: (data: UpdateProfileData) => api.put<UpdateProfileResponse>('/auth/profile', data),
+  verifyPassword: (data: VerifyPasswordData) => api.post<VerifyPasswordResponse>('/auth/verify-password', data, { skipRetry: true }),
   changePassword: (data: ChangePasswordData) => api.put<ChangePasswordResponse>('/auth/change-password', data),
   getSettings: () => api.get<{ success: boolean; data: { notifications: any; preferences: any } }>('/auth/settings'),
   updateNotificationSettings: (settings: any) =>

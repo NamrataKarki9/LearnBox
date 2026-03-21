@@ -49,6 +49,8 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { authAPI } from '../../services/api';
@@ -150,6 +152,13 @@ export default function StudentSettingsPage() {
   });
 
   const [passwordTouched, setPasswordTouched] = useState({
+    currentPassword: false,
+    newPassword: false,
+    confirmPassword: false,
+  });
+
+  // State for password visibility
+  const [showPasswords, setShowPasswords] = useState({
     currentPassword: false,
     newPassword: false,
     confirmPassword: false,
@@ -343,15 +352,29 @@ export default function StudentSettingsPage() {
 
     setPasswordErrors(newErrors);
 
-    // Check if there are any errors
+    // Check if there are any format validation errors
     if (Object.values(newErrors).some(err => err !== '')) {
-      toast.error('Please fix all validation errors before changing password.');
+      const firstError = Object.values(newErrors).find(err => err !== '');
+      toast.error(firstError || 'Please fix validation errors');
       return;
     }
 
     setIsSaving(true);
     try {
-      // Call backend API to change password
+      // First verify the current password is correct
+      try {
+        await authAPI.verifyPassword({
+          currentPassword: passwordForm.currentPassword,
+        });
+      } catch (error: any) {
+        // Current password is invalid
+        setPasswordErrors({ ...newErrors, currentPassword: 'Invalid current password.' });
+        toast.error('Invalid current password.');
+        setIsSaving(false);
+        return;
+      }
+
+      // If current password is valid, proceed with password change
       await authAPI.changePassword({
         currentPassword: passwordForm.currentPassword,
         newPassword: passwordForm.newPassword,
@@ -916,51 +939,105 @@ export default function StudentSettingsPage() {
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <Label htmlFor="current_password">Current Password</Label>
-                          <Input
-                            id="current_password"
-                            type="password"
-                            value={passwordForm.currentPassword}
-                            onChange={(e) =>
-                              handlePasswordFieldChange('currentPassword', e.target.value)
-                            }
-                            onBlur={() => handlePasswordFieldBlur('currentPassword')}
-                            placeholder="Enter current password"
-                            className={passwordTouched.currentPassword && passwordErrors.currentPassword ? "border-2 border-red-500" : ""}
-                          />
+                          <div className="relative">
+                            <Input
+                              id="current_password"
+                              type={showPasswords.currentPassword ? "text" : "password"}
+                              value={passwordForm.currentPassword}
+                              onChange={(e) =>
+                                handlePasswordFieldChange('currentPassword', e.target.value)
+                              }
+                              onBlur={() => handlePasswordFieldBlur('currentPassword')}
+                              placeholder="Enter current password"
+                              className={passwordTouched.currentPassword && passwordErrors.currentPassword ? "border-2 border-red-500 pr-10" : "pr-10"}
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowPasswords({
+                                  ...showPasswords,
+                                  currentPassword: !showPasswords.currentPassword,
+                                })
+                              }
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                              {showPasswords.currentPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
                           {passwordTouched.currentPassword && passwordErrors.currentPassword && (
                             <FieldError error={passwordErrors.currentPassword} />
                           )}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="new_password">New Password</Label>
-                          <Input
-                            id="new_password"
-                            type="password"
-                            value={passwordForm.newPassword}
-                            onChange={(e) =>
-                              handlePasswordFieldChange('newPassword', e.target.value)
-                            }
-                            onBlur={() => handlePasswordFieldBlur('newPassword')}
-                            placeholder="Enter new password (min 8 characters, must include number and special character)"
-                            className={passwordTouched.newPassword && passwordErrors.newPassword ? "border-2 border-red-500" : ""}
-                          />
+                          <div className="relative">
+                            <Input
+                              id="new_password"
+                              type={showPasswords.newPassword ? "text" : "password"}
+                              value={passwordForm.newPassword}
+                              onChange={(e) =>
+                                handlePasswordFieldChange('newPassword', e.target.value)
+                              }
+                              onBlur={() => handlePasswordFieldBlur('newPassword')}
+                              placeholder="Enter new password (min 8 characters, must include number and special character)"
+                              className={passwordTouched.newPassword && passwordErrors.newPassword ? "border-2 border-red-500 pr-10" : "pr-10"}
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowPasswords({
+                                  ...showPasswords,
+                                  newPassword: !showPasswords.newPassword,
+                                })
+                              }
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                              {showPasswords.newPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
                           {passwordTouched.newPassword && passwordErrors.newPassword && (
                             <FieldError error={passwordErrors.newPassword} />
                           )}
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="confirm_password">Confirm New Password</Label>
-                          <Input
-                            id="confirm_password"
-                            type="password"
-                            value={passwordForm.confirmPassword}
-                            onChange={(e) =>
-                              handlePasswordFieldChange('confirmPassword', e.target.value)
-                            }
-                            onBlur={() => handlePasswordFieldBlur('confirmPassword')}
-                            placeholder="Confirm new password"
-                            className={passwordTouched.confirmPassword && passwordErrors.confirmPassword ? "border-2 border-red-500" : ""}
-                          />
+                          <div className="relative">
+                            <Input
+                              id="confirm_password"
+                              type={showPasswords.confirmPassword ? "text" : "password"}
+                              value={passwordForm.confirmPassword}
+                              onChange={(e) =>
+                                handlePasswordFieldChange('confirmPassword', e.target.value)
+                              }
+                              onBlur={() => handlePasswordFieldBlur('confirmPassword')}
+                              placeholder="Confirm new password"
+                              className={passwordTouched.confirmPassword && passwordErrors.confirmPassword ? "border-2 border-red-500 pr-10" : "pr-10"}
+                            />
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setShowPasswords({
+                                  ...showPasswords,
+                                  confirmPassword: !showPasswords.confirmPassword,
+                                })
+                              }
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                            >
+                              {showPasswords.confirmPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
                           {passwordTouched.confirmPassword && passwordErrors.confirmPassword && (
                             <FieldError error={passwordErrors.confirmPassword} />
                           )}

@@ -1401,6 +1401,69 @@ export const updatePreferences = async (req, res) => {
 };
 
 /**
+ * Verify user's current password (without changing it)
+ * @route POST /api/auth/verify-password
+ * @access Private (authenticated user)
+ */
+export const verifyPassword = async (req, res) => {
+    try {
+        const { currentPassword } = req.body;
+        const userId = req.user.id;
+
+        // === Input Validation ===
+        if (!currentPassword) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'Current password is required.',
+                field: 'currentPassword'
+            });
+        }
+
+        try {
+            // Get user with password
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                select: {
+                    id: true,
+                    password: true
+                }
+            });
+
+            if (!user) {
+                return res.status(HTTP_STATUS.NOT_FOUND).json({
+                    success: false,
+                    error: 'User not found.'
+                });
+            }
+
+            // Verify current password
+            const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+            if (!isPasswordValid) {
+                return res.status(HTTP_STATUS.UNAUTHORIZED).json({
+                    success: false,
+                    error: 'Invalid current password.'
+                });
+            }
+
+            res.status(HTTP_STATUS.OK).json({
+                success: true,
+                message: 'Password verified successfully.'
+            });
+        } catch (dbError) {
+            console.error('Verify password database error:', dbError);
+            throw dbError;
+        }
+    } catch (error) {
+        console.error('Verify password error:', error);
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+            success: false,
+            error: 'Password verification failed. Please try again later.',
+            details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+};
+
+/**
  * Change user password
  * @route PUT /api/auth/change-password
  * @access Private (authenticated user)
