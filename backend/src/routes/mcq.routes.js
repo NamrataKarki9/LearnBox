@@ -18,7 +18,9 @@ import {
     getMCQSets,
     getMCQSetById,
     deleteMCQSet,
-    parseFromDocument
+    parseFromDocument,
+    updateMCQSet,
+    addQuestionToSet
 } from '../controllers/mcq.controller.js';
 
 const router = express.Router();
@@ -124,5 +126,19 @@ router.post('/:id/attempt', requireRole(ROLES.STUDENT), requireCollegeAccess, at
  * @access  COLLEGE_ADMIN only
  */
 router.delete('/sets/:id', requireRole(ROLES.COLLEGE_ADMIN), requireCollegeAccess, deleteMCQSet);
+
+/**
+ * @route   PUT /api/mcqs/sets/:id
+ * @desc    Update MCQ set metadata
+ * @access  COLLEGE_ADMIN only
+ */
+router.put('/sets/:id', requireRole(ROLES.COLLEGE_ADMIN), requireCollegeAccess, updateMCQSet);
+
+/**
+ * @route   POST /api/mcqs/sets/:id/questions
+ * @desc    Add a question to MCQ set
+ * @access  COLLEGE_ADMIN only
+ */
+router.post('/sets/:id/questions', requireRole(ROLES.COLLEGE_ADMIN), requireCollegeAccess, addQuestionToSet);
 
 export default router;

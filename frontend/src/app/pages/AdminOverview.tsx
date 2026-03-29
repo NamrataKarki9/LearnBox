@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { resourceAPI, moduleAPI, facultyAPI, Resource, Faculty } from '../../services/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -31,6 +32,7 @@ interface Module {
 
 export default function AdminOverview() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
@@ -42,12 +44,20 @@ export default function AdminOverview() {
   }, []);
 
   const fetchData = async () => {
+    if (!user?.collegeId) {
+      toast.error('Unable to load data: No college assigned');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
+      console.log('🔄 Fetching overview data for college:', user.collegeId);
+      
       const [resourcesRes, modulesRes, facultiesRes] = await Promise.all([
-        resourceAPI.getAll(),
-        moduleAPI.getAll(),
-        facultyAPI.getAll()
+        resourceAPI.getAll({ collegeId: user.collegeId }),
+        moduleAPI.getAll({ collegeId: user.collegeId }),
+        facultyAPI.getAll({ collegeId: user.collegeId })
       ]);
       
       setResources(resourcesRes.data.data || []);

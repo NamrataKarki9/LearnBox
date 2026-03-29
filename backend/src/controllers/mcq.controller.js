@@ -757,3 +757,127 @@ export const deleteMCQSet = async (req, res) => {
         });
     }
 };
+
+/**
+ * Update MCQ Set metadata
+ * @route PUT /api/mcqs/sets/:id
+ * @access COLLEGE_ADMIN only
+ */
+export const updateMCQSet = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { title, description, moduleId } = req.body;
+
+        const set = await prisma.mCQSet.findUnique({
+            where: { id: parseInt(id) }
+        });
+
+        if (!set) {
+            return res.status(HTTP_STATUS.NOT_FOUND).json({
+                error: 'MCQ set not found'
+            });
+        }
+
+        // Verify college access
+        if (set.collegeId !== req.user.collegeId) {
+            return res.status(HTTP_STATUS.FORBIDDEN).json({
+                error: ERROR_MESSAGES.COLLEGE_ACCESS_DENIED
+            });
+        }
+
+        // Update the set
+        const updatedSet = await prisma.mCQSet.update({
+            where: { id: parseInt(id) },
+            data: {
+                ...(title && { title }),
+                ...(description !== undefined && { description }),
+                ...(moduleId && { moduleId: parseInt(moduleId) })
+            },
+            include: {
+                module: { select: { id: true, name: true, code: true } },
+                creator: { select: { username: true, first_name: true, last_name: true } }
+            }
+        });
+
+        res.status(HTTP_STATUS.OK).json({
+            success: true,
+            data: updatedSet
+        });
+    } catch (error) {
+        console.error('Update MCQ set error:', error);
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+            error: ERROR_MESSAGES.DATABASE_ERROR
+        });
+    }
+};
+
+/**
+ * Add question to MCQ Set
+ * @route POST /api/mcqs/sets/:id/questions
+ * @access COLLEGE_ADMIN only
+ */
+export const addQuestionToSet = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { question, options, correctAnswer, explanation, difficulty, topic } = req.body;
+
+        const set = await prisma.mCQSet.findUnique({
+            where: { id: parseInt(id) },
+            include: { questions: true }
+        });
+
+        if (!set) {
+            return res.status(HTTP_STATUS.NOT_FOUND).json({
+                error: 'MCQ set not found'
+            });
+        }
+
+        // Verify college access
+        if (set.collegeId !== req.user.collegeId) {
+            return res.status(HTTP_STATUS.FORBIDDEN).json({
+                error: ERROR_MESSAGES.COLLEGE_ACCESS_DENIED
+            });
+        }
+
+        // Validate required fields
+        if (!question || !options || !correctAnswer) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                error: 'Question, options, and correctAnswer are required'
+            });
+        }
+
+        // Create the MCQ
+        const mcq = await prisma.mCQ.create({
+            data: {
+                question,
+                options,
+                correctAnswer,
+                explanation: explanation || null,
+                difficulty: difficulty || 'MEDIUM',
+                topic: topic || null,
+                moduleId: set.moduleId,
+                collegeId: req.user.collegeId,
+                createdBy: req.user.id,
+                source: 'MANUAL'
+            }
+        });
+
+        // Link to the set
+        await prisma.setMCQ.create({
+            data: {
+                setId: parseInt(id),
+                mcqId: mcq.id
+            }
+        });
+
+        res.status(HTTP_STATUS.OK).json({
+            success: true,
+            data: mcq
+        });
+    } catch (error) {
+        console.error('Add question to set error:', error);
+        res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+            error: ERROR_MESSAGES.DATABASE_ERROR
+        });
+    }
+};

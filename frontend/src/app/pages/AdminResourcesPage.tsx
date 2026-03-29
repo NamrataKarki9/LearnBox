@@ -5,10 +5,15 @@
 
 import { useState, useEffect } from 'react';
 import { resourceAPI, facultyAPI, moduleAPI, Resource, Faculty } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Badge } from '../components/ui/badge';
+import { Label } from '../components/ui/label';
+import { Input } from '../components/ui/input';
+import { Textarea } from '../components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import UploadResourceDialog from '../components/UploadResourceDialog';
 import { toast } from 'sonner';
 import { Eye, Download, Trash2, Upload, ChevronLeft, ChevronRight, Search, Filter } from 'lucide-react';
@@ -22,6 +27,7 @@ interface Module {
 }
 
 export default function AdminResourcesPage() {
+  const { user } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
   const [filteredResources, setFilteredResources] = useState<Resource[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
@@ -56,6 +62,20 @@ export default function AdminResourcesPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteConfirmResourceId, setDeleteConfirmResourceId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Edit resource state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingResource, setEditingResource] = useState<Resource | null>(null);
+  const [editFormData, setEditFormData] = useState({ 
+    title: '', 
+    description: '', 
+    year: '',
+    facultyId: '',
+    moduleId: ''
+  });
+  const [editAvailableModules, setEditAvailableModules] = useState<Module[]>([]);
+  const [editFile, setEditFile] = useState<File | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -64,6 +84,13 @@ export default function AdminResourcesPage() {
   useEffect(() => {
     applyFiltersAndSort();
   }, [resources, searchQuery, filterFaculty, filterYear, filterModule, filterFileType, sortField, sortOrder]);
+
+  // Fetch modules when both editFormData.facultyId and editFormData.year are selected
+  useEffect(() => {
+    if (editDialogOpen && editFormData.facultyId && editFormData.year) {
+      fetchEditModules(parseInt(editFormData.facultyId), parseInt(editFormData.year));
+    }
+  }, [editFormData.facultyId, editFormData.year, editDialogOpen]);
 
   const fetchData = async (retryCount = 0, maxRetries = 3) => {
     // Prevent concurrent fetches
@@ -79,11 +106,24 @@ export default function AdminResourcesPage() {
     }
     setError('');
     try {
+      // Check user and collegeId
+      if (!user?.collegeId) {
+        toast.error('Unable to load resources: No college assigned');
+        setIsFetching(false);
+        setLoading(false);
+        return;
+      }
+
+      console.log('🔄 Fetching resources for college:', user.collegeId);
+      
       // Fetch resources and faculties (critical)
       const [resourcesRes, facultiesRes] = await Promise.all([
-        resourceAPI.getAll(),
-        facultyAPI.getAll()
+        resourceAPI.getAll(),  // Backend automatically filters by collegeId for non-SUPER_ADMIN
+        facultyAPI.getAll({ collegeId: user.collegeId })
       ]);
+      
+      console.log('✅ Resources fetched:', resourcesRes.data.data?.length || 0);
+      console.log('✅ Faculties fetched:', facultiesRes.data.data?.length || 0);
       
       setResources(resourcesRes.data.data || []);
       setFaculties(facultiesRes.data.data || []);
@@ -91,7 +131,7 @@ export default function AdminResourcesPage() {
       
       // Fetch modules separately (optional - not critical for the page)
       try {
-        const modulesRes = await moduleAPI.getAll();
+        const modulesRes = await moduleAPI.getAll({ collegeId: user.collegeId });
         setModules(modulesRes.data.data || []);
       } catch (moduleError) {
         console.warn('Warning: Failed to load modules, proceeding without them:', moduleError);
@@ -235,6 +275,146 @@ export default function AdminResourcesPage() {
       toast.error('Failed to delete resource');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleEdit = (resource: Resource) => {
+    setEditingResource(resource);
+    setEditFormData({
+      title: resource.title,
+      description: resource.description || '',
+      year: resource.year?.toString() || '',
+      facultyId: resource.facultyId?.toString() || '',
+      moduleId: resource.moduleId?.toString() || ''
+    });
+    
+    // Filter modules based on selected faculty
+    if (resource.facultyId) {
+      const filteredModules = modules.filter(m => m.facultyId === resource.facultyId);
+      setEditAvailableModules(filteredModules);
+    } else {
+      setEditAvailableModules([]);
+    }
+    
+    setEditDialogOpen(true);
+  };
+
+  const handleEditFacultyChange = (facultyId: string) => {
+    setEditFormData({ ...editFormData, facultyId, year: '', moduleId: '' });
+    setEditAvailableModules([]);
+  };
+
+  const fetchEditModules = async (facultyId: number, year: number) => {
+    try {
+      const response = await moduleAPI.getByFacultyAndYear(facultyId, year);
+      setEditAvailableModules(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching modules for edit:', err);
+      setEditAvailableModules([]);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingResource) return;
+    
+    if (!editFormData.title.trim()) {
+      toast.error('Title is required');
+      return;
+    }
+
+    if (!editFormData.facultyId) {
+      toast.error('Faculty is required');
+      return;
+    }
+
+    if (!editFormData.moduleId) {
+      toast.error('Module is required');
+      return;
+    }
+
+    if (!editFormData.year) {
+      toast.error('Year is required');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      let fileUrl = editingResource.fileUrl; // Keep existing file URL if no new file
+      let fileType = editingResource.fileType; // Keep existing file type if no new file
+
+      // If a new file is selected, upload it first
+      if (editFile) {
+        const allowedTypes = ['application/pdf', 'application/msword', 
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-powerpoint',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+        
+        if (!allowedTypes.includes(editFile.type)) {
+          toast.error('Only PDF, DOC, DOCX, PPT, PPTX files are allowed');
+          setIsSaving(false);
+          return;
+        }
+
+        if (editFile.size > 10 * 1024 * 1024) {
+          toast.error('File size must be less than 10MB');
+          setIsSaving(false);
+          return;
+        }
+
+        // Upload new file
+        const uploadData = new FormData();
+        uploadData.append('file', editFile);
+        uploadData.append('title', editFormData.title);
+        uploadData.append('facultyId', editFormData.facultyId);
+        uploadData.append('year', editFormData.year);
+        uploadData.append('moduleId', editFormData.moduleId);
+        
+        if (editFormData.description) {
+          uploadData.append('description', editFormData.description);
+        }
+
+        try {
+          const uploadResponse = await resourceAPI.upload(uploadData);
+          fileUrl = uploadResponse.data.data.fileUrl;
+          fileType = uploadResponse.data.data.fileType;
+          
+          // Delete old resource after successful new upload
+          await resourceAPI.delete(editingResource.id);
+          
+          toast.success('Resource updated and file replaced successfully');
+          setEditDialogOpen(false);
+          setEditingResource(null);
+          setEditFile(null);
+          fetchData();
+          return;
+        } catch (uploadError) {
+          console.error('Error uploading new file:', uploadError);
+          toast.error('Failed to upload new file');
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      // Update without file replacement
+      await resourceAPI.update(editingResource.id, {
+        title: editFormData.title,
+        description: editFormData.description,
+        year: editFormData.year ? parseInt(editFormData.year) : null,
+        facultyId: editFormData.facultyId ? parseInt(editFormData.facultyId) : null,
+        moduleId: editFormData.moduleId ? parseInt(editFormData.moduleId) : null,
+        fileUrl: fileUrl,
+        fileType: fileType
+      });
+      toast.success('Resource updated successfully');
+      setEditDialogOpen(false);
+      setEditingResource(null);
+      setEditFile(null);
+      fetchData();
+    } catch (error) {
+      console.error('Error updating resource:', error);
+      toast.error('Failed to update resource');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -509,6 +689,12 @@ export default function AdminResourcesPage() {
                             Download
                           </button>
                           <button
+                            onClick={() => handleEdit(resource)}
+                            className="inline-flex items-center px-2 py-1 text-xs border border-blue-500 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          >
+                            Edit
+                          </button>
+                          <button
                             onClick={() => handleDelete(resource.id)}
                             className="inline-flex items-center px-2 py-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
                           >
@@ -638,6 +824,165 @@ export default function AdminResourcesPage() {
               {isDeleting ? 'Deleting...' : 'Delete'}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Resource Dialog */}
+      <Dialog 
+        open={editDialogOpen} 
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditFile(null);
+          }
+          setEditDialogOpen(open);
+        }}
+      >
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">Edit Resource</DialogTitle>
+          </DialogHeader>
+          
+          <form onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }} className="space-y-4">
+            {/* Title */}
+            <div>
+              <Label htmlFor="edit-title">Title *</Label>
+              <Input
+                id="edit-title"
+                value={editFormData.title}
+                onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                placeholder="Enter resource title"
+                disabled={isSaving}
+              />
+            </div>
+
+            {/* Description */}
+            <div>
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editFormData.description}
+                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                placeholder="Enter resource description (optional)"
+                rows={3}
+                disabled={isSaving}
+              />
+            </div>
+
+            {/* Faculty */}
+            <div>
+              <Label htmlFor="edit-faculty">Faculty *</Label>
+              <Select
+                value={editFormData.facultyId}
+                onValueChange={(value) => handleEditFacultyChange(value)}
+                disabled={isSaving}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select faculty" />
+                </SelectTrigger>
+                <SelectContent side="bottom">
+                  {faculties.map((faculty) => (
+                    <SelectItem key={faculty.id} value={faculty.id.toString()}>
+                      {faculty.code} - {faculty.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Academic Year */}
+            <div>
+              <Label htmlFor="edit-year">Academic Year *</Label>
+              <Select
+                value={editFormData.year}
+                onValueChange={(value) => {
+                  setEditFormData({ ...editFormData, year: value, moduleId: '' });
+                }}
+                disabled={isSaving || !editFormData.facultyId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select year" />
+                </SelectTrigger>
+                <SelectContent side="bottom">
+                  <SelectItem value="1">Year 1</SelectItem>
+                  <SelectItem value="2">Year 2</SelectItem>
+                  <SelectItem value="3">Year 3</SelectItem>
+                  <SelectItem value="4">Year 4</SelectItem>
+                </SelectContent>
+              </Select>
+              {!editFormData.facultyId && (
+                <p className="text-xs text-gray-500 mt-1">Select faculty first</p>
+              )}
+            </div>
+
+            {/* Module */}
+            <div>
+              <Label htmlFor="edit-module">Module *</Label>
+              <Select
+                value={editFormData.moduleId}
+                onValueChange={(value) => setEditFormData({ ...editFormData, moduleId: value })}
+                disabled={isSaving || !editFormData.facultyId || !editFormData.year || editAvailableModules.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select module" />
+                </SelectTrigger>
+                <SelectContent side="bottom">
+                  {editAvailableModules.map((module) => (
+                    <SelectItem key={module.id} value={module.id.toString()}>
+                      {module.code} - {module.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!editFormData.facultyId || !editFormData.year ? (
+                <p className="text-xs text-gray-500 mt-1">Select faculty and year first</p>
+              ) : editAvailableModules.length === 0 && editFormData.facultyId && editFormData.year ? (
+                <p className="text-xs text-amber-600 mt-1">No modules available for this faculty and year</p>
+              ) : null}
+            </div>
+
+            {/* File Upload (Optional) */}
+            <div>
+              <Label htmlFor="edit-file">Replace File (Optional)</Label>
+              <Input
+                id="edit-file"
+                type="file"
+                onChange={(e) => setEditFile(e.target.files?.[0] || null)}
+                accept=".pdf,.doc,.docx,.ppt,.pptx"
+                disabled={isSaving}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Allowed: PDF, DOC, DOCX, PPT, PPTX (Max 10MB)
+              </p>
+              {editFile && (
+                <p className="text-sm text-green-600 mt-1">
+                  Selected: {editFile.name} ({(editFile.size / 1024 / 1024).toFixed(2)} MB)
+                </p>
+              )}
+            </div>
+
+            {/* Buttons */}
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditDialogOpen(false);
+                  setEditingResource(null);
+                  setEditFile(null);
+                }}
+                disabled={isSaving}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                className="bg-primary hover:bg-primary/90 text-white"
+                disabled={isSaving}
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

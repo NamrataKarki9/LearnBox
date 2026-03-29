@@ -29,7 +29,7 @@ async function callLLMForSummary(prompt, maxTokens = 500) {
  * Generate quick summary (TL;DR)
  */
 export async function generateQuickSummary(text) {
-  const prompt = `Summarize in 3-4 sentences. Main topics and key takeaways:
+  const prompt = `Summarize in 8-10 sentences. Main topics and key takeaways:
 
 ${text.slice(0, 5000)}
 

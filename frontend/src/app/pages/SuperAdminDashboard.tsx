@@ -17,11 +17,12 @@ import { Separator } from '../components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
 import { Badge } from '../components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { authAPI, collegeAPI, userAPI, llmConfigAPI, College, UserData, LLMConfig, CreateLLMConfigData } from '../../services/api';
+import { authAPI, collegeAPI, userAPI, llmConfigAPI, College, UserData, LLMConfig, CreateLLMConfigData, invitationAPI } from '../../services/api';
 import { toast } from 'sonner';
-import { Plus, Building2, Users, BookOpen, GraduationCap, Edit, Trash2, X, Check, Search, Settings, CheckCircle, Circle, User, Lock, Bell, Palette, Camera, Save, Mail, Phone, Monitor, Moon, Sun, Globe, FileText, Shield, LogOut, AlertCircle } from 'lucide-react';
+import { Plus, Building2, Users, BookOpen, GraduationCap, Edit, Trash2, X, Check, Search, Settings, CheckCircle, Circle, User, Lock, Bell, Palette, Camera, Save, Mail, Phone, Monitor, Moon, Sun, Globe, FileText, Shield, LogOut, AlertCircle, Send } from 'lucide-react';
 import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
 import { useLogoutConfirm } from '../../hooks/useLogoutConfirm';
+import { InviteCollegeAdminModal } from '../components/InviteCollegeAdminModal';
 
 interface Stats {
   totalColleges: number;
@@ -64,6 +65,7 @@ export default function SuperAdminDashboard() {
   const [editingLLM, setEditingLLM] = useState<LLMConfig | null>(null);
   const [showUserModal, setShowUserModal] = useState(false);
   const [editingUser, setEditingUser] = useState<UserData | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [filterRole, setFilterRole] = useState('All');
   const [filterStatus, setFilterStatus] = useState('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -916,6 +918,13 @@ export default function SuperAdminDashboard() {
                             <option value="Inactive">Inactive</option>
                           </select>
                         </div>
+                        <Button 
+                          onClick={() => setShowInviteModal(true)}
+                          className="bg-[#7C9E9E] hover:bg-[#6B8D8D] text-white flex items-center gap-2"
+                        >
+                          <Send className="h-4 w-4" />
+                          Add College Admin
+                        </Button>
                       </div>
                       
                       <div className="overflow-x-auto">
@@ -1609,6 +1618,17 @@ export default function SuperAdminDashboard() {
       )}
         </>
       )}
+
+      {/* Invite College Admin Modal (NEW) */}
+      <InviteCollegeAdminModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        colleges={colleges}
+        onInvitationSent={(invitation) => {
+          toast.success(`Invitation sent to ${invitation.inviteeEmail}`);
+          setShowInviteModal(false);
+        }}
+      />
 
       {/* Delete College Confirmation Dialog */}
       <Dialog open={deleteCollegeConfirmOpen} onOpenChange={setDeleteCollegeConfirmOpen}>

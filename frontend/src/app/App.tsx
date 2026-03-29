@@ -7,6 +7,7 @@ import { RegisterPage } from "./pages/RegisterPage";
 import { VerifyOTPPage } from "./pages/VerifyOTPPage";
 import { ForgotPasswordPage } from "./pages/ForgotPasswordPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import InvitationAcceptPage from "./pages/InvitationAcceptPage";
 import { AboutPage } from "./pages/AboutPage";
 import { ContactPage } from "./pages/ContactPage";
 import { HelpPage } from "./pages/HelpPage";
@@ -60,6 +61,7 @@ export default function App() {
           <Route path="/verify-otp" element={<VerifyOTPPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
           <Route path="/reset-password" element={<ResetPasswordPage />} />
+          <Route path="/invitation/accept" element={<InvitationAcceptPage />} />
 
           {/* Protected Routes */}
           <Route

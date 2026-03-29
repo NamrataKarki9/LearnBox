@@ -16,6 +16,14 @@ import {
     updateNotificationSettings,
     updatePreferences
 } from '../controllers/auth.controller.js';
+import {
+    inviteCollegeAdmin,
+    validateInvitation,
+    acceptInvitationAndRegister,
+    getPendingCollegeAdminInvitations,
+    resendInvitationEmail,
+    cancelInvitationEndpoint
+} from '../controllers/invitation.controller.js';
 import { authMiddleware } from '../middleware/auth.middleware.js';
 import { requireRole, preventSuperAdminCreation } from '../middleware/role.middleware.js';
 import { ROLES } from '../constants/roles.js';
@@ -31,6 +39,10 @@ router.post('/forgot-password', forgotPassword); // NEW: Request password reset 
 router.post('/reset-password', resetPassword); // NEW: Reset password with OTP
 router.post('/resend-otp', resendOTP); // NEW: Resend OTP
 
+// Invitation routes (public)
+router.get('/validate-invitation/:token', validateInvitation); // NEW: Validate invite token
+router.post('/accept-invitation', acceptInvitationAndRegister); // NEW: Accept invite & register
+
 // Protected routes
 router.get('/me', authMiddleware, getMe);
 router.put('/profile', authMiddleware, updateProfile); // NEW: Update user profile
@@ -42,6 +54,12 @@ router.put('/settings/preferences', authMiddleware, updatePreferences);
 
 // Admin routes - SUPER_ADMIN only
 router.post('/admin/create-college-admin', authMiddleware, requireRole(ROLES.SUPER_ADMIN), createCollegeAdmin);
+
+// Invitation admin routes - SUPER_ADMIN only (NEW)
+router.post('/admin/invite-college-admin', authMiddleware, requireRole(ROLES.SUPER_ADMIN), inviteCollegeAdmin); // NEW: Create invitation
+router.get('/admin/invitations/pending', authMiddleware, requireRole(ROLES.SUPER_ADMIN), getPendingCollegeAdminInvitations); // NEW: List pending invitations
+router.post('/admin/invitations/:invitationId/resend', authMiddleware, requireRole(ROLES.SUPER_ADMIN), resendInvitationEmail); // NEW: Resend email
+router.post('/admin/invitations/:invitationId/cancel', authMiddleware, requireRole(ROLES.SUPER_ADMIN), cancelInvitationEndpoint); // NEW: Cancel invitation
 
 export default router;
 

@@ -160,6 +160,83 @@ export const authAPI = {
     api.put<{ success: boolean; message: string }>('/auth/settings/preferences', preferences),
 };
 
+// Invitation API endpoints (NEW)
+export interface InvitationData {
+  email: string;
+  name: string;
+  collegeId: number;
+}
+
+export interface Invitation {
+  id: number;
+  inviteeEmail: string;
+  inviteeName: string;
+  college: {
+    id: number;
+    name: string;
+    code: string;
+  };
+  status: 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'CANCELLED';
+  expiresAt: string;
+  createdAt: string;
+  inviteToken: string;
+}
+
+export interface InvitationValidationResponse {
+  success: boolean;
+  invitation?: {
+    id: number;
+    inviteeEmail: string;
+    inviteeName: string;
+    college: {
+      id: number;
+      name: string;
+      code: string;
+    };
+    expiresAt: string;
+  };
+  error?: string;
+}
+
+export interface AcceptInvitationData {
+  token: string;
+  username: string;
+  password: string;
+  firstName?: string;
+  lastName?: string;
+}
+
+export interface CreateInvitationResponse {
+  success: boolean;
+  invitation?: Invitation;
+  message?: string;
+  warning?: string;
+  error?: string;
+  field?: string;
+}
+
+export interface InvitationListResponse {
+  success: boolean;
+  data: Invitation[];
+  count: number;
+}
+
+export interface InvitationActionResponse {
+  success: boolean;
+  invitation?: Invitation;
+  message?: string;
+  error?: string;
+}
+
+export const invitationAPI = {
+  validateToken: (token: string) => api.get<InvitationValidationResponse>(`/auth/validate-invitation/${token}`),
+  acceptAndRegister: (data: AcceptInvitationData) => api.post<AuthResponse>('/auth/accept-invitation', data),
+  createInvitation: (data: InvitationData) => api.post<CreateInvitationResponse>('/auth/admin/invite-college-admin', data),
+  getPendingInvitations: () => api.get<InvitationListResponse>('/auth/admin/invitations/pending'),
+  resendInvitation: (invitationId: number) => api.post<InvitationActionResponse>(`/auth/admin/invitations/${invitationId}/resend`, {}),
+  cancelInvitation: (invitationId: number) => api.post<InvitationActionResponse>(`/auth/admin/invitations/${invitationId}/cancel`, {}),
+};
+
 // Resource types
 export interface Module {
   id: number;
@@ -324,6 +401,18 @@ export const moduleAPI = {
     api.get<{ success: boolean; count: number; data: Module[] }>('/modules', {
       params: { facultyId, year }
     }),
+
+  getById: (id: number) =>
+    api.get<{ success: boolean; data: Module }>(`/modules/${id}`),
+
+  create: (data: { name: string; code: string; description?: string; year: number; facultyId: number }) =>
+    api.post<{ success: boolean; message: string; data: Module }>('/modules', data),
+
+  update: (id: number, data: Partial<{ name: string; code: string; description?: string; year: number; facultyId: number }>) =>
+    api.put<{ success: boolean; message: string; data: Module }>(`/modules/${id}`, data),
+
+  delete: (id: number) =>
+    api.delete<{ success: boolean; message: string }>(`/modules/${id}`),
 };
 
 // Faculty API endpoints
@@ -678,6 +767,23 @@ export const mcqAPI = {
       saved: boolean;
     };
   }>('/mcqs/generate-from-pdf', data, { timeout: 0 }), // No timeout for AI generation
+
+  // Update MCQ set
+  updateSet: (id: number, data: {
+    title?: string;
+    description?: string;
+    moduleId?: number;
+  }) => api.put<{ success: boolean; data: MCQSet }>(`/mcqs/sets/${id}`, data),
+
+  // Add question to MCQ set
+  addQuestion: (setId: number, data: {
+    question: string;
+    options: string[];
+    correctAnswer: string;
+    explanation?: string;
+    difficulty?: string;
+    topic?: string;
+  }) => api.post<{ success: boolean; data: MCQ }>(`/mcqs/sets/${setId}/questions`, data),
 };
 
 // Quiz API endpoints

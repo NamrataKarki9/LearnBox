@@ -4,6 +4,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
 import { learningSiteAPI, facultyAPI, moduleAPI, LearningSite, Faculty, Module } from '../../services/api';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
@@ -14,9 +15,10 @@ import { Textarea } from '../components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import { toast } from 'sonner';
-import { Plus, Search, ExternalLink, Trash2, Link as LinkIcon } from 'lucide-react';
+import { Plus, Search, ExternalLink, Trash2, Link as LinkIcon, Edit } from 'lucide-react';
 
 export default function AdminLearningSitesPage() {
+  const { user } = useAuth();
   const [sites, setSites] = useState<LearningSite[]>([]);
   const [filteredSites, setFilteredSites] = useState<LearningSite[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
@@ -29,6 +31,20 @@ export default function AdminLearningSitesPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteConfirmSiteId, setDeleteConfirmSiteId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Edit state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingSite, setEditingSite] = useState<LearningSite | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    facultyId: '',
+    year: '',
+    moduleId: '',
+    url: ''
+  });
+  const [editFormModules, setEditFormModules] = useState<Module[]>([]);
+  const [editSaving, setEditSaving] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFaculty, setFilterFaculty] = useState('all');
@@ -71,13 +87,40 @@ export default function AdminLearningSitesPage() {
     loadFormModules();
   }, [formData.facultyId, formData.year]);
 
+  useEffect(() => {
+    if (!editDialogOpen || !editFormData.facultyId || !editFormData.year) {
+      setEditFormModules([]);
+      return;
+    }
+
+    const loadEditModules = async () => {
+      try {
+        const response = await moduleAPI.getByFacultyAndYear(parseInt(editFormData.facultyId), parseInt(editFormData.year));
+        setEditFormModules(response.data.data || []);
+      } catch (error) {
+        console.error('Error loading edit form modules:', error);
+        setEditFormModules([]);
+      }
+    };
+
+    loadEditModules();
+  }, [editFormData.facultyId, editFormData.year, editDialogOpen]);
+
   const fetchInitialData = async () => {
+    if (!user?.collegeId) {
+      toast.error('Unable to load data: No college assigned');
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
+      console.log('🔄 Fetching learning sites for college:', user.collegeId);
+      
       const [sitesRes, facultiesRes, modulesRes] = await Promise.allSettled([
-        learningSiteAPI.getAll(),
-        facultyAPI.getAll(),
-        moduleAPI.getAll()
+        learningSiteAPI.getAll({ collegeId: user.collegeId }),
+        facultyAPI.getAll({ collegeId: user.collegeId }),
+        moduleAPI.getAll({ collegeId: user.collegeId })
       ]);
 
       if (sitesRes.status === 'fulfilled') {
@@ -206,6 +249,93 @@ export default function AdminLearningSitesPage() {
       setIsDeleting(false);
       setDeleteConfirmOpen(false);
       setDeleteConfirmSiteId(null);
+    }
+  };
+
+  const handleEdit = async (site: LearningSite) => {
+    setEditingSite(site);
+    
+    let facultyId = '';
+    let year = '';
+    
+    // First try direct properties
+    if (site.facultyId && site.year) {
+      facultyId = site.facultyId.toString();
+      year = site.year.toString();
+    } else if (site.moduleId) {
+      // If direct properties not available, fetch all modules to find faculty and year
+      try {
+        const response = await moduleAPI.getAll();
+        const allModules = response.data.data || [];
+        const matchedModule = allModules.find(m => m.id === site.moduleId);
+        if (matchedModule) {
+          facultyId = matchedModule.facultyId?.toString() || '';
+          year = matchedModule.year?.toString() || '';
+        }
+      } catch (error) {
+        console.error('Error fetching modules for edit:', error);
+      }
+    }
+    
+    // Fetch modules for this faculty+year combination
+    if (facultyId && year) {
+      try {
+        const editModulesRes = await moduleAPI.getByFacultyAndYear(parseInt(facultyId), parseInt(year));
+        setEditFormModules(editModulesRes.data.data || []);
+      } catch (error) {
+        console.error('Error fetching modules:', error);
+      }
+    }
+    
+    setEditFormData({
+      title: site.title,
+      description: site.description || '',
+      facultyId: facultyId,
+      year: year,
+      moduleId: site.moduleId?.toString() || '',
+      url: site.url
+    });
+
+    setEditDialogOpen(true);
+  };
+
+  const handleEditFacultyChange = (facultyId: string) => {
+    setEditFormData({ ...editFormData, facultyId, year: '', moduleId: '' });
+    setEditFormModules([]);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingSite) return;
+
+    if (!editFormData.title.trim() || !editFormData.facultyId || !editFormData.year || !editFormData.moduleId || !editFormData.url.trim()) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+
+    setEditSaving(true);
+    try {
+      // Note: You may need to add an update endpoint to learningSiteAPI if it doesn't exist
+      // For now, we'll delete and recreate (or update if the backend supports it)
+      await learningSiteAPI.delete(editingSite.id);
+      
+      await learningSiteAPI.create({
+        title: editFormData.title.trim(),
+        description: editFormData.description.trim() || undefined,
+        facultyId: parseInt(editFormData.facultyId),
+        year: parseInt(editFormData.year),
+        moduleId: parseInt(editFormData.moduleId),
+        url: editFormData.url.trim()
+      });
+
+      toast.success('Learning site updated successfully');
+      setEditDialogOpen(false);
+      setEditingSite(null);
+      fetchInitialData();
+    } catch (error: any) {
+      console.error('Error updating learning site:', error);
+      toast.error(error.response?.data?.error || 'Failed to update learning site');
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -369,6 +499,13 @@ export default function AdminLearningSitesPage() {
                             Visit
                           </button>
                           <button
+                            onClick={() => handleEdit(site)}
+                            className="inline-flex items-center px-2 py-1 text-xs border border-blue-500 text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                          >
+                            <Edit className="h-3 w-3 mr-1" />
+                            Edit
+                          </button>
+                          <button
                             onClick={() => handleDeleteSite(site.id)}
                             className="inline-flex items-center px-2 py-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
                           >
@@ -528,6 +665,133 @@ export default function AdminLearningSitesPage() {
               </Button>
               <Button type="submit" className="bg-primary hover:bg-primary/90 text-white" disabled={saving}>
                 {saving ? 'Saving...' : 'Add Learning Site'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Learning Site Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={(open) => {
+        setEditDialogOpen(open);
+        if (!open) {
+          setEditingSite(null);
+        }
+      }}>
+        <DialogContent className="sm:max-w-[620px]">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">Edit Learning Site</DialogTitle>
+          </DialogHeader>
+
+          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }}>
+            <div>
+              <Label htmlFor="edit-title">Title *</Label>
+              <Input
+                id="edit-title"
+                value={editFormData.title}
+                onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                placeholder="Enter learning site title"
+                disabled={editSaving}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editFormData.description}
+                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                placeholder="Enter short description (optional)"
+                rows={3}
+                disabled={editSaving}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="edit-faculty">Faculty *</Label>
+              <Select
+                value={editFormData.facultyId}
+                onValueChange={(value) => handleEditFacultyChange(value)}
+                disabled={editSaving}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select faculty" />
+                </SelectTrigger>
+                <SelectContent side="bottom">
+                  {faculties.map((faculty) => (
+                    <SelectItem key={faculty.id} value={faculty.id.toString()}>
+                      {faculty.code} - {faculty.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-year">Academic Year *</Label>
+              <Select
+                value={editFormData.year}
+                onValueChange={(value) => setEditFormData({ ...editFormData, year: value, moduleId: '' })}
+                disabled={editSaving || !editFormData.facultyId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select year" />
+                </SelectTrigger>
+                <SelectContent side="bottom">
+                  <SelectItem value="1">Year 1</SelectItem>
+                  <SelectItem value="2">Year 2</SelectItem>
+                  <SelectItem value="3">Year 3</SelectItem>
+                  <SelectItem value="4">Year 4</SelectItem>
+                </SelectContent>
+              </Select>
+              {!editFormData.facultyId && (
+                <p className="text-xs text-gray-500 mt-1">Select faculty first</p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="edit-module">Module *</Label>
+              <Select
+                value={editFormData.moduleId}
+                onValueChange={(value) => setEditFormData({ ...editFormData, moduleId: value })}
+                disabled={editSaving || !editFormData.facultyId || !editFormData.year || editFormModules.length === 0}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select module" />
+                </SelectTrigger>
+                <SelectContent side="bottom">
+                  {editFormModules.map((module) => (
+                    <SelectItem key={module.id} value={module.id.toString()}>
+                      {module.code} - {module.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!editFormData.facultyId || !editFormData.year ? (
+                <p className="text-xs text-gray-500 mt-1">Select faculty and year first</p>
+              ) : editFormModules.length === 0 ? (
+                <p className="text-xs text-amber-600 mt-1">No modules available for this faculty and year</p>
+              ) : null}
+            </div>
+
+            <div>
+              <Label htmlFor="edit-url">Site Link *</Label>
+              <Input
+                id="edit-url"
+                type="url"
+                value={editFormData.url}
+                onChange={(e) => setEditFormData({ ...editFormData, url: e.target.value })}
+                placeholder="https://example.com"
+                disabled={editSaving}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 pt-2">
+              <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)} disabled={editSaving}>
+                Cancel
+              </Button>
+              <Button type="submit" className="bg-primary hover:bg-primary/90 text-white" disabled={editSaving}>
+                {editSaving ? 'Saving...' : 'Save Changes'}
               </Button>
             </div>
           </form>

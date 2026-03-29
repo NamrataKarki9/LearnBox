@@ -174,6 +174,128 @@ export const sendPasswordResetOTP = async (email, otp, username) => {
 };
 
 /**
+ * Send college admin invitation email
+ * @param {string} email - Recipient email
+ * @param {string} inviteeName - Name of invited person
+ * @param {string} collegeName - Name of college
+ * @param {string} inviteToken - Secure invitation token
+ * @param {string} superAdminName - Name of super admin sending invite
+ */
+export const sendCollegeAdminInvitation = async (email, inviteeName, collegeName, inviteToken, superAdminName) => {
+    try {
+        const transporter = createTransporter();
+        
+        // If SMTP not configured, return success but log warning
+        if (!transporter) {
+            console.warn(`⚠️  Email not sent to ${email}. SMTP not configured.`);
+            console.log(`🔗 Use this invite link for ${email}: http://localhost:5173/invitation/accept?token=${inviteToken}`);
+            return { success: true, warning: 'SMTP not configured' };
+        }
+
+        // Build registration link - use environment or default
+        const baseUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+        const acceptLink = `${baseUrl}/invitation/accept?token=${inviteToken}`;
+        console.log('📧 Generated registration link:', acceptLink);
+        console.log('📧 Token in link:', inviteToken?.substring(0, 16) + '...');
+
+        const mailOptions = {
+            from: `"${process.env.EMAIL_FROM_NAME || 'LearnBox'}" <${process.env.SMTP_USER}>`,
+            to: email,
+            subject: `LearnBox College Admin Invitation - ${collegeName}`,
+            html: `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <style>
+                        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                        .header { background-color: #7C9E9E; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+                        .content { background-color: #f9fafb; padding: 30px; border-radius: 0 0 8px 8px; }
+                        .invite-box { background-color: white; border: 2px solid #7C9E9E; border-radius: 8px; padding: 20px; margin: 20px 0; }
+                        .cta-button { 
+                            display: inline-block;
+                            background-color: #7C9E9E;
+                            color: white;
+                            padding: 12px 30px;
+                            text-decoration: none;
+                            border-radius: 6px;
+                            font-weight: bold;
+                            margin: 20px 0;
+                        }
+                        .cta-button:hover { background-color: #6B8D8D; }
+                        .footer { text-align: center; margin-top: 20px; color: #6b7280; font-size: 12px; }
+                        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 15px 0; }
+                        .info-item { background: white; padding: 10px; border-left: 3px solid #7C9E9E; }
+                        .info-label { font-size: 12px; color: #6b7280; font-weight: bold; }
+                        .info-value { font-size: 14px; color: #333; margin-top: 5px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <div class="header">
+                            <h1>Welcome to LearnBox</h1>
+                            <p>You're invited to become a College Admin</p>
+                        </div>
+                        <div class="content">
+                            <h2>Hello ${inviteeName},</h2>
+                            <p>You have been invited by <strong>${superAdminName}</strong> to become a College Admin for <strong>${collegeName}</strong> on LearnBox.</p>
+                            
+                            <div class="invite-box">
+                                <h3 style="color: #7C9E9E; margin-top: 0;">Complete Your Registration</h3>
+                                <p>Click the button below to accept the invitation and set up your account:</p>
+                                
+                                <center>
+                                    <a href="${acceptLink}" class="cta-button">Accept Invitation & Register</a>
+                                </center>
+                                
+                                <p style="text-align: center; font-size: 12px; color: #6b7280; margin-top: 15px;">
+                                    Or copy and paste this link in your browser:<br>
+                                    <code style="background: #f3f4f6; padding: 5px 10px; border-radius: 4px; word-break: break-all;">
+                                        ${acceptLink}
+                                    </code>
+                                </p>
+                            </div>
+
+                            <div class="info-grid">
+                                <div class="info-item">
+                                    <div class="info-label">College</div>
+                                    <div class="info-value">${collegeName}</div>
+                                </div>
+                                <div class="info-item">
+                                    <div class="info-label">Role</div>
+                                    <div class="info-value">College Admin</div>
+                                </div>
+                            </div>
+
+                            <p><strong>⏱️ This invitation will expire in 24 hours.</strong> Make sure to complete your registration within this timeframe.</p>
+
+                            <p style="background: #E0F2F1; padding: 15px; border-radius: 6px; margin: 15px 0;">
+                                <strong>🔒 Security Note:</strong> When creating your password, make sure to use a strong password with at least 8 characters, including numbers and special characters.
+                            </p>
+
+                            <p>If you didn't expect this invitation or have any questions, please contact your platform administrator.</p>
+                            
+                            <p>Best regards,<br><strong>The LearnBox Team</strong></p>
+                        </div>
+                        <div class="footer">
+                            <p>&copy; 2025 LearnBox. All rights reserved.</p>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+        console.log(`✅ College admin invitation email sent to ${email}`);
+        return { success: true };
+    } catch (error) {
+        console.error('Error sending college admin invitation email:', error);
+        return { success: false, error: error.message };
+    }
+};
+
+/**
  * Test email configuration
  * @returns {Promise<boolean>} True if configuration is valid
  */

@@ -5,6 +5,7 @@
 
 import { useState, useEffect } from 'react';
 import { moduleAPI, facultyAPI, Faculty, Module as APIModule } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Card, CardContent } from '../components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
@@ -24,6 +25,7 @@ interface GroupedModules {
 }
 
 export default function AdminModulesPage() {
+  const { user } = useAuth();
   const [modules, setModules] = useState<Module[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [loading, setLoading] = useState(true);
@@ -58,18 +60,30 @@ export default function AdminModulesPage() {
   const fetchData = async () => {
     setLoading(true);
     try {
+      // Only fetch data if user has a collegeId
+      if (!user?.collegeId) {
+        toast.error('Unable to load modules: No college assigned');
+        setLoading(false);
+        return;
+      }
+
+      console.log('🔄 Fetching modules and faculties for college:', user.collegeId);
+      
       const [modulesRes, facultiesRes] = await Promise.all([
-        moduleAPI.getAll(),
-        facultyAPI.getAll()
+        moduleAPI.getAll({ collegeId: user.collegeId }),
+        facultyAPI.getAll({ collegeId: user.collegeId })
       ]);
+      
+      console.log('✅ Modules fetched:', modulesRes.data.data?.length || 0);
+      console.log('✅ Faculties fetched:', facultiesRes.data.data?.length || 0);
       
       setModules(modulesRes.data.data || []);
       setFaculties(facultiesRes.data.data || []);
       
       // Expand all faculties by default
-      setExpandedFaculties(new Set(facultiesRes.data.data.map((f: Faculty) => f.id)));
+      setExpandedFaculties(new Set((facultiesRes.data.data || []).map((f: Faculty) => f.id)));
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('❌ Error fetching data:', error);
       toast.error('Failed to load modules');
     } finally {
       setLoading(false);
@@ -139,14 +153,22 @@ export default function AdminModulesPage() {
     }
 
     try {
-      // API call would go here - for now simulate success
+      await moduleAPI.create({
+        name: formData.name,
+        code: formData.code,
+        description: formData.description,
+        year: formData.year,
+        facultyId: formData.facultyId
+      });
+
       toast.success('Module created successfully');
       setCreateDialogOpen(false);
       resetForm();
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating module:', error);
-      toast.error('Failed to create module');
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to create module';
+      toast.error(errorMessage);
     }
   };
 
@@ -166,15 +188,23 @@ export default function AdminModulesPage() {
     if (!editingModule) return;
 
     try {
-      // API call would go here
+      await moduleAPI.update(editingModule.id, {
+        name: formData.name,
+        code: formData.code,
+        description: formData.description,
+        year: formData.year,
+        facultyId: formData.facultyId
+      });
+
       toast.success('Module updated successfully');
       setEditDialogOpen(false);
       setEditingModule(null);
       resetForm();
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating module:', error);
-      toast.error('Failed to update module');
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to update module';
+      toast.error(errorMessage);
     }
   };
 
@@ -188,12 +218,13 @@ export default function AdminModulesPage() {
     if (!deleteConfirmModuleId) return;
     setIsDeleting(true);
     try {
-      // API call would go here
+      await moduleAPI.delete(deleteConfirmModuleId);
       toast.success('Module deleted successfully');
       fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting module:', error);
-      toast.error('Failed to delete module');
+      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to delete module';
+      toast.error(errorMessage);
     } finally {
       setIsDeleting(false);
       setDeleteConfirmOpen(false);

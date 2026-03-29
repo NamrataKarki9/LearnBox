@@ -42,6 +42,7 @@ model User {
   analytics  PerformanceAnalytics[]
   llmConfigs LLMConfig[]
   learningSites LearningSite[]
+  createdInvitations CollegeAdminInvitation[] @relation("InvitationCreator")
   
   @@index([email])
   @@index([collegeId])
@@ -66,6 +67,7 @@ model College {
   mcqSets     MCQSet[]
   quizSessions QuizSession[]
   learningSites LearningSite[]
+  invitations CollegeAdminInvitation[]
   
   @@index([code])
 }
@@ -416,6 +418,41 @@ model LLMConfig {
   
   @@index([isActive])
   @@index([provider])
+}
+
+// College Admin Invitation System
+model CollegeAdminInvitation {
+  id              Int       @id @default(autoincrement())
+  inviteToken     String    @unique // Secure token for invitation link
+  inviteeEmail    String    // Email of invited person
+  inviteeName     String    // Name of invited person
+  collegeId       Int
+  college         College   @relation(fields: [collegeId], references: [id])
+  createdBy       Int       // SuperAdmin who sent invitation
+  creator         User      @relation("InvitationCreator", fields: [createdBy], references: [id])
+  
+  status          InvitationStatus @default(PENDING)
+  expiresAt       DateTime  // Invitation expires after this time
+  acceptedAt      DateTime? // When invitation was accepted
+  
+  // When accepted, the created user
+  acceptedByUserId Int?
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([inviteToken])
+  @@index([inviteeEmail])
+  @@index([collegeId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+enum InvitationStatus {
+  PENDING    // Invitation sent, not yet accepted
+  ACCEPTED   // Accepted and account created
+  EXPIRED    // Invitation token expired
+  CANCELLED  // Invitation was cancelled by admin
 }
 
 enum LLMProvider {
