@@ -43,6 +43,7 @@ model User {
   llmConfigs LLMConfig[]
   learningSites LearningSite[]
   createdInvitations CollegeAdminInvitation[] @relation("InvitationCreator")
+  auditLogs  AuditLog[]
   
   @@index([email])
   @@index([collegeId])
@@ -54,6 +55,9 @@ model College {
   code        String     @unique
   location    String?
   description String?
+  address     String?
+  email       String?
+  contactNumber String?
   isActive    Boolean    @default(true)
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt
@@ -68,6 +72,7 @@ model College {
   quizSessions QuizSession[]
   learningSites LearningSite[]
   invitations CollegeAdminInvitation[]
+  auditLogs   AuditLog[]
   
   @@index([code])
 }
@@ -448,11 +453,55 @@ model CollegeAdminInvitation {
   @@index([expiresAt])
 }
 
+// Audit Log for tracking admin actions
+model AuditLog {
+  id              Int       @id @default(autoincrement())
+  userId          Int       // Admin who performed the action
+  user            User      @relation(fields: [userId], references: [id])
+  collegeId       Int       // College context
+  college         College   @relation(fields: [collegeId], references: [id])
+  
+  action          String    // e.g., RESOURCE_CREATED, MODULE_UPDATED, MCQ_DELETED, LEARNING_SITE_CREATED
+  actionType      AuditActionType
+  entityType      AuditEntityType
+  entityId        Int?      // ID of the entity being acted upon
+  entityName      String?   // Name/title of the entity for display
+  
+  changes         Json?     // Store before/after values for updates {before: {...}, after: {...}}
+  ipAddress       String?
+  userAgent       String?
+  
+  createdAt       DateTime  @default(now())
+  
+  @@index([userId])
+  @@index([collegeId])
+  @@index([createdAt])
+  @@index([actionType])
+  @@index([entityType])
+}
+
 enum InvitationStatus {
   PENDING    // Invitation sent, not yet accepted
   ACCEPTED   // Accepted and account created
   EXPIRED    // Invitation token expired
   CANCELLED  // Invitation was cancelled by admin
+}
+
+enum AuditActionType {
+  CREATE
+  UPDATE
+  DELETE
+  ACTIVATE
+  DEACTIVATE
+}
+
+enum AuditEntityType {
+  RESOURCE
+  MODULE
+  MCQ
+  MCQ_SET
+  LEARNING_SITE
+  QUIZ_SESSION
 }
 
 enum LLMProvider {

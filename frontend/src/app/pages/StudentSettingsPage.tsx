@@ -55,6 +55,7 @@ import {
 import { toast } from 'sonner';
 import { authAPI } from '../../services/api';
 import { FieldError } from '../components/FieldValidation';
+import { applyStudentTheme, getStoredStudentTheme, saveStudentTheme, type StudentTheme } from '../../utils/theme';
 import {
   validateFirstName,
   validateLastName,
@@ -97,7 +98,7 @@ interface NotificationSettings {
 }
 
 interface PreferenceSettings {
-  theme: 'light' | 'dark' | 'system';
+  theme: StudentTheme;
   language: string;
   defaultView: 'grid' | 'list';
   resourcesPerPage: number;
@@ -177,7 +178,7 @@ export default function StudentSettingsPage() {
 
   // State for preferences
   const [preferences, setPreferences] = useState<PreferenceSettings>({
-    theme: 'system',
+    theme: 'light',
     language: 'en',
     defaultView: 'grid',
     resourcesPerPage: 20,
@@ -199,10 +200,19 @@ export default function StudentSettingsPage() {
       if (savedSettings) {
         const settings = JSON.parse(savedSettings);
         setNotifications(settings.notifications || notifications);
-        setPreferences(settings.preferences || preferences);
+        const storedTheme = getStoredStudentTheme();
+        setPreferences({
+          ...preferences,
+          ...settings.preferences,
+          theme: storedTheme,
+        });
+        applyStudentTheme(storedTheme);
+      } else {
+        applyStudentTheme('light');
       }
     } catch (error) {
       console.error('Error loading settings:', error);
+      applyStudentTheme('light');
     }
   };
 
@@ -532,21 +542,8 @@ export default function StudentSettingsPage() {
         preferences,
       };
       localStorage.setItem('userSettings', JSON.stringify(settings));
-      
-      // Apply theme
-      const root = document.documentElement;
-      if (preferences.theme === 'dark') {
-        root.classList.add('dark');
-      } else if (preferences.theme === 'light') {
-        root.classList.remove('dark');
-      } else {
-        // System preference
-        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          root.classList.add('dark');
-        } else {
-          root.classList.remove('dark');
-        }
-      }
+      saveStudentTheme(preferences.theme);
+      applyStudentTheme(preferences.theme);
       
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -595,11 +592,11 @@ export default function StudentSettingsPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <div className="bg-card border-b border-border sticky top-0 z-10 shadow-sm">
+      <div className="bg-card border-b border-border sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center space-x-3">
-              <Settings className="h-6 w-6 text-primary" />
+              <Settings className="h-6 w-6 text-ink" />
               <h1 className="text-2xl font-bold text-foreground">Settings</h1>
             </div>
             <Button variant="outline" onClick={() => navigate('/student-dashboard')}>
@@ -619,10 +616,10 @@ export default function StudentSettingsPage() {
                 <nav className="space-y-1">
                   <button
                     onClick={() => setActiveTab('profile')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2  text-sm font-medium transition-colors ${
                       activeTab === 'profile'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
+                        ? 'bg-ink-muted text-ink-foreground'
+                        : 'text-ink-muted hover:bg-parchment-dark'
                     }`}
                   >
                     <User className="h-5 w-5" />
@@ -630,10 +627,10 @@ export default function StudentSettingsPage() {
                   </button>
                   <button
                     onClick={() => setActiveTab('security')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2  text-sm font-medium transition-colors ${
                       activeTab === 'security'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
+                        ? 'bg-ink-muted text-ink-foreground'
+                        : 'text-ink-muted hover:bg-parchment-dark'
                     }`}
                   >
                     <Lock className="h-5 w-5" />
@@ -641,10 +638,10 @@ export default function StudentSettingsPage() {
                   </button>
                   <button
                     onClick={() => setActiveTab('notifications')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2  text-sm font-medium transition-colors ${
                       activeTab === 'notifications'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
+                        ? 'bg-ink-muted text-ink-foreground'
+                        : 'text-ink-muted hover:bg-parchment-dark'
                     }`}
                   >
                     <Bell className="h-5 w-5" />
@@ -652,10 +649,10 @@ export default function StudentSettingsPage() {
                   </button>
                   <button
                     onClick={() => setActiveTab('preferences')}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`w-full flex items-center space-x-3 px-3 py-2  text-sm font-medium transition-colors ${
                       activeTab === 'preferences'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
+                        ? 'bg-ink-muted text-ink-foreground'
+                        : 'text-ink-muted hover:bg-parchment-dark'
                     }`}
                   >
                     <Palette className="h-5 w-5" />
@@ -664,14 +661,14 @@ export default function StudentSettingsPage() {
                   <Separator className="my-2" />
                   <button
                     onClick={() => navigate('/student-dashboard')}
-                    className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted"
+                    className="w-full flex items-center space-x-3 px-3 py-2 text-sm font-medium text-ink-muted hover:bg-parchment-dark"
                   >
                     <HelpCircle className="h-5 w-5" />
                     <span>Help & Support</span>
                   </button>
                   <button
                     onClick={logout}
-                    className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    className="w-full flex items-center space-x-3 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                   >
                     <LogOut className="h-5 w-5" />
                     <span>Sign Out</span>
@@ -727,7 +724,7 @@ export default function StudentSettingsPage() {
                         <h3 className="text-sm font-medium text-foreground mb-2">
                           Profile Picture
                         </h3>
-                        <p className="text-sm text-muted-foreground mb-3">
+                        <p className="text-sm text-ink-muted mb-3">
                           JPG, PNG or GIF. Max size 3MB.
                         </p>
                         <div className="flex items-center space-x-3">
@@ -868,7 +865,7 @@ export default function StudentSettingsPage() {
                         rows={4}
                         maxLength={500}
                       />
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-xs text-ink-muted">
                         {profile.bio?.length || 0}/500 characters
                       </p>
                     </div>
@@ -880,9 +877,9 @@ export default function StudentSettingsPage() {
                       <h3 className="text-sm font-medium text-foreground">
                         College Information
                       </h3>
-                      <div className="bg-muted rounded-lg p-4 space-y-2">
+                      <div className="bg-parchment-dark p-4 space-y-2">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-sm text-ink-muted">
                             College
                           </span>
                           <span className="text-sm font-medium text-foreground">
@@ -890,7 +887,7 @@ export default function StudentSettingsPage() {
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">
+                          <span className="text-sm text-ink-muted">
                             College Code
                           </span>
                           <Badge variant="outline">
@@ -959,7 +956,7 @@ export default function StudentSettingsPage() {
                                   currentPassword: !showPasswords.currentPassword,
                                 })
                               }
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-ink-secondary dark:hover:text-gray-300"
                             >
                               {showPasswords.currentPassword ? (
                                 <EyeOff className="h-4 w-4" />
@@ -994,7 +991,7 @@ export default function StudentSettingsPage() {
                                   newPassword: !showPasswords.newPassword,
                                 })
                               }
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-ink-secondary dark:hover:text-gray-300"
                             >
                               {showPasswords.newPassword ? (
                                 <EyeOff className="h-4 w-4" />
@@ -1029,7 +1026,7 @@ export default function StudentSettingsPage() {
                                   confirmPassword: !showPasswords.confirmPassword,
                                 })
                               }
-                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-ink-secondary dark:hover:text-gray-300"
                             >
                               {showPasswords.confirmPassword ? (
                                 <EyeOff className="h-4 w-4" />
@@ -1059,7 +1056,7 @@ export default function StudentSettingsPage() {
                           <h3 className="text-sm font-medium text-foreground">
                             Two-Factor Authentication
                           </h3>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-ink-muted">
                             Add an extra layer of security to your account
                           </p>
                         </div>
@@ -1074,7 +1071,7 @@ export default function StudentSettingsPage() {
                       <h3 className="text-sm font-medium text-foreground">
                         Active Sessions
                       </h3>
-                      <div className="bg-muted rounded-lg p-4 space-y-3">
+                      <div className="bg-parchment-dark p-4 space-y-3">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
                             <Monitor className="h-5 w-5 text-gray-400" />
@@ -1082,7 +1079,7 @@ export default function StudentSettingsPage() {
                               <p className="text-sm font-medium text-foreground">
                                 Current Session
                               </p>
-                              <p className="text-xs text-muted-foreground">
+                              <p className="text-xs text-ink-muted">
                                 Active now
                               </p>
                             </div>
@@ -1117,7 +1114,7 @@ export default function StudentSettingsPage() {
                           <Label htmlFor="email-notifications" className="text-base">
                             Email Notifications
                           </Label>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-ink-muted">
                             Receive notifications via email
                           </p>
                         </div>
@@ -1143,7 +1140,7 @@ export default function StudentSettingsPage() {
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
                             <Label htmlFor="course-updates">Course Updates</Label>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-ink-muted">
                               New modules, assignments, and course announcements
                             </p>
                           </div>
@@ -1160,7 +1157,7 @@ export default function StudentSettingsPage() {
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
                             <Label htmlFor="new-resources">New Resources</Label>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-ink-muted">
                               When new study materials are uploaded
                             </p>
                           </div>
@@ -1177,7 +1174,7 @@ export default function StudentSettingsPage() {
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
                             <Label htmlFor="mcq-results">MCQ Results</Label>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-ink-muted">
                               Quiz completions and score updates
                             </p>
                           </div>
@@ -1194,7 +1191,7 @@ export default function StudentSettingsPage() {
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
                             <Label htmlFor="system-announcements">System Announcements</Label>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-ink-muted">
                               Important updates and maintenance notifications
                             </p>
                           </div>
@@ -1211,7 +1208,7 @@ export default function StudentSettingsPage() {
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
                             <Label htmlFor="weekly-digest">Weekly Digest</Label>
-                            <p className="text-sm text-muted-foreground">
+                            <p className="text-sm text-ink-muted">
                               Summary of your learning activity and progress
                             </p>
                           </div>
@@ -1236,7 +1233,7 @@ export default function StudentSettingsPage() {
                           <Label htmlFor="push-notifications" className="text-base">
                             Push Notifications
                           </Label>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm text-ink-muted">
                             Receive browser push notifications
                           </p>
                         </div>
@@ -1281,13 +1278,13 @@ export default function StudentSettingsPage() {
                         <Label htmlFor="theme" className="text-base">
                           Theme
                         </Label>
-                        <p className="text-sm text-muted-foreground mb-3">
+                        <p className="text-sm text-ink-muted mb-3">
                           Choose your preferred color theme
                         </p>
                       </div>
                       <Select
                         value={preferences.theme}
-                        onValueChange={(value: 'light' | 'dark' | 'system') =>
+                        onValueChange={(value: StudentTheme) =>
                           setPreferences({ ...preferences, theme: value })
                         }
                       >
@@ -1307,12 +1304,6 @@ export default function StudentSettingsPage() {
                               <span>Dark</span>
                             </div>
                           </SelectItem>
-                          <SelectItem value="system">
-                            <div className="flex items-center space-x-2">
-                              <Monitor className="h-4 w-4" />
-                              <span>System</span>
-                            </div>
-                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
@@ -1325,7 +1316,7 @@ export default function StudentSettingsPage() {
                         <Label htmlFor="language" className="text-base">
                           Language
                         </Label>
-                        <p className="text-sm text-muted-foreground mb-3">
+                        <p className="text-sm text-ink-muted mb-3">
                           Select your preferred language
                         </p>
                       </div>
@@ -1440,11 +1431,11 @@ export default function StudentSettingsPage() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Version</span>
+                      <span className="text-sm text-ink-muted">Version</span>
                       <Badge variant="outline">1.0.0</Badge>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-ink-muted">
                         Last Updated
                       </span>
                       <span className="text-sm font-medium text-foreground">

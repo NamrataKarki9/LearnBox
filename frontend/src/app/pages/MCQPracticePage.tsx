@@ -47,6 +47,7 @@ export default function MCQPracticePage() {
     confirmLabel: string;
     cancelLabel: string;
     onConfirm: () => void;
+    isDangerous?: boolean;
     autoClose?: boolean;
     closeDelay?: number;
   }>({
@@ -56,6 +57,7 @@ export default function MCQPracticePage() {
     confirmLabel: 'Confirm',
     cancelLabel: 'Cancel',
     onConfirm: () => {},
+    isDangerous: false,
     autoClose: false,
     closeDelay: 3000
   });
@@ -93,6 +95,7 @@ export default function MCQPracticePage() {
     onConfirm: () => void,
     confirmLabel = 'Confirm',
     cancelLabel = 'Cancel',
+    isDangerous = false,
     autoClose = false,
     closeDelay = 3000
   ) => {
@@ -103,6 +106,7 @@ export default function MCQPracticePage() {
       confirmLabel,
       cancelLabel,
       onConfirm,
+      isDangerous,
       autoClose,
       closeDelay
     });
@@ -203,6 +207,133 @@ export default function MCQPracticePage() {
     }));
   };
 
+  const getEstimatedRevisionTime = (accuracy: number) => {
+    if (accuracy < 40) return '25-30 minutes';
+    if (accuracy < 60) return '20-25 minutes';
+    return '15-20 minutes';
+  };
+
+  const buildClientGapAnalysis = (
+    topicAnalysis: Array<{ topic: string; accuracy: number; total: number; correct: number; difficulty: string; attempts: number }>,
+    difficultyPerformance: Record<'EASY' | 'MEDIUM' | 'HARD', { total: number; correct: number }>,
+    score: number
+  ) => {
+    const weakTopics = topicAnalysis.filter(t => t.accuracy < 60);
+    const moderateTopics = topicAnalysis.filter(t => t.accuracy >= 60 && t.accuracy < 80);
+    const strongTopics = topicAnalysis.filter(t => t.accuracy >= 80);
+    const focusSections = (weakTopics.length > 0 ? weakTopics : moderateTopics).slice(0, 3).map(t => ({
+      topic: t.topic,
+      accuracy: t.accuracy,
+      attempts: t.attempts,
+      priority: (t.accuracy < 40 ? 'CRITICAL' : t.accuracy < 60 ? 'HIGH' : 'MEDIUM') as const,
+      estimatedTime: getEstimatedRevisionTime(t.accuracy)
+    }));
+
+    const strongerTopics = strongTopics.slice(0, 3).map(t => t.topic);
+    const fallbackStrengths = moderateTopics.slice(0, 2).map(t => t.topic);
+    const strengths = strongerTopics.length > 0 ? strongerTopics : fallbackStrengths;
+
+    const easyAcc = difficultyPerformance.EASY.total > 0
+      ? (difficultyPerformance.EASY.correct / difficultyPerformance.EASY.total) * 100
+      : null;
+    const mediumAcc = difficultyPerformance.MEDIUM.total > 0
+      ? (difficultyPerformance.MEDIUM.correct / difficultyPerformance.MEDIUM.total) * 100
+      : null;
+    const hardAcc = difficultyPerformance.HARD.total > 0
+      ? (difficultyPerformance.HARD.correct / difficultyPerformance.HARD.total) * 100
+      : null;
+
+    const recommendations: Recommendation[] = [
+      {
+        priority: score >= 80 ? 'SUCCESS' : 'MEDIUM',
+        type: 'STRENGTHS',
+        message: strengths.length > 0
+          ? `Your strengths in this attempt were ${strengths.join(', ')}.`
+          : 'You are starting to build a working understanding of this set.',
+        action: score >= 80
+          ? 'Maintain these areas with a short mixed review while you focus on weaker topics.'
+          : 'Use your stronger topics to keep confidence high while you repair weaker areas.',
+        estimatedTime: '10-15 minutes',
+        resources: [
+          'Reattempt one or two correct questions to confirm why your reasoning worked.',
+          'Do not spend most of your revision time here; maintain, then move to weaker topics.'
+        ]
+      }
+    ];
+
+    if (focusSections.length > 0) {
+      recommendations.push({
+        priority: focusSections.some(topic => topic.accuracy < 40) ? 'CRITICAL' : 'HIGH',
+        type: 'WEAK_AREAS',
+        message: 'These topics are causing the main score loss right now.',
+        action: 'Fix these first before moving to new content.',
+        estimatedTime: getEstimatedRevisionTime(focusSections[0].accuracy),
+        resources: focusSections.map((topic) =>
+          topic.accuracy < 40
+            ? `${topic.topic}: ${topic.accuracy.toFixed(1)}% accuracy. Relearn the core concept, then solve 4-5 basic questions on it.`
+            : `${topic.topic}: ${topic.accuracy.toFixed(1)}% accuracy. Review the mistakes and practice similar questions until the method feels clear.`
+        )
+      });
+
+      recommendations.push({
+        priority: 'HIGH',
+        type: 'STUDY_PRIORITY',
+        message: 'Use this revision order to recover marks faster.',
+        action: 'Move to the next topic only after you can answer a similar question correctly without guessing.',
+        estimatedTime: '30-40 minutes',
+        resources: [
+          ...focusSections.map((topic, index) => `${index + 1}. ${topic.topic} for ${getEstimatedRevisionTime(topic.accuracy)}.`),
+          strengths.length > 0
+            ? `After that, briefly maintain ${strengths.slice(0, 2).join(' and ')} so you do not lose accuracy there.`
+            : 'End with a short mixed review set to check whether the improvement holds.'
+        ]
+      });
+    }
+
+    const timeManagementResources = [
+      'Use a two-pass approach: secure the quick marks first, then return to the harder questions.',
+      'If a question is taking too long, eliminate weak options and move on instead of getting stuck early.'
+    ];
+
+    if (easyAcc !== null && easyAcc < 70) {
+      timeManagementResources.push('Because easy-question accuracy is low, slow down slightly and read the stem carefully before choosing an answer.');
+    } else if (mediumAcc !== null && mediumAcc < 60) {
+      timeManagementResources.push('Spend more of your revision time on application questions where selecting the right method is the issue.');
+    } else if (hardAcc !== null && hardAcc < 50) {
+      timeManagementResources.push('Treat hard questions as second-pass questions. Secure easy and medium marks first.');
+    } else if (score >= 80) {
+      timeManagementResources.push('Your base accuracy is stable, so you can now allocate a little more time to the harder questions.');
+    }
+
+    recommendations.push({
+      priority: 'MEDIUM',
+      type: 'TIME_MANAGEMENT',
+      message: 'Your next score can improve with better timing as well as topic review.',
+      action: 'Keep revision sessions short, focused, and timed.',
+      estimatedTime: '15-20 minutes',
+      resources: timeManagementResources
+    });
+
+    const status = score >= 80 ? 'STRONG' : score >= 60 ? 'IMPROVING' : 'NEEDS_ATTENTION';
+    const message = score >= 90
+      ? `Outstanding performance. ${score}% shows very strong understanding.`
+      : score >= 80
+        ? `Strong work. ${score}% shows a good grasp of the material.`
+        : score >= 70
+          ? `Good effort. ${score}% can improve with targeted revision.`
+          : score >= 60
+            ? `You are close. ${score}% can improve with focused practice.`
+            : `${score}% shows some clear gaps, but they are fixable with focused revision.`;
+
+    return {
+      status,
+      message,
+      totalWeakAreas: weakTopics.length,
+      recommendations: recommendations.slice(0, 4),
+      focusSections
+    };
+  };
+
   // Helper function to generate detailed study plan (client-side)
   const generateClientStudyPlan = (topic: any, accuracy: number, difficulty: string) => {
     const topicName = topic.topic;
@@ -262,11 +393,11 @@ export default function MCQPracticePage() {
       ];
 
       resources = [
-        `📖 Review course textbook: Chapter on ${topicName} (introduction section)`,
-        `🎥 Watch beginner tutorial video: "${topicName} explained for beginners"`,
-        `📝 Study lecture notes specifically covering ${topicName} basics`,
-        `💡 Find simple examples: Search for "easy ${topicName} examples"`,
-        `👥 Consider: Ask your instructor or TA for fundamental concept clarification`
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Review course textbook: Chapter on ${topicName} (introduction section)`,
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â½ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ Watch beginner tutorial video: "${topicName} explained for beginners"`,
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Study lecture notes specifically covering ${topicName} basics`,
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ Find simple examples: Search for "easy ${topicName} examples"`,
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¹Ã…â€œÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ Consider: Ask your instructor or TA for fundamental concept clarification`
       ];
 
     } else if (isCritical) {
@@ -320,11 +451,11 @@ export default function MCQPracticePage() {
       ];
 
       resources = [
-        `📖 Course material: Detailed chapter on ${topicName}`,
-        `🎥 Tutorial videos covering ${topicName} applications`,
-        `📝 Review your class notes and homework on this topic`,
-        `💻 Practice problems: ${difficulty} level ${topicName} exercises`,
-        `📚 Additional resources: Online tutorials or study guides`
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Course material: Detailed chapter on ${topicName}`,
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â½ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¥ Tutorial videos covering ${topicName} applications`,
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Review your class notes and homework on this topic`,
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â» Practice problems: ${difficulty} level ${topicName} exercises`,
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ Additional resources: Online tutorials or study guides`
       ];
 
     } else {
@@ -378,10 +509,10 @@ export default function MCQPracticePage() {
       ];
 
       resources = [
-        `📝 Review solutions to similar problems`,
-        `💡 Practice question banks focusing on ${topicName}`,
-        `🎯 Past exam questions on this topic`,
-        `📖 Advanced examples and case studies`
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Review solutions to similar problems`,
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ Practice question banks focusing on ${topicName}`,
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â½ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¯ Past exam questions on this topic`,
+        `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ Advanced examples and case studies`
       ];
     }
 
@@ -426,6 +557,8 @@ export default function MCQPracticePage() {
       attempts: data.total
     })).sort((a, b) => a.accuracy - b.accuracy);
 
+    return buildClientGapAnalysis(topicAnalysis, difficultyPerformance, score);
+
     // Categorize topics
     const weakTopics = topicAnalysis.filter(t => t.accuracy < 60);
     const moderateTopics = topicAnalysis.filter(t => t.accuracy >= 60 && t.accuracy < 80);
@@ -448,7 +581,7 @@ export default function MCQPracticePage() {
       recommendations.push({
         priority: 'SUCCESS',
         type: 'POSITIVE_REINFORCEMENT',
-        message: `🎉 Excellent work! You scored ${score}%`,
+        message: `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â½ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â° Excellent work! You scored ${score}%`,
         action: strongTopics.length > 0 
           ? `You've mastered: ${strongTopics.map(t => t.topic).join(', ')}. Ready for harder challenges!`
           : 'Keep up the great work!',
@@ -465,7 +598,7 @@ export default function MCQPracticePage() {
         type: 'FOCUS_SECTION',
         topic: topic.topic,
         difficulty: topic.difficulty,
-        message: `📍 Master "${topic.topic}" - Current Performance: ${topic.correct}/${topic.total} (${topic.accuracy.toFixed(1)}%)`,
+        message: `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â Master "${topic.topic}" - Current Performance: ${topic.correct}/${topic.total} (${topic.accuracy.toFixed(1)}%)`,
         action: topic.accuracy < 20 
           ? `Start from the basics - you need a fresh foundation in ${topic.topic}`
           : topic.accuracy < 40
@@ -487,7 +620,7 @@ export default function MCQPracticePage() {
           type: 'IMPROVEMENT_AREA',
           topic: topic.topic,
           difficulty: topic.difficulty,
-          message: `📚 Strengthen "${topic.topic}" - Current: ${topic.accuracy.toFixed(1)}%, Target: 80%+`,
+          message: `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ Strengthen "${topic.topic}" - Current: ${topic.accuracy.toFixed(1)}%, Target: 80%+`,
           action: 'Review concepts and practice edge cases',
           estimatedTime: '15-20 minutes',
           resources: [
@@ -513,7 +646,7 @@ export default function MCQPracticePage() {
       recommendations.push({
         priority: 'HIGH',
         type: 'DIFFICULTY_ADJUSTMENT',
-        message: `⚡ Struggling with basic concepts (${easyAcc.toFixed(0)}% on EASY questions)`,
+        message: `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¡ Struggling with basic concepts (${easyAcc.toFixed(0)}% on EASY questions)`,
         action: 'Focus on fundamentals before moving to harder topics',
         estimatedTime: '30-40 minutes',
         resources: [
@@ -526,7 +659,7 @@ export default function MCQPracticePage() {
       recommendations.push({
         priority: 'LOW',
         type: 'CHALLENGE',
-        message: `🚀 Strong performance! ${hardAcc > 0 ? `${hardAcc.toFixed(0)}% on HARD questions` : 'Ready for advanced challenges'}`,
+        message: `ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â°ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¸ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Strong performance! ${hardAcc > 0 ? `${hardAcc.toFixed(0)}% on HARD questions` : 'Ready for advanced challenges'}`,
         action: 'Challenge yourself with complex problems',
         estimatedTime: '30-45 minutes'
       });
@@ -558,6 +691,7 @@ export default function MCQPracticePage() {
         },
         "Submit",
         "Cancel",
+        true,
         true,
         2000
       );
@@ -664,8 +798,8 @@ export default function MCQPracticePage() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading quiz...</p>
+          <div className="animate-spin h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-ink-secondary">Loading quiz...</p>
         </div>
       </div>
     );
@@ -674,12 +808,12 @@ export default function MCQPracticePage() {
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
+        <div className="bg-red-50 border border-red-200 p-6 max-w-md">
           <h2 className="text-red-800 text-xl font-semibold mb-2">Error</h2>
           <p className="text-red-600 mb-4">{error}</p>
           <button
             onClick={() => navigate('/student/dashboard')}
-            className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+            className="bg-red-600 text-white px-4 py-2 hover:bg-red-700"
           >
             Back to Dashboard
           </button>
@@ -702,9 +836,17 @@ export default function MCQPracticePage() {
       score >= 80 ? 'Great work! Strong understanding overall.' :
       score >= 70 ? 'Good effort! Review the topics below to improve.' :
       score >= 60 ? 'Keep going! More practice will help.' :
-      "Don't give up — review the materials below and try again.";
+      "Don't give up. Review the materials below and try again.";
 
-    // Build topic → module map to identify weak areas
+    // Build topic ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ module map to identify weak areas
+    const gapRecommendations = quiz.recommendations?.recommendations || [];
+    const gapTitles: Record<string, string> = {
+      STRENGTHS: 'Strengths',
+      WEAK_AREAS: 'Weak Areas',
+      STUDY_PRIORITY: 'Study Priority',
+      TIME_MANAGEMENT: 'Time Management'
+    };
+
     type TopicInfo = { topic: string; moduleId?: number; moduleName?: string; moduleCode?: string; correct: number; total: number };
     const topicModuleMap: Record<string, TopicInfo> = {};
     quiz.answerDetails.forEach(a => {
@@ -738,48 +880,48 @@ export default function MCQPracticePage() {
     return (
       <div className="max-w-3xl mx-auto p-4 md:p-6 space-y-4">
 
-        {/* ── Score Card ── */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+        {/* ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Score Card ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ */}
+        <div className="bg-parchment border border-sand-light overflow-hidden">
           {/* Score band */}
           <div className={`border-b ${scoreBg} px-6 pt-7 pb-5 text-center`}>
             <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Quiz Complete</p>
             <div className={`text-7xl font-bold ${scoreColor} leading-none mb-2`}>
               {score}%
             </div>
-            <p className="text-sm text-gray-600">{scoreMessage}</p>
+            <p className="text-sm text-ink-secondary">{scoreMessage}</p>
           </div>
           {/* Stats + actions */}
           <div className="px-6 py-5">
             <div className="grid grid-cols-3 gap-3 mb-5">
-              <div className="text-center py-3 bg-gray-50 rounded-xl">
+              <div className="text-center py-3 bg-parchment-light">
                 <div className="text-2xl font-bold text-gray-800">{quiz.results.totalQuestions}</div>
-                <div className="text-xs text-gray-500 mt-0.5">Questions</div>
+                <div className="text-xs text-ink-muted mt-0.5">Questions</div>
               </div>
-              <div className="text-center py-3 bg-green-50 rounded-xl">
+              <div className="text-center py-3 bg-green-50">
                 <div className="text-2xl font-bold text-green-600">{quiz.results.correctAnswers}</div>
-                <div className="text-xs text-gray-500 mt-0.5">Correct</div>
+                <div className="text-xs text-ink-muted mt-0.5">Correct</div>
               </div>
-              <div className="text-center py-3 bg-red-50 rounded-xl">
+              <div className="text-center py-3 bg-red-50">
                 <div className="text-2xl font-bold text-red-500">{quiz.results.incorrectAnswers}</div>
-                <div className="text-xs text-gray-500 mt-0.5">Incorrect</div>
+                <div className="text-xs text-ink-muted mt-0.5">Incorrect</div>
               </div>
             </div>
             <div className="flex gap-2 justify-center flex-wrap">
               <button
                 onClick={() => navigate('/student/dashboard')}
-                className="px-5 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                className="px-5 py-2 text-sm border border-ink-muted text-ink-secondary hover:bg-parchment-light transition-colors"
               >
                 Dashboard
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="px-5 py-2 text-sm rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors"
+                className="px-5 py-2 text-sm bg-ink-muted text-white hover:bg-ink-muted/90 transition-colors"
               >
                 Try Again
               </button>
               <button
                 onClick={() => navigate('/student/mcq-practice')}
-                className="px-5 py-2 text-sm rounded-lg border border-primary text-primary hover:bg-primary/5 transition-colors"
+                className="px-5 py-2 text-sm border border-primary text-ink hover:bg-ink-muted/5 transition-colors"
               >
                 More MCQs
               </button>
@@ -787,71 +929,95 @@ export default function MCQPracticePage() {
           </div>
         </div>
 
-        {/* ── What to Study ── */}
+        {/* ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Recommended Materials ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ */}
+        {gapRecommendations.length > 0 && (
+          <div className="bg-parchment border border-sand-light p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-1">Gap Analysis</h2>
+            {quiz.recommendations?.message && (
+              <p className="text-sm text-ink-muted mb-4">{quiz.recommendations.message}</p>
+            )}
+
+            <div className="grid gap-3 md:grid-cols-2">
+              {gapRecommendations.map((recommendation, index) => (
+                <div key={`${recommendation.type}-${index}`} className="border border-sand p-4 bg-parchment-light/40">
+                  <p className="text-sm font-semibold text-gray-900 mb-2">
+                    {gapTitles[recommendation.type] || recommendation.type.replace(/_/g, ' ')}
+                  </p>
+                  <p className="text-sm text-ink-secondary mb-2">{recommendation.message}</p>
+                  <p className="text-sm text-ink-muted mb-3">{recommendation.action}</p>
+                  {recommendation.resources && recommendation.resources.length > 0 && (
+                    <ul className="space-y-1 text-sm text-ink-secondary list-disc pl-5">
+                      {recommendation.resources.map((item, itemIndex) => (
+                        <li key={itemIndex}>{item}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {quiz.answerDetails.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-base font-semibold text-gray-900 mb-0.5">📖 What to Study</h2>
-            <p className="text-xs text-gray-500 mb-4">
-              Review these study materials for the topics you missed
+          <div className="bg-parchment border border-sand-light p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-0.5">Recommended Materials</h2>
+            <p className="text-xs text-ink-muted mb-4">
+              Study these topics first. If related PDFs are available in the system, they are listed below.
             </p>
 
             {weakTopics.length === 0 ? (
-              <div className="flex items-center gap-2 py-2">
-                <span className="text-green-500">✅</span>
-                <span className="text-sm text-green-700 font-medium">
-                  You performed well on all topics — keep it up!
-                </span>
-              </div>
+              <p className="text-sm text-green-700 font-medium py-2">
+                You performed well on all topics. Continue with mixed revision to maintain your level.
+              </p>
             ) : (
               <div className="space-y-3">
                 {Object.entries(moduleGroups).map(([key, group]) => {
                   const resources = group.moduleId ? (relatedResources[group.moduleId] || []) : [];
                   return (
-                    <div key={key} className="border border-gray-200 rounded-xl p-4">
+                    <div key={key} className="border border-sand p-4">
                       {/* Topic badges */}
                       <div className="flex flex-wrap gap-1.5 mb-2">
                         {group.topics.map((t, i) => (
                           <span
                             key={i}
-                            className="text-xs bg-amber-100 text-amber-700 px-2.5 py-0.5 rounded-full font-medium"
+                            className="text-xs bg-amber-100 text-amber-700 px-2.5 py-0.5 font-medium"
                           >
-                            ⚠️ {t}
+                            {t}
                           </span>
                         ))}
                       </div>
                       {/* Module label */}
                       {group.moduleName && (
-                        <p className="text-xs text-gray-500 mb-3">
+                        <p className="text-xs text-ink-muted mb-3">
                           Module:{' '}
-                          <span className="font-medium text-gray-700">{group.moduleName}</span>
+                          <span className="font-medium text-ink-secondary">{group.moduleName}</span>
                           {group.moduleCode && (
-                            <span className="text-gray-400"> · {group.moduleCode}</span>
+                            <span className="text-gray-400"> - {group.moduleCode}</span>
                           )}
                         </p>
                       )}
                       {/* Resource links */}
                       {resources.length > 0 ? (
                         <div className="space-y-1.5">
-                          <p className="text-xs font-medium text-gray-500 mb-1">Study materials:</p>
+                          <p className="text-xs font-medium text-ink-muted mb-1">Recommended PDFs:</p>
                           {resources.map(r => (
                             <a
                               key={r.id}
                               href={`http://localhost:5000/api/resources/${r.id}/download`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-100 rounded-lg hover:bg-blue-100 transition-colors"
+                              className="flex items-center justify-between gap-3 px-3 py-2 bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors"
                             >
-                              <span className="text-blue-400 text-sm shrink-0">📄</span>
                               <span className="text-sm text-blue-700 font-medium flex-1 truncate">{r.title}</span>
-                              <span className="text-xs text-blue-400 shrink-0">Open →</span>
+                              <span className="text-xs text-blue-500 shrink-0">Open PDF</span>
                             </a>
                           ))}
                         </div>
                       ) : (
                         <p className="text-xs text-gray-400 italic">
                           {group.moduleId
-                            ? 'No documents uploaded for this module yet.'
-                            : 'Ask your instructor for study materials on this topic.'}
+                            ? 'No PDF resource is available for this module yet.'
+                            : 'Ask your instructor for study material on this topic.'}
                         </p>
                       )}
                     </div>
@@ -862,7 +1028,7 @@ export default function MCQPracticePage() {
           </div>
         )}
 
-        {/* ── Answer Review ── */}
+        {/* ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ Answer Review ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚ÂÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ */}
         <div>
           <h2 className="text-base font-semibold text-gray-900 mb-3">Answer Review</h2>
           <div className="space-y-3">
@@ -871,7 +1037,7 @@ export default function MCQPracticePage() {
               return (
                 <div
                   key={answer.questionNumber}
-                  className={`bg-white rounded-xl shadow-sm border-l-4 p-5 ${
+                  className={`bg-parchment   border-l-4 p-5 ${
                     answer.isCorrect ? 'border-green-500' : 'border-red-400'
                   }`}
                 >
@@ -880,10 +1046,10 @@ export default function MCQPracticePage() {
                       <span className="text-gray-400 mr-1">Q{answer.questionNumber}.</span>
                       {answer.question}
                     </h3>
-                    <span className={`shrink-0 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                    <span className={`shrink-0 px-2.5 py-0.5  text-xs font-semibold ${
                       answer.isCorrect ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                     }`}>
-                      {answer.isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                      {answer.isCorrect ? 'Correct' : 'Incorrect'}
                     </span>
                   </div>
 
@@ -891,18 +1057,18 @@ export default function MCQPracticePage() {
                     {options.map((option, idx) => {
                       const isSelected = option === answer.selectedAnswer;
                       const isCorrect = option === answer.correctAnswer;
-                      let style = 'bg-gray-50 border border-gray-100 text-gray-700';
+                      let style = 'bg-parchment-light border border-sand-light text-ink-secondary';
                       if (isCorrect) style = 'bg-green-50 border border-green-300 text-green-800';
                       else if (isSelected && !isCorrect) style = 'bg-red-50 border border-red-300 text-red-800';
                       return (
-                        <div key={idx} className={`px-3 py-2 rounded-lg text-sm ${style}`}>
+                        <div key={idx} className={`px-3 py-2  text-sm ${style}`}>
                           <span className="font-medium">{String.fromCharCode(65 + idx)}. </span>
                           {option}
                           {isCorrect && (
-                            <span className="ml-2 text-green-600 text-xs font-semibold">✓ Correct</span>
+                            <span className="ml-2 text-green-600 text-xs font-semibold">Correct</span>
                           )}
                           {isSelected && !isCorrect && (
-                            <span className="ml-2 text-red-600 text-xs font-semibold">✗ Your answer</span>
+                            <span className="ml-2 text-red-600 text-xs font-semibold">Your answer</span>
                           )}
                         </div>
                       );
@@ -910,7 +1076,7 @@ export default function MCQPracticePage() {
                   </div>
 
                   {answer.explanation && (
-                    <div className="bg-blue-50 border-l-4 border-blue-400 px-3 py-2.5 rounded-r-lg mb-2.5">
+                    <div className="bg-blue-50 border-l-4 border-blue-400 px-3 py-2.5 -lg mb-2.5">
                       <p className="text-xs font-semibold text-blue-800 mb-0.5">Explanation</p>
                       <p className="text-xs text-blue-700 leading-relaxed">{answer.explanation}</p>
                     </div>
@@ -918,11 +1084,11 @@ export default function MCQPracticePage() {
 
                   <div className="flex flex-wrap gap-1.5 mt-1">
                     {answer.topic && (
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                      <span className="text-xs bg-parchment-light text-ink-secondary px-2 py-0.5">
                         {answer.topic}
                       </span>
                     )}
-                    <span className={`text-xs px-2 py-0.5 rounded ${
+                    <span className={`text-xs px-2 py-0.5  ${
                       answer.difficulty === 'EASY' ? 'bg-green-100 text-green-700' :
                       answer.difficulty === 'MEDIUM' ? 'bg-yellow-100 text-yellow-700' :
                       'bg-red-100 text-red-700'
@@ -943,18 +1109,18 @@ export default function MCQPracticePage() {
   // Quiz interface
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <div className="bg-white rounded-lg shadow-lg p-8 mb-6">
+      <div className="bg-parchment p-8 mb-6">
         <h1 className="text-3xl font-bold mb-2">MCQ Practice</h1>
-        <p className="text-gray-600 mb-4">Answer all questions and submit to see your results</p>
+        <p className="text-ink-secondary mb-4">Answer all questions and submit to see your results</p>
         
-        <div className="flex justify-between items-center text-sm text-gray-600 mb-6">
+        <div className="flex justify-between items-center text-sm text-ink-secondary mb-6">
           <span>Questions: {quiz.questions.length}</span>
           <span>Answered: {Object.keys(quiz.answers).length} / {quiz.questions.length}</span>
         </div>
 
-        <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+        <div className="w-full bg-parchment-dark h-2 mb-6">
           <div
-            className="bg-primary h-2 rounded-full transition-all"
+            className="bg-ink-muted h-2 transition-all"
             style={{ width: `${(Object.keys(quiz.answers).length / quiz.questions.length) * 100}%` }}
           ></div>
         </div>
@@ -965,13 +1131,13 @@ export default function MCQPracticePage() {
         {quiz.questions.map((question) => {
           const options = parseOptions(question.options);
           return (
-            <div key={question.id} className="bg-white rounded-lg shadow p-6">
+            <div key={question.id} className="bg-parchment p-6">
               <div className="flex justify-between items-start mb-4">
                 <h3 className="font-semibold text-lg flex-1">
                   Q{question.questionNumber}. {question.question}
                 </h3>
                 {question.difficulty && (
-                  <span className={`px-3 py-1 rounded-full text-sm ml-3 ${
+                  <span className={`px-3 py-1  text-sm ml-3 ${
                     question.difficulty === 'EASY' ? 'bg-green-100 text-green-800' :
                     question.difficulty === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-red-100 text-red-800'
@@ -985,10 +1151,10 @@ export default function MCQPracticePage() {
                 {options.map((option, idx) => (
                   <label
                     key={idx}
-                    className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                    className={`flex items-center p-4  border-2 cursor-pointer transition-all ${
                       quiz.answers[question.id] === option
-                        ? 'border-primary bg-primary/10'
-                        : 'border-gray-200 hover:border-primary/50 hover:bg-gray-50'
+                        ? 'border-primary bg-ink-muted/10'
+                        : 'border-sand hover:border-primary/50 hover:bg-parchment-light'
                     }`}
                   >
                     <input
@@ -1007,8 +1173,8 @@ export default function MCQPracticePage() {
 
               {question.topic && (
                 <div className="mt-3">
-                  <span className="text-sm text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                    📚 Topic: {question.topic}
+                  <span className="text-sm text-ink-secondary bg-parchment-light px-2 py-1">
+                    Topic: {question.topic}
                   </span>
                 </div>
               )}
@@ -1018,9 +1184,9 @@ export default function MCQPracticePage() {
       </div>
 
       {/* Submit Button */}
-      <div className="sticky bottom-0 bg-white border-t shadow-lg p-4 mt-6 rounded-lg">
+      <div className="sticky bottom-0 bg-parchment border-t p-4 mt-6">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <div className="text-sm text-gray-600">
+          <div className="text-sm text-ink-secondary">
             Answered: {Object.keys(quiz.answers).length} / {quiz.questions.length}
           </div>
           <div className="flex gap-3">
@@ -1034,17 +1200,18 @@ export default function MCQPracticePage() {
                     navigate('/student/dashboard');
                   },
                   "Abandon",
-                  "Cancel"
+                  "Cancel",
+                  true
                 );
               }}
-              className="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600"
+              className="px-6 py-2 border border-ink-muted bg-parchment text-ink-secondary hover:bg-parchment-light transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={quiz.isSubmitting}
-              className="bg-primary text-white px-8 py-2 rounded-lg hover:bg-primary/90 disabled:bg-gray-400 disabled:cursor-not-allowed"
+              className="bg-ink-muted text-white px-8 py-2 hover:bg-ink-muted/90 disabled:bg-sand disabled:cursor-not-allowed"
             >
               {quiz.isSubmitting ? 'Submitting...' : 'Submit Quiz'}
             </button>
@@ -1061,9 +1228,12 @@ export default function MCQPracticePage() {
         cancelLabel={confirmDialog.cancelLabel}
         onConfirm={confirmDialog.onConfirm}
         onCancel={closeConfirmDialog}
+        isDangerous={confirmDialog.isDangerous}
         autoClose={confirmDialog.autoClose}
         closeDelay={confirmDialog.closeDelay}
       />
     </div>
   );
 }
+
+

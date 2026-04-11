@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { useEffect } from "react";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
 import { LandingPage } from "./pages/LandingPage";
@@ -25,13 +26,47 @@ import AdminSettingsPage from "./pages/AdminSettingsPage";
 import SuperAdminDashboard from "./pages/SuperAdminDashboard";
 import SuperAdminSettingsPage from "./pages/SuperAdminSettingsPage";
 import ProtectedRoute from "./components/ProtectedRoute";
-import { AuthProvider } from "../context/AuthContext";
+import { AuthProvider, ROLES } from "../context/AuthContext";
 import { FilterProvider } from "../context/FilterContext";
 import { Toaster } from "./components/ui/sonner";
+import {
+  applyTheme,
+  getStoredAdminTheme,
+  getStoredStudentTheme,
+} from "../utils/theme";
+
+function ThemeSync() {
+  const location = useLocation();
+
+  useEffect(() => {
+    const syncTheme = () => {
+      const pathname = window.location.pathname;
+
+      if (pathname.startsWith("/admin")) {
+        applyTheme(getStoredAdminTheme());
+        return;
+      }
+
+      if (pathname.startsWith("/student")) {
+        applyTheme(getStoredStudentTheme());
+        return;
+      }
+
+      applyTheme("light");
+    };
+
+    syncTheme();
+    window.addEventListener("storage", syncTheme);
+    return () => window.removeEventListener("storage", syncTheme);
+  }, [location.pathname]);
+
+  return null;
+}
 
 export default function App() {
   return (
     <BrowserRouter>
+      <ThemeSync />
       <AuthProvider>
         <FilterProvider>
           <Toaster 
@@ -85,7 +120,7 @@ export default function App() {
           <Route
             path="/student/resources"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
                 <StudentResourcesPage />
               </ProtectedRoute>
             }
@@ -94,7 +129,7 @@ export default function App() {
           <Route
             path="/student/summaries"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
                 <Summaries />
               </ProtectedRoute>
             }
@@ -103,7 +138,7 @@ export default function App() {
           <Route
             path="/student/learning-sites"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
                 <StudentLearningSitesPage />
               </ProtectedRoute>
             }
@@ -112,7 +147,7 @@ export default function App() {
           <Route
             path="/student/dashboard"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
                 <StudentDashboard />
               </ProtectedRoute>
             }
@@ -121,7 +156,7 @@ export default function App() {
           <Route
             path="/student/mcq-practice"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
                 <MCQPracticeSelectionPage />
               </ProtectedRoute>
             }
@@ -130,7 +165,7 @@ export default function App() {
           <Route
             path="/student/practice"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
                 <MCQPracticePage />
               </ProtectedRoute>
             }
@@ -139,7 +174,7 @@ export default function App() {
           <Route
             path="/student/history"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
                 <MCQHistoryPage />
               </ProtectedRoute>
             }
@@ -148,7 +183,7 @@ export default function App() {
           <Route
             path="/student/settings"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={[ROLES.STUDENT]}>
                 <StudentSettingsPage />
               </ProtectedRoute>
             }
@@ -158,7 +193,7 @@ export default function App() {
           <Route
             path="/admin/settings"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={[ROLES.COLLEGE_ADMIN]}>
                 <AdminSettingsPage />
               </ProtectedRoute>
             }
@@ -168,7 +203,7 @@ export default function App() {
           <Route
             path="/admin/*"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={[ROLES.COLLEGE_ADMIN]}>
                 <AdminDashboard />
               </ProtectedRoute>
             }
@@ -178,7 +213,15 @@ export default function App() {
           <Route
             path="/superadmin"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN]}>
+                <SuperAdminDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/superadmin/dashboard"
+            element={
+              <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN]}>
                 <SuperAdminDashboard />
               </ProtectedRoute>
             }
@@ -186,7 +229,7 @@ export default function App() {
           <Route
             path="/superadmin/settings"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowedRoles={[ROLES.SUPER_ADMIN]}>
                 <SuperAdminSettingsPage />
               </ProtectedRoute>
             }

@@ -12,6 +12,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
+import { P, adminSelectStyle } from '../../constants/theme';
 
 interface Module {
   id: number;
@@ -32,6 +33,29 @@ interface UploadResourceDialogProps {
 }
 
 export default function UploadResourceDialog({ open, onClose, onSuccess }: UploadResourceDialogProps) {
+  const selectTriggerStyle: React.CSSProperties = {
+    ...adminSelectStyle,
+    width: '100%',
+    height: 40,
+    border: `1px solid ${P.sand}`,
+    backgroundColor: P.parchmentLight,
+    color: P.ink,
+    boxShadow: `inset 0 0 0 1px ${P.sandLight}`,
+    fontFamily: "'Lora', Georgia, serif",
+    fontSize: 13.5
+  };
+  const selectContentStyle: React.CSSProperties = {
+    background: P.parchmentLight,
+    border: `1px solid ${P.sand}`,
+    boxShadow: `0 14px 30px rgba(28,18,8,0.12), inset 0 0 0 1px ${P.sandLight}`,
+    color: P.ink
+  };
+  const selectItemStyle: React.CSSProperties = {
+    fontFamily: "'Lora', Georgia, serif",
+    fontSize: 13.5,
+    color: P.ink
+  };
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -217,13 +241,14 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
       
       const response = await resourceAPI.upload(uploadData);
       
-      // Reset form and call parent callbacks (they will show toast)
-      setTimeout(() => {
-        setFormData({ title: '', description: '', facultyId: '', year: '', moduleId: '' });
-        setFile(null);
-        onSuccess();
-        onClose();
-      }, 1500);
+      // Clear form and file immediately
+      setFormData({ title: '', description: '', facultyId: '', year: '', moduleId: '' });
+      setFile(null);
+      
+      // Call onSuccess() which refreshes data, then close
+      // This ensures we start the fetch process immediately after server response
+      onSuccess();
+      onClose();
       
     } catch (err: any) {
       console.error('Upload error:', err);
@@ -286,12 +311,12 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
               }}
               disabled={loading}
             >
-              <SelectTrigger>
+              <SelectTrigger style={selectTriggerStyle}>
                 <SelectValue placeholder="Select faculty" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent style={selectContentStyle}>
                 {faculties.map((faculty) => (
-                  <SelectItem key={faculty.id} value={faculty.id.toString()}>
+                  <SelectItem key={faculty.id} value={faculty.id.toString()} style={selectItemStyle}>
                     {faculty.code} - {faculty.name}
                   </SelectItem>
                 ))}
@@ -309,14 +334,14 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
               }}
               disabled={loading || !formData.facultyId}
             >
-              <SelectTrigger>
+              <SelectTrigger style={selectTriggerStyle}>
                 <SelectValue placeholder="Select year" />
               </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">Year 1</SelectItem>
-                <SelectItem value="2">Year 2</SelectItem>
-                <SelectItem value="3">Year 3</SelectItem>
-                <SelectItem value="4">Year 4</SelectItem>
+              <SelectContent style={selectContentStyle}>
+                <SelectItem value="1" style={selectItemStyle}>Year 1</SelectItem>
+                <SelectItem value="2" style={selectItemStyle}>Year 2</SelectItem>
+                <SelectItem value="3" style={selectItemStyle}>Year 3</SelectItem>
+                <SelectItem value="4" style={selectItemStyle}>Year 4</SelectItem>
               </SelectContent>
             </Select>
             {!formData.facultyId && (
@@ -332,12 +357,12 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
               onValueChange={(value) => setFormData({ ...formData, moduleId: value })}
               disabled={loading || !formData.facultyId || !formData.year || modules.length === 0}
             >
-              <SelectTrigger>
+              <SelectTrigger style={selectTriggerStyle}>
                 <SelectValue placeholder="Select module" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent style={selectContentStyle}>
                 {modules.map((module) => (
-                  <SelectItem key={module.id} value={module.id.toString()}>
+                  <SelectItem key={module.id} value={module.id.toString()} style={selectItemStyle}>
                     {module.code} - {module.name}
                   </SelectItem>
                 ))}
@@ -382,7 +407,8 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
             </Button>
             <Button
               type="submit"
-              className="bg-primary hover:bg-primary/90 text-white"
+              style={{ backgroundColor: 'var(--color-vermillion)', color: 'white' }}
+              className="hover:opacity-90"
               disabled={loading}
             >
               {loading ? 'Uploading...' : 'Upload Resource'}

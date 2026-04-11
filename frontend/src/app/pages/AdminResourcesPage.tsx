@@ -1,29 +1,35 @@
 /**
- * Admin Resources Management Page
- * View, filter, sort, and manage all resources with pagination
+ * Admin Resources Management Page — Paper & Ink Theme
  */
 
 import { useState, useEffect } from 'react';
 import { resourceAPI, facultyAPI, moduleAPI, Resource, Faculty } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { Badge } from '../components/ui/badge';
-import { Label } from '../components/ui/label';
-import { Input } from '../components/ui/input';
-import { Textarea } from '../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import UploadResourceDialog from '../components/UploadResourceDialog';
 import { toast } from 'sonner';
-import { Eye, Download, Trash2, Upload, ChevronLeft, ChevronRight, Search, Filter } from 'lucide-react';
+import { Eye, Download, Trash2, Upload, ChevronLeft, ChevronRight, Search, FileText, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 
-interface Module {
-  id: number;
-  name: string;
-  code: string;
-  year: number;
-  facultyId: number;
+import { P, adminSelectStyle } from '../../constants/theme';
+
+interface Module { id: number; name: string; code: string; year: number; facultyId: number; }
+
+function AdminPageModal({ open, title, topColor, onClose, children, actions }: any) {
+  if (!open) return null;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,18,8,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
+      <div style={{ background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}, 0 18px 40px rgba(28,18,8,0.12)`, borderTop: `3px solid ${topColor}`, padding: '28px 32px', maxWidth: 500, width: '90%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: P.ink, margin: 0 }}>{title}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: P.inkMuted }}><X size={18} /></button>
+        </div>
+        {children}
+        {actions && <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20, paddingTop: 16, borderTop: `1px solid ${P.sand}` }}>{actions}</div>}
+      </div>
+    </div>
+  );
 }
 
 export default function AdminResourcesPage() {
@@ -34,424 +40,182 @@ export default function AdminResourcesPage() {
   const [modules, setModules] = useState<Module[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
-  const [isFetching, setIsFetching] = useState(false); // Prevent concurrent fetches
-  
-  // Upload dialog
+  const [isFetching, setIsFetching] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  
-  // Pagination
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  
-  // Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [filterFaculty, setFilterFaculty] = useState<string>('all');
   const [filterYear, setFilterYear] = useState<string>('all');
   const [filterModule, setFilterModule] = useState<string>('all');
   const [filterFileType, setFilterFileType] = useState<string>('all');
-  
-  // Sorting
   const [sortField, setSortField] = useState<'title' | 'createdAt' | 'fileType'>('createdAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
-  
-  // Viewer state
+
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewingResource, setViewingResource] = useState<{ url: string; title: string } | null>(null);
   
-  // Delete confirmation state
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteConfirmResourceId, setDeleteConfirmResourceId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  
-  // Edit resource state
+
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
-  const [editFormData, setEditFormData] = useState({ 
-    title: '', 
-    description: '', 
-    year: '',
-    facultyId: '',
-    moduleId: ''
-  });
+  const [editFormData, setEditFormData] = useState({ title: '', description: '', year: '', facultyId: '', moduleId: '' });
   const [editAvailableModules, setEditAvailableModules] = useState<Module[]>([]);
   const [editFile, setEditFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  useEffect(() => {
-    applyFiltersAndSort();
-  }, [resources, searchQuery, filterFaculty, filterYear, filterModule, filterFileType, sortField, sortOrder]);
-
-  // Fetch modules when both editFormData.facultyId and editFormData.year are selected
-  useEffect(() => {
-    if (editDialogOpen && editFormData.facultyId && editFormData.year) {
-      fetchEditModules(parseInt(editFormData.facultyId), parseInt(editFormData.year));
-    }
-  }, [editFormData.facultyId, editFormData.year, editDialogOpen]);
+  useEffect(() => { fetchData(); }, []);
+  useEffect(() => { applyFiltersAndSort(); }, [resources, searchQuery, filterFaculty, filterYear, filterModule, filterFileType, sortField, sortOrder]);
+  useEffect(() => { if (editDialogOpen && editFormData.facultyId && editFormData.year) fetchEditModules(parseInt(editFormData.facultyId), parseInt(editFormData.year)); }, [editFormData.facultyId, editFormData.year, editDialogOpen]);
 
   const fetchData = async (retryCount = 0, maxRetries = 3) => {
-    // Prevent concurrent fetches
-    if (isFetching) {
-      console.log('Fetch already in progress, skipping...');
-      return;
-    }
-
     setIsFetching(true);
-    // Only show loading spinner on initial load, not on refetch
-    if (resources.length === 0) {
-      setLoading(true);
-    }
+    if (resources.length === 0) setLoading(true);
     setError('');
     try {
-      // Check user and collegeId
-      if (!user?.collegeId) {
-        toast.error('Unable to load resources: No college assigned');
-        setIsFetching(false);
-        setLoading(false);
-        return;
-      }
-
-      console.log('🔄 Fetching resources for college:', user.collegeId);
-      
-      // Fetch resources and faculties (critical)
-      const [resourcesRes, facultiesRes] = await Promise.all([
-        resourceAPI.getAll(),  // Backend automatically filters by collegeId for non-SUPER_ADMIN
-        facultyAPI.getAll({ collegeId: user.collegeId })
-      ]);
-      
-      console.log('✅ Resources fetched:', resourcesRes.data.data?.length || 0);
-      console.log('✅ Faculties fetched:', facultiesRes.data.data?.length || 0);
-      
-      setResources(resourcesRes.data.data || []);
-      setFaculties(facultiesRes.data.data || []);
-      setError('');
-      
-      // Fetch modules separately (optional - not critical for the page)
-      try {
-        const modulesRes = await moduleAPI.getAll({ collegeId: user.collegeId });
-        setModules(modulesRes.data.data || []);
-      } catch (moduleError) {
-        console.warn('Warning: Failed to load modules, proceeding without them:', moduleError);
-        setModules([]);
-      }
+      if (!user?.collegeId) { toast.error('No college assigned'); setIsFetching(false); setLoading(false); return; }
+      const [rR, fR] = await Promise.all([resourceAPI.getAll(), facultyAPI.getAll({ collegeId: user.collegeId })]);
+      setResources(rR.data.data || []); setFaculties(fR.data.data || []); setError('');
+      try { const mR = await moduleAPI.getAll({ collegeId: user.collegeId }); setModules(mR.data.data || []); } catch { setModules([]); }
     } catch (error: any) {
-      console.error(`Error fetching (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
-      
-      // Retry with exponential backoff
-      if (retryCount < maxRetries) {
-        const delayMs = Math.pow(2, retryCount) * 500;
-        setTimeout(() => {
-          setIsFetching(false);
-          fetchData(retryCount + 1, maxRetries);
-        }, delayMs);
-        return;
-      }
-      
-      // Failed after all retries
-      const errorMsg = 'Failed to load resources. Please try again.';
-      setError(errorMsg);
-      toast.error(errorMsg);
-    } finally {
-      setIsFetching(false);
-      setLoading(false);
-    }
+      if (retryCount < maxRetries) { setTimeout(() => { setIsFetching(false); fetchData(retryCount + 1, maxRetries); }, Math.pow(2, retryCount) * 500); return; }
+      setError('Failed to load resources. Please try again.'); toast.error('Failed to load resources');
+    } finally { setIsFetching(false); setLoading(false); }
   };
 
   const applyFiltersAndSort = () => {
     let filtered = [...resources];
-    
-    // Search filter
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(r => 
-        r.title.toLowerCase().includes(query) ||
-        r.description?.toLowerCase().includes(query) ||
-        r.module?.name.toLowerCase().includes(query)
-      );
-    }
-    
-    // Faculty filter
-    if (filterFaculty !== 'all') {
-      filtered = filtered.filter(r => r.facultyId === parseInt(filterFaculty));
-    }
-    
-    // Year filter
-    if (filterYear !== 'all') {
-      filtered = filtered.filter(r => r.year === parseInt(filterYear));
-    }
-    
-    // Module filter
-    if (filterModule !== 'all') {
-      filtered = filtered.filter(r => r.moduleId === parseInt(filterModule));
-    }
-    
-    // File type filter
-    if (filterFileType !== 'all') {
-      filtered = filtered.filter(r => r.fileType.toLowerCase() === filterFileType.toLowerCase());
-    }
-    
-    // Sorting
+    if (searchQuery) { const q = searchQuery.toLowerCase(); filtered = filtered.filter(r => r.title.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q) || r.module?.name.toLowerCase().includes(q)); }
+    if (filterFaculty !== 'all') filtered = filtered.filter(r => r.facultyId === parseInt(filterFaculty));
+    if (filterYear !== 'all') filtered = filtered.filter(r => r.year === parseInt(filterYear));
+    if (filterModule !== 'all') filtered = filtered.filter(r => r.moduleId === parseInt(filterModule));
+    if (filterFileType !== 'all') filtered = filtered.filter(r => r.fileType.toLowerCase() === filterFileType.toLowerCase());
+
     filtered.sort((a, b) => {
-      let aValue: any, bValue: any;
-      
-      switch (sortField) {
-        case 'title':
-          aValue = a.title.toLowerCase();
-          bValue = b.title.toLowerCase();
-          break;
-        case 'createdAt':
-          aValue = new Date(a.createdAt).getTime();
-          bValue = new Date(b.createdAt).getTime();
-          break;
-        case 'fileType':
-          aValue = a.fileType.toLowerCase();
-          bValue = b.fileType.toLowerCase();
-          break;
-        default:
-          return 0;
-      }
-      
-      if (sortOrder === 'asc') {
-        return aValue > bValue ? 1 : -1;
-      } else {
-        return aValue < bValue ? 1 : -1;
-      }
+      let aV: any, bV: any;
+      if (sortField === 'title') { aV = a.title.toLowerCase(); bV = b.title.toLowerCase(); }
+      else if (sortField === 'createdAt') { aV = new Date(a.createdAt).getTime(); bV = new Date(b.createdAt).getTime(); }
+      else { aV = a.fileType.toLowerCase(); bV = b.fileType.toLowerCase(); }
+      if (sortOrder === 'asc') return aV > bV ? 1 : -1;
+      return aV < bV ? 1 : -1;
     });
-    
-    setFilteredResources(filtered);
-    setCurrentPage(1); // Reset to first page when filters change
+    setFilteredResources(filtered); setCurrentPage(1);
   };
 
-  const handleSort = (field: 'title' | 'createdAt' | 'fileType') => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('desc');
-    }
-  };
-
-  const handleView = (resource: Resource) => {
-    try {
-      const viewUrl = resourceAPI.getDownloadUrl(resource.id);
-      setViewingResource({ url: viewUrl, title: resource.title });
-      setViewerOpen(true);
-    } catch (error) {
-      console.error('View error:', error);
-      toast.error('Failed to open resource viewer');
-    }
-  };
-
-  const handleDownload = (resourceId: number) => {
-    try {
-      const downloadUrl = resourceAPI.getDownloadUrl(resourceId);
-      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-    } catch (error) {
-      console.error('Download error:', error);
-      toast.error('Failed to download resource');
-    }
-  };
-
-  const handleDelete = async (id: number) => {
-    setDeleteConfirmResourceId(id);
-    setDeleteConfirmOpen(true);
-  };
+  const handleSort = (field: 'title' | 'createdAt' | 'fileType') => { if (sortField === field) setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc'); else { setSortField(field); setSortOrder('desc'); } };
+  
+  const handleView = (r: Resource) => { try { setViewingResource({ url: resourceAPI.getDownloadUrl(r.id), title: r.title }); setViewerOpen(true); } catch { toast.error('Failed to open viewer'); } };
+  const handleDownload = (id: number) => { try { window.open(resourceAPI.getDownloadUrl(id), '_blank', 'noopener,noreferrer'); } catch { toast.error('Failed to download'); } };
+  const handleDelete = (id: number) => { setDeleteConfirmResourceId(id); setDeleteConfirmOpen(true); };
 
   const confirmDelete = async () => {
     if (!deleteConfirmResourceId) return;
-    
     setIsDeleting(true);
-    try {
-      await resourceAPI.delete(deleteConfirmResourceId);
-      toast.success('Resource deleted successfully');
+    try { 
+      // 1. Locally update the UI IMMEDIATELY for instant feedback
+      setResources(prev => prev.filter(r => r.id !== deleteConfirmResourceId));
+      
+      // 2. Clear selections and close modal right away
       setDeleteConfirmOpen(false);
-      setDeleteConfirmResourceId(null);
+      
+      // 3. Perform the actual delete on the server
+      await resourceAPI.delete(deleteConfirmResourceId); 
+      
+      // 4. Show success message
+      toast.success('Deleted Successfully'); 
+      setDeleteConfirmResourceId(null); 
+      
+      // 5. Re-fetch in the background to ensure consistency with DB
       fetchData();
-    } catch (error) {
-      console.error('Error deleting resource:', error);
-      toast.error('Failed to delete resource');
-    } finally {
-      setIsDeleting(false);
+    }
+    catch { 
+      toast.error('Delete failed'); 
+      // If server fails, restore the data (fetchData will handle this)
+      fetchData();
+    } finally { 
+      setIsDeleting(false); 
     }
   };
 
-  const handleEdit = (resource: Resource) => {
-    setEditingResource(resource);
-    setEditFormData({
-      title: resource.title,
-      description: resource.description || '',
-      year: resource.year?.toString() || '',
-      facultyId: resource.facultyId?.toString() || '',
-      moduleId: resource.moduleId?.toString() || ''
-    });
-    
-    // Filter modules based on selected faculty
-    if (resource.facultyId) {
-      const filteredModules = modules.filter(m => m.facultyId === resource.facultyId);
-      setEditAvailableModules(filteredModules);
-    } else {
-      setEditAvailableModules([]);
-    }
-    
+  const handleEdit = (r: Resource) => {
+    setEditingResource(r);
+    setEditFormData({ title: r.title, description: r.description || '', year: r.year?.toString()||'', facultyId: r.facultyId?.toString()||'', moduleId: r.moduleId?.toString()||'' });
+    if (r.facultyId) setEditAvailableModules(modules.filter(m => m.facultyId === r.facultyId)); else setEditAvailableModules([]);
     setEditDialogOpen(true);
   };
 
-  const handleEditFacultyChange = (facultyId: string) => {
-    setEditFormData({ ...editFormData, facultyId, year: '', moduleId: '' });
-    setEditAvailableModules([]);
-  };
-
-  const fetchEditModules = async (facultyId: number, year: number) => {
-    try {
-      const response = await moduleAPI.getByFacultyAndYear(facultyId, year);
-      setEditAvailableModules(response.data.data || []);
-    } catch (err) {
-      console.error('Error fetching modules for edit:', err);
-      setEditAvailableModules([]);
-    }
-  };
-
+  const handleEditFacultyChange = (id: string) => { setEditFormData({ ...editFormData, facultyId: id, year: '', moduleId: '' }); setEditAvailableModules([]); };
+  const fetchEditModules = async (fId: number, yr: number) => { try { const r = await moduleAPI.getByFacultyAndYear(fId, yr); setEditAvailableModules(r.data.data || []); } catch { setEditAvailableModules([]); } };
   const handleSaveEdit = async () => {
     if (!editingResource) return;
-    
-    if (!editFormData.title.trim()) {
-      toast.error('Title is required');
-      return;
-    }
-
-    if (!editFormData.facultyId) {
-      toast.error('Faculty is required');
-      return;
-    }
-
-    if (!editFormData.moduleId) {
-      toast.error('Module is required');
-      return;
-    }
-
-    if (!editFormData.year) {
-      toast.error('Year is required');
-      return;
-    }
-
+    if (!editFormData.title.trim() || !editFormData.facultyId || !editFormData.moduleId || !editFormData.year) { toast.error('Fill required fields'); return; }
     setIsSaving(true);
     try {
-      let fileUrl = editingResource.fileUrl; // Keep existing file URL if no new file
-      let fileType = editingResource.fileType; // Keep existing file type if no new file
-
-      // If a new file is selected, upload it first
+      let fU = editingResource.fileUrl; let fT = editingResource.fileType;
       if (editFile) {
-        const allowedTypes = ['application/pdf', 'application/msword', 
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'application/vnd.ms-powerpoint',
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
-        
-        if (!allowedTypes.includes(editFile.type)) {
-          toast.error('Only PDF, DOC, DOCX, PPT, PPTX files are allowed');
-          setIsSaving(false);
-          return;
-        }
-
-        if (editFile.size > 10 * 1024 * 1024) {
-          toast.error('File size must be less than 10MB');
-          setIsSaving(false);
-          return;
-        }
-
-        // Upload new file
-        const uploadData = new FormData();
-        uploadData.append('file', editFile);
-        uploadData.append('title', editFormData.title);
-        uploadData.append('facultyId', editFormData.facultyId);
-        uploadData.append('year', editFormData.year);
-        uploadData.append('moduleId', editFormData.moduleId);
-        
-        if (editFormData.description) {
-          uploadData.append('description', editFormData.description);
-        }
-
-        try {
-          const uploadResponse = await resourceAPI.upload(uploadData);
-          fileUrl = uploadResponse.data.data.fileUrl;
-          fileType = uploadResponse.data.data.fileType;
+        const o = ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'];
+        if (!o.includes(editFile.type)) { toast.error('PDF, DOC, PPT only'); setIsSaving(false); return; }
+        if (editFile.size > 10 * 1024 * 1024) { toast.error('Max 10MB'); setIsSaving(false); return; }
+        const d = new FormData(); d.append('file', editFile); d.append('title', editFormData.title); d.append('facultyId', editFormData.facultyId); d.append('year', editFormData.year); d.append('moduleId', editFormData.moduleId);
+        if (editFormData.description) d.append('description', editFormData.description);
+        try { 
+          const uR = await resourceAPI.upload(d); 
+          fU = uR.data.data.fileUrl; 
+          fT = uR.data.data.fileType; 
+          await resourceAPI.delete(editingResource.id); 
           
-          // Delete old resource after successful new upload
-          await resourceAPI.delete(editingResource.id);
+          // Close modal and clear state first for instant feedback
+          setEditDialogOpen(false); 
+          setEditingResource(null); 
+          setEditFile(null); 
           
-          toast.success('Resource updated and file replaced successfully');
-          setEditDialogOpen(false);
-          setEditingResource(null);
-          setEditFile(null);
-          fetchData();
-          return;
-        } catch (uploadError) {
-          console.error('Error uploading new file:', uploadError);
-          toast.error('Failed to upload new file');
-          setIsSaving(false);
-          return;
+          // Re-fetch data in the background and show toast
+          await fetchData();
+          toast.success('Updated Successfully'); 
+          return; 
+        } catch { 
+          toast.error('Upload failed'); 
+          setIsSaving(false); 
+          return; 
         }
       }
-
-      // Update without file replacement
-      await resourceAPI.update(editingResource.id, {
-        title: editFormData.title,
-        description: editFormData.description,
-        year: editFormData.year ? parseInt(editFormData.year) : null,
-        facultyId: editFormData.facultyId ? parseInt(editFormData.facultyId) : null,
-        moduleId: editFormData.moduleId ? parseInt(editFormData.moduleId) : null,
-        fileUrl: fileUrl,
-        fileType: fileType
+      await resourceAPI.update(editingResource.id, { 
+        title: editFormData.title, 
+        description: editFormData.description, 
+        year: parseInt(editFormData.year), 
+        facultyId: parseInt(editFormData.facultyId), 
+        moduleId: parseInt(editFormData.moduleId), 
+        fileUrl: fU, 
+        fileType: fT 
       });
-      toast.success('Resource updated successfully');
-      setEditDialogOpen(false);
-      setEditingResource(null);
+
+      // Close modal first for instant feedback
+      setEditDialogOpen(false); 
+      setEditingResource(null); 
       setEditFile(null);
-      fetchData();
-    } catch (error) {
-      console.error('Error updating resource:', error);
-      toast.error('Failed to update resource');
-    } finally {
-      setIsSaving(false);
+
+      // Refresh data and then show toast
+      await fetchData();
+      toast.success('Updated Successfully'); 
+    } catch { 
+      toast.error('Failed to update'); 
+    } finally { 
+      setIsSaving(false); 
     }
   };
 
-  const handleUploadSuccess = () => {
-    // Close dialog immediately
-    setUploadDialogOpen(false);
-    
-    // Show success message once
-    toast.success('Resource uploaded successfully!');
-    
-    // Brief delay for backend processing, then fetch
-    setTimeout(() => {
-      setIsFetching(false); // Reset fetch flag
-      fetchData();
-    }, 1500);
+  const handleUploadSuccess = async () => { 
+    setUploadDialogOpen(false); 
+    // Start fetching the new list immediately
+    await fetchData();
+    // Only show the toast once the list is actually refreshed
+    toast.success('Uploaded Successfully!'); 
   };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  const getUploaderName = (resource: Resource) => {
-    if (resource.uploader) {
-      const { first_name, last_name, username } = resource.uploader;
-      if (first_name || last_name) {
-        return `${first_name || ''} ${last_name || ''}`.trim();
-      }
-      return username;
-    }
-    return 'Unknown';
-  };
-
-  // Pagination calculations
+  const getUploaderName = (r: Resource) => r.uploader ? (r.uploader.first_name || r.uploader.last_name ? `${r.uploader.first_name||''} ${r.uploader.last_name||''}`.trim() : r.uploader.username) : 'Unknown';
+  
   const totalPages = Math.ceil(filteredResources.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -459,532 +223,253 @@ export default function AdminResourcesPage() {
   
   const fileTypes = [...new Set(resources.map(r => r.fileType))];
   const allYears = [...new Set(resources.map(r => r.year).filter(Boolean))].sort();
-  // Ensure Year 1, 2, 3 are always available
   const years = Array.from(new Set([1, 2, 3, ...allYears])).sort();
 
+  const Th = ({ l, f }: { l: string, f?: 'title' | 'createdAt' | 'fileType' }) => (
+    <th onClick={() => f && handleSort(f)} style={{ padding: '12px 16px', background: P.parchmentDark, borderBottom: `1px solid ${P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.inkSecondary, textAlign: 'left', cursor: f ? 'pointer' : 'default', whiteSpace: 'nowrap' }}>
+      {l} {f && sortField === f && (sortOrder === 'asc' ? '↑' : '↓')}
+    </th>
+  );
+
+  const iS: React.CSSProperties = { width: '100%', padding: '9px 12px', fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, color: P.ink, background: P.parchment, border: `1px solid ${P.sand}`, outline: 'none', boxSizing: 'border-box' };
+  const selectS: React.CSSProperties = { ...iS, ...adminSelectStyle };
+  const compactSelectS: React.CSSProperties = { ...adminSelectStyle, padding: '2px 28px 2px 8px', backgroundColor: P.parchmentLight, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, color: P.ink, border: `1px solid ${P.sand}`, outline: 'none' };
+  const iL: React.CSSProperties = { fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: P.inkSecondary, display: 'block', marginBottom: 6 };
+  const softPanel: React.CSSProperties = { background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}, 0 10px 24px rgba(28,18,8,0.04)` };
+
+  const Modal = ({ open, title, topColor, onClose, children, actions }: any) => !open ? null : (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,18,8,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
+      <div style={{ background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}, 0 18px 40px rgba(28,18,8,0.12)`, borderTop: `3px solid ${topColor}`, padding: '28px 32px', maxWidth: 500, width: '90%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: P.ink, margin: 0 }}>{title}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: P.inkMuted }}><X size={18} /></button>
+        </div>
+        {children}
+        {actions && <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20, paddingTop: 16, borderTop: `1px solid ${P.sand}` }}>{actions}</div>}
+      </div>
+    </div>
+  );
+
   return (
-    <div className="p-8">
-      {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Resource Management</h1>
-        <p className="text-gray-600">View, upload, and manage all academic resources</p>
+    <div style={{ padding: '32px 40px', maxWidth: 1200, margin: '0 auto' }}>
+      <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${P.sand}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: P.vermillion, marginBottom: 6 }}>Files & Media</div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 800, color: P.ink, margin: 0 }}>Resource Management</h1>
+          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13, color: P.inkMuted, marginTop: 4 }}>View, upload, and catalogue academic resources</p>
+        </div>
       </div>
 
-      {/* Error Banner */}
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start justify-between">
-          <div className="flex items-start gap-3">
-            <div className="text-red-600 font-bold">⚠️</div>
-            <div>
-              <p className="text-sm font-medium text-red-900">{error}</p>
-              <button
-                onClick={() => fetchData()}
-                className="text-xs text-red-600 hover:text-red-700 font-medium mt-1 underline"
-              >
-                Retry
-              </button>
-            </div>
+        <div style={{ background: P.vermillionBg, borderLeft: `4px solid ${P.vermillion}`, padding: '16px 20px', marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 14, color: '#7A1C10', margin: '0 0 4px', fontWeight: 700 }}>{error}</p>
+            <button onClick={() => fetchData()} style={{ background: 'none', border: 'none', color: P.vermillion, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', textDecoration: 'underline', cursor: 'pointer', padding: 0 }}>Retry</button>
           </div>
-          <button
-            onClick={() => setError('')}
-            className="text-red-400 hover:text-red-600 text-lg"
-          >
-            ✕
-          </button>
+          <button onClick={() => setError('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7A1C10' }}><X size={16} /></button>
         </div>
       )}
 
-      {/* Stats Card */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-gray-600">Total Resources</p>
-            <p className="text-2xl font-bold text-gray-900">{resources.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-gray-600">Filtered Results</p>
-            <p className="text-2xl font-bold text-blue-600">{filteredResources.length}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-sm text-gray-600">Showing</p>
-            <p className="text-2xl font-bold text-green-600">
-              {startIndex + 1}-{Math.min(endIndex, filteredResources.length)}
-            </p>
-          </CardContent>
-        </Card>
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', ...softPanel, marginBottom: 24 }}>
+        {[['Total Resources', resources.length, P.ink], ['Filtered Results', filteredResources.length, P.moss], ['Showing', `${startIndex + 1}—${Math.min(endIndex, filteredResources.length)}`, P.vermillion]].map(([l, v, c], i) => (
+          <div key={l as string} style={{ background: P.parchmentLight, padding: '16px 20px', borderRight: i < 2 ? `1px solid ${P.sand}` : 'none' }}>
+            <p style={{ fontFamily: "var(--font-numeric)", fontSize: 26, fontWeight: 800, color: c as string, margin: '0 0 2px' }}>{v}</p>
+            <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, margin: 0, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{l as string}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Filters and Search */}
-      <Card className="mb-6">
-        <CardContent className="p-4">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-            {/* Search */}
-            <div className="md:col-span-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search resources..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-                />
+      {/* Toolbar */}
+      <div style={{ ...softPanel, padding: '16px 20px', marginBottom: 20 }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 300px', position: 'relative' }}>
+            <Search size={14} color={P.inkMuted} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+            <input type="text" placeholder="Search resources…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ ...iS, paddingLeft: 36 }} />
+          </div>
+          <Select value={filterFaculty} onValueChange={setFilterFaculty}>
+            <SelectTrigger style={{ flex: '1 1 140px', background: P.parchmentLight, border: `1px solid ${P.sand}`, borderRadius: 0 }}>
+              <SelectValue placeholder="All Faculties" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Faculties</SelectItem>
+              {faculties.map(f => <SelectItem key={f.id} value={f.id.toString()}>{f.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterYear} onValueChange={setFilterYear}>
+            <SelectTrigger style={{ flex: '1 1 120px', background: P.parchmentLight, border: `1px solid ${P.sand}`, borderRadius: 0 }}>
+              <SelectValue placeholder="All Years" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Years</SelectItem>
+              {years.map(y => <SelectItem key={y} value={y.toString()}>Year {y}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          <Select value={filterFileType} onValueChange={setFilterFileType}>
+            <SelectTrigger style={{ flex: '1 1 140px', background: P.parchmentLight, border: `1px solid ${P.sand}`, borderRadius: 0 }}>
+              <SelectValue placeholder="All Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Types</SelectItem>
+              {fileTypes.map(t => <SelectItem key={t} value={t}>{t.toUpperCase()}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <button onClick={() => setUploadDialogOpen(true)}
+            style={{ 
+              flex: '0 0 auto', 
+              padding: '0 20px', 
+              background: P.vermillion, 
+              color: '#fff', 
+              border: 'none', 
+              fontFamily: "'Barlow Semi Condensed', sans-serif", 
+              fontWeight: 700, 
+              fontSize: 12, 
+              letterSpacing: '0.06em', 
+              textTransform: 'uppercase', 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 8,
+              transition: 'background 0.15s'
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#A93226')}
+            onMouseLeave={e => (e.currentTarget.style.background = P.vermillion)}
+          >
+            <Upload size={14} /> Upload
+          </button>
+        </div>
+      </div>
+
+      {/* Table */}
+      <div style={{ ...softPanel, overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+          <thead><tr><Th l="Title" f="title"/><Th l="Module"/><Th l="Type" f="fileType"/><Th l="Year"/><Th l="Date" f="createdAt"/><Th l="Uploader"/><Th l="Actions"/></tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={7} style={{ padding: '40px', textAlign: 'center', fontFamily: "'Lora', Georgia, serif", color: P.inkMuted }}>Loading resources…</td></tr>
+            : paginatedResources.length === 0 ? <tr><td colSpan={7} style={{ padding: '40px', textAlign: 'center', fontFamily: "'Lora', Georgia, serif", color: P.inkMuted }}>No resources found.</td></tr>
+            : paginatedResources.map(r => (
+              <tr key={r.id} style={{ borderBottom: `1px solid ${P.sandLight}`, transition: 'background 0.12s' }} onMouseEnter={e => (e.currentTarget.style.background = '#FDFAF5')} onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                <td style={{ padding: '12px 16px' }}>
+                  <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, fontWeight: 700, color: P.ink, marginBottom: 2 }}>{r.title}</div>
+                  {r.description && <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10.5, color: P.inkMuted, maxWidth: 200, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.description}</div>}
+                </td>
+                <td style={{ padding: '12px 16px', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, color: P.inkMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{r.module?.code || 'N/A'}</td>
+                <td style={{ padding: '12px 16px' }}><span style={{ background: P.parchmentDark, border: `1px solid ${P.sand}`, padding: '2px 6px', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, color: P.inkSecondary, letterSpacing: '0.06em' }}>{r.fileType.toUpperCase()}</span></td>
+                <td style={{ padding: '12px 16px', fontFamily: "'Lora', Georgia, serif", fontSize: 12, color: P.inkMuted }}>{r.year ? `Year ${r.year}` : '—'}</td>
+                <td style={{ padding: '12px 16px', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkSecondary, letterSpacing: '0.04em' }}>{new Date(r.createdAt).toLocaleDateString()}</td>
+                <td style={{ padding: '12px 16px', fontFamily: "'Lora', Georgia, serif", fontSize: 12, color: P.ink }}>{getUploaderName(r)}</td>
+                <td style={{ padding: '12px 16px' }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => handleView(r)} style={{ padding: '4px 8px', background: 'transparent', border: `1px solid ${P.moss}`, color: P.moss, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 10, textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><Eye size={10} /> View</button>
+                    <button onClick={() => handleDownload(r.id)} style={{ padding: '4px 8px', background: P.moss, border: 'none', color: '#fff', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 10, textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}><Download size={10} /> Get</button>
+                    <button onClick={() => handleEdit(r)} style={{ padding: '4px 8px', background: 'transparent', border: `1px solid ${P.ink}`, color: P.ink, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 10, textTransform: 'uppercase', cursor: 'pointer' }}>Edit</button>
+                    <button onClick={() => handleDelete(r.id)} style={{ padding: '4px 8px', background: 'transparent', border: `1px solid ${P.vermillion}`, color: P.vermillion, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 10, textTransform: 'uppercase', cursor: 'pointer' }}><Trash2 size={10} /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Pagination bar */}
+        {filteredResources.length > 0 && (
+          <div style={{ padding: '12px 20px', borderTop: `1px solid ${P.sand}`, background: P.parchmentDark, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, color: P.inkMuted, textTransform: 'uppercase' }}>
+              Show
+              <Select value={itemsPerPage.toString()} onValueChange={v => { setItemsPerPage(parseInt(v)); setCurrentPage(1); }}>
+                <SelectTrigger style={{ height: 24, width: 60, padding: '2px 8px', backgroundColor: P.parchmentLight, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, color: P.ink, border: `1px solid ${P.sand}`, outline: 'none', borderRadius: 0 }}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="25">25</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+              <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, color: P.inkSecondary, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Page {currentPage} of {totalPages}</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => setCurrentPage(c => Math.max(1, c - 1))} disabled={currentPage === 1} style={{ padding: '4px 8px', background: currentPage===1?P.parchmentDark:P.parchmentLight, border: `1px solid ${P.sand}`, color: P.inkMuted, cursor: currentPage===1?'default':'pointer' }}><ChevronLeft size={14}/></button>
+                <button onClick={() => setCurrentPage(c => Math.min(totalPages, c + 1))} disabled={currentPage === totalPages} style={{ padding: '4px 8px', background: currentPage===totalPages?P.parchmentDark:P.parchmentLight, border: `1px solid ${P.sand}`, color: P.inkMuted, cursor: currentPage===totalPages?'default':'pointer' }}><ChevronRight size={14}/></button>
               </div>
-            </div>
-
-            {/* Faculty Filter */}
-            <div>
-              <select
-                value={filterFaculty}
-                onChange={(e) => setFilterFaculty(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-              >
-                <option value="all">All Faculties</option>
-                {faculties.map(f => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Year Filter */}
-            <div>
-              <select
-                value={filterYear}
-                onChange={(e) => setFilterYear(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-              >
-                <option value="all">All Years</option>
-                {years.map(y => (
-                  <option key={y} value={y}>Year {y}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* File Type Filter */}
-            <div>
-              <select
-                value={filterFileType}
-                onChange={(e) => setFilterFileType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-              >
-                <option value="all">All Types</option>
-                {fileTypes.map(type => (
-                  <option key={type} value={type}>{type.toUpperCase()}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Upload Button */}
-            <div>
-              <Button
-                onClick={() => setUploadDialogOpen(true)}
-                className="w-full bg-primary hover:bg-primary/90 text-white"
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                Upload
-              </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </div>
 
-      {/* Resources Table */}
-      <Card>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  <th
-                    onClick={() => handleSort('title')}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  >
-                    Title {sortField === 'title' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                    Module
-                  </th>
-                  <th
-                    onClick={() => handleSort('fileType')}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  >
-                    Type {sortField === 'fileType' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                    Year
-                  </th>
-                  <th
-                    onClick={() => handleSort('createdAt')}
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                  >
-                    Uploaded {sortField === 'createdAt' && (sortOrder === 'asc' ? '↑' : '↓')}
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                    Uploader
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {loading ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                      Loading resources...
-                    </td>
-                  </tr>
-                ) : paginatedResources.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-6 py-8 text-center text-gray-500">
-                      No resources found
-                    </td>
-                  </tr>
-                ) : (
-                  paginatedResources.map((resource) => (
-                    <tr key={resource.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        <div>
-                          <div className="font-medium">{resource.title}</div>
-                          {resource.description && (
-                            <div className="text-xs text-gray-500 truncate max-w-xs">
-                              {resource.description}
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {resource.module?.code || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <Badge variant="outline">{resource.fileType.toUpperCase()}</Badge>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {resource.year ? `Year ${resource.year}` : 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {formatDate(resource.createdAt)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {getUploaderName(resource)}
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleView(resource)}
-                            className="inline-flex items-center px-2 py-1 text-xs border border-primary text-primary hover:bg-primary/10 rounded transition-colors"
-                          >
-                            <Eye className="h-3 w-3 mr-1" />
-                            View
-                          </button>
-                          <button
-                            onClick={() => handleDownload(resource.id)}
-                            className="inline-flex items-center px-2 py-1 text-xs bg-primary hover:bg-primary/90 text-white rounded transition-colors"
-                          >
-                            <Download className="h-3 w-3 mr-1" />
-                            Download
-                          </button>
-                          <button
-                            onClick={() => handleEdit(resource)}
-                            className="inline-flex items-center px-2 py-1 text-xs border border-blue-500 text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDelete(resource.id)}
-                            className="inline-flex items-center px-2 py-1 text-xs text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                          >
-                            <Trash2 className="h-3 w-3 mr-1" />
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+      <UploadResourceDialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)} onSuccess={handleUploadSuccess} />
 
-          {/* Pagination */}
-          {filteredResources.length > 0 && (
-            <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-700">Show</span>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(parseInt(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="px-2 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-                >
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                  <option value={100}>100</option>
-                </select>
-                <span className="text-sm text-gray-700">per page</span>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <span className="text-sm text-gray-700">
-                  Page {currentPage} of {totalPages}
-                </span>
-                
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Upload Dialog */}
-      <UploadResourceDialog
-        open={uploadDialogOpen}
-        onClose={() => setUploadDialogOpen(false)}
-        onSuccess={handleUploadSuccess}
-      />
-
-      {/* Resource Viewer Modal */}
+      {/* Viewer modal (Student-style card view) */}
       <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
-        <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-0">
-          <DialogHeader className="px-6 py-4 border-b flex-shrink-0 bg-white">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-lg font-semibold">
-                {viewingResource?.title}
-              </DialogTitle>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span>💡 Use browser zoom (Ctrl +/-) or PDF viewer controls to adjust size</span>
-              </div>
-            </div>
+        <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-0" style={{ border: `2px solid ${P.ink}` }}>
+          <DialogHeader style={{ padding: '14px 24px', borderBottom: `1px solid ${P.sand}`, background: P.parchmentLight, flexShrink: 0 }}>
+            <DialogTitle style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 700, color: P.ink }}>{viewingResource?.title}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 min-h-0 bg-gray-100">
-            {viewingResource && (
-              <iframe
-                src={`${viewingResource.url}#zoom=page-width&view=FitH`}
-                className="w-full h-full border-0"
-                title={viewingResource.title}
-                allow="fullscreen"
-              />
-            )}
+          <div style={{ flex: 1, minHeight: 0, background: P.parchmentDark }}>
+            {viewingResource && <iframe src={`${viewingResource.url}#zoom=page-width&view=FitH`} style={{ width: '100%', height: '100%', border: 'none' }} title={viewingResource.title} allow="fullscreen" />}
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Resource</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-gray-600">
-              Are you sure you want to delete this resource? This action cannot be undone.
-            </p>
+      <AdminPageModal open={deleteConfirmOpen} title="Delete Resource" topColor={P.vermillion} onClose={() => setDeleteConfirmOpen(false)}
+        actions={<><button onClick={() => setDeleteConfirmOpen(false)} style={{ padding: '9px 18px', background: 'transparent', border: `1px solid ${P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 600, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.inkMuted, cursor: 'pointer' }}>Cancel</button><button onClick={confirmDelete} disabled={isDeleting} style={{ padding: '9px 18px', background: P.vermillion, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', cursor: isDeleting?'default':'pointer' }}>{isDeleting ? 'Deleting…' : 'Delete'}</button></>}>
+        <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, color: P.inkMuted, lineHeight: 1.6, margin: 0 }}>Delete this resource completely? This action is permanent.</p>
+      </AdminPageModal>
+
+      <AdminPageModal open={editDialogOpen} title="Edit Resource" topColor={P.ink} onClose={() => { setEditDialogOpen(false); setEditingResource(null); setEditFile(null); }}
+        actions={<>
+          <button onClick={() => { setEditDialogOpen(false); setEditingResource(null); setEditFile(null); }} style={{ padding: '9px 18px', background: 'transparent', border: `1px solid ${P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 600, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.inkMuted, cursor: 'pointer' }}>Cancel</button>
+          <button onClick={handleSaveEdit} disabled={isSaving} 
+            style={{ 
+              padding: '9px 18px', 
+              background: P.vermillion, 
+              border: 'none', 
+              fontFamily: "'Barlow Semi Condensed', sans-serif", 
+              fontWeight: 700, 
+              fontSize: 12, 
+              letterSpacing: '0.06em', 
+              textTransform: 'uppercase', 
+              color: '#fff', 
+              cursor: isSaving?'default':'pointer',
+              transition: 'background 0.15s'
+            }}
+            onMouseEnter={e => (e.currentTarget.style.background = '#A93226')}
+            onMouseLeave={e => (e.currentTarget.style.background = P.vermillion)}
+          >
+            {isSaving ? 'Saving…' : 'Update Resource'}
+          </button>
+        </>}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div><label style={iL}>Title <span style={{ color: P.vermillion }}>*</span></label><input style={iS} value={editFormData.title} onChange={e => setEditFormData({ ...editFormData, title: e.target.value })} /></div>
+          <div><label style={iL}>Description</label><textarea style={{ ...iS, resize: 'vertical' }} rows={3} value={editFormData.description} onChange={e => setEditFormData({ ...editFormData, description: e.target.value })} /></div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 12 }}>
+            <div><label style={iL}>Faculty <span style={{ color: P.vermillion }}>*</span></label>
+              <select style={selectS} value={editFormData.facultyId} onChange={e => handleEditFacultyChange(e.target.value)}><option value="">Select</option>{faculties.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}</select>
+            </div>
+            <div><label style={iL}>Year <span style={{ color: P.vermillion }}>*</span></label>
+              <select style={selectS} value={editFormData.year} onChange={e => setEditFormData({ ...editFormData, year: e.target.value })}><option value="">Select</option>{years.map(y => <option key={y} value={y}>Year {y}</option>)}</select>
+            </div>
           </div>
-          <div className="flex gap-3 justify-end">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setDeleteConfirmOpen(false);
-                setDeleteConfirmResourceId(null);
-              }}
-              disabled={isDeleting}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={confirmDelete}
-              disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </Button>
+          <div><label style={iL}>Module <span style={{ color: P.vermillion }}>*</span></label>
+            <select style={selectS} value={editFormData.moduleId} onChange={e => setEditFormData({ ...editFormData, moduleId: e.target.value })} disabled={!editFormData.facultyId || !editFormData.year}>
+              <option value="">Select Module</option>
+              {editAvailableModules.map(m => <option key={m.id} value={m.id}>{m.code} - {m.name}</option>)}
+            </select>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Resource Dialog */}
-      <Dialog 
-        open={editDialogOpen} 
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditFile(null);
-          }
-          setEditDialogOpen(open);
-        }}
-      >
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">Edit Resource</DialogTitle>
-          </DialogHeader>
-          
-          <form onSubmit={(e) => { e.preventDefault(); handleSaveEdit(); }} className="space-y-4">
-            {/* Title */}
-            <div>
-              <Label htmlFor="edit-title">Title *</Label>
-              <Input
-                id="edit-title"
-                value={editFormData.title}
-                onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
-                placeholder="Enter resource title"
-                disabled={isSaving}
-              />
+          <div>
+            <label style={iL}>Replace File (Optional)</label>
+            <div style={{ border: `1px dashed ${P.sand}`, padding: '16px', background: P.parchmentLight, textAlign: 'center' }}>
+              <input type="file" id="edit-file" accept=".pdf,.doc,.docx,.ppt,.pptx" onChange={e => setEditFile(e.target.files?.[0] || null)} style={{ display: 'none' }} />
+              <label htmlFor="edit-file" style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, color: P.ink, textDecoration: 'underline', cursor: 'pointer' }}>Choose alternative file</label>
+              <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 11, color: P.inkMuted, marginTop: 4 }}>{editFile ? editFile.name : `Current Format: ${editingResource?.fileType.toUpperCase()}`}</p>
             </div>
-
-            {/* Description */}
-            <div>
-              <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                value={editFormData.description}
-                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
-                placeholder="Enter resource description (optional)"
-                rows={3}
-                disabled={isSaving}
-              />
-            </div>
-
-            {/* Faculty */}
-            <div>
-              <Label htmlFor="edit-faculty">Faculty *</Label>
-              <Select
-                value={editFormData.facultyId}
-                onValueChange={(value) => handleEditFacultyChange(value)}
-                disabled={isSaving}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select faculty" />
-                </SelectTrigger>
-                <SelectContent side="bottom">
-                  {faculties.map((faculty) => (
-                    <SelectItem key={faculty.id} value={faculty.id.toString()}>
-                      {faculty.code} - {faculty.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Academic Year */}
-            <div>
-              <Label htmlFor="edit-year">Academic Year *</Label>
-              <Select
-                value={editFormData.year}
-                onValueChange={(value) => {
-                  setEditFormData({ ...editFormData, year: value, moduleId: '' });
-                }}
-                disabled={isSaving || !editFormData.facultyId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select year" />
-                </SelectTrigger>
-                <SelectContent side="bottom">
-                  <SelectItem value="1">Year 1</SelectItem>
-                  <SelectItem value="2">Year 2</SelectItem>
-                  <SelectItem value="3">Year 3</SelectItem>
-                  <SelectItem value="4">Year 4</SelectItem>
-                </SelectContent>
-              </Select>
-              {!editFormData.facultyId && (
-                <p className="text-xs text-gray-500 mt-1">Select faculty first</p>
-              )}
-            </div>
-
-            {/* Module */}
-            <div>
-              <Label htmlFor="edit-module">Module *</Label>
-              <Select
-                value={editFormData.moduleId}
-                onValueChange={(value) => setEditFormData({ ...editFormData, moduleId: value })}
-                disabled={isSaving || !editFormData.facultyId || !editFormData.year || editAvailableModules.length === 0}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select module" />
-                </SelectTrigger>
-                <SelectContent side="bottom">
-                  {editAvailableModules.map((module) => (
-                    <SelectItem key={module.id} value={module.id.toString()}>
-                      {module.code} - {module.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {!editFormData.facultyId || !editFormData.year ? (
-                <p className="text-xs text-gray-500 mt-1">Select faculty and year first</p>
-              ) : editAvailableModules.length === 0 && editFormData.facultyId && editFormData.year ? (
-                <p className="text-xs text-amber-600 mt-1">No modules available for this faculty and year</p>
-              ) : null}
-            </div>
-
-            {/* File Upload (Optional) */}
-            <div>
-              <Label htmlFor="edit-file">Replace File (Optional)</Label>
-              <Input
-                id="edit-file"
-                type="file"
-                onChange={(e) => setEditFile(e.target.files?.[0] || null)}
-                accept=".pdf,.doc,.docx,.ppt,.pptx"
-                disabled={isSaving}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                Allowed: PDF, DOC, DOCX, PPT, PPTX (Max 10MB)
-              </p>
-              {editFile && (
-                <p className="text-sm text-green-600 mt-1">
-                  Selected: {editFile.name} ({(editFile.size / 1024 / 1024).toFixed(2)} MB)
-                </p>
-              )}
-            </div>
-
-            {/* Buttons */}
-            <div className="flex justify-end gap-3 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setEditDialogOpen(false);
-                  setEditingResource(null);
-                  setEditFile(null);
-                }}
-                disabled={isSaving}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                className="bg-primary hover:bg-primary/90 text-white"
-                disabled={isSaving}
-              >
-                {isSaving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </div>
+        </div>
+      </AdminPageModal>
     </div>
   );
 }

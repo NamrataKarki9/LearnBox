@@ -1,6 +1,11 @@
-import { AlertCircle } from 'lucide-react';
-import { Button } from './ui/button';
+import { AlertCircle, TriangleAlert } from 'lucide-react';
 import { useEffect } from 'react';
+
+const P = {
+  parchment: '#F5F0E8', parchmentLight: '#FAF7F0', parchmentDark: '#EDE5D4',
+  ink: '#1C1208', inkSecondary: '#3D2E18', inkMuted: '#7A6A52',
+  sand: '#D4C5A9', vermillion: '#C0392B', vermillionBg: '#F5E6E4',
+};
 
 interface ConfirmDialogProps {
   isOpen: boolean;
@@ -13,80 +18,56 @@ interface ConfirmDialogProps {
   isLoading?: boolean;
   isDangerous?: boolean;
   autoClose?: boolean;
-  closeDelay?: number; // ms
+  closeDelay?: number;
 }
 
 export function ConfirmDialog({
-  isOpen,
-  title,
-  message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
-  onConfirm,
-  onCancel,
-  isLoading = false,
-  isDangerous = false,
-  autoClose = false,
-  closeDelay = 3000
+  isOpen, title, message, confirmLabel = 'Confirm', cancelLabel = 'Cancel',
+  onConfirm, onCancel, isLoading = false, isDangerous = false, autoClose = false, closeDelay = 3000
 }: ConfirmDialogProps) {
   if (!isOpen) return null;
 
-  // Auto-close after delay if enabled
   useEffect(() => {
     if (autoClose) {
-      const timer = setTimeout(() => {
-        onCancel();
-      }, closeDelay);
-      return () => clearTimeout(timer);
+      const t = setTimeout(onCancel, closeDelay);
+      return () => clearTimeout(t);
     }
   }, [autoClose, closeDelay, onCancel]);
 
-  const confirmButtonColor = isDangerous ? 'bg-red-600 hover:bg-red-700' : 'bg-orange-600 hover:bg-orange-700';
+  const accentColor = isDangerous ? P.vermillion : '#A07A30';
+  const accentBg = isDangerous ? P.vermillionBg : '#FEF5E4';
+  const panelBg = isDangerous ? '#FFF4F2' : P.parchmentLight;
+  const panelBorder = isDangerous ? '#E7B7B0' : P.sand;
+  const titleColor = isDangerous ? '#7C241C' : P.ink;
+  const messageColor = isDangerous ? '#8E3B33' : P.inkMuted;
 
   return (
-    <div className="fixed inset-0 z-50 pointer-events-none flex items-start justify-center pt-20">
-      {/* Dialog - No backdrop blur, clean popup */}
-      <div 
-        className="bg-white rounded-2xl p-8 max-w-sm shadow-2xl pointer-events-auto border border-orange-100"
-        onClick={(e) => e.stopPropagation()}
-      >
-          <div className="flex items-start gap-4 mb-4">
-            <div className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-orange-100">
-              <AlertCircle className="h-6 w-6 text-orange-600" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-semibold text-gray-900">
-                {title}
-              </h3>
-              <p className="mt-2 text-sm text-gray-600">
-                {message}
-              </p>
-            </div>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 50, pointerEvents: 'none', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 80 }}>
+      <div style={{ background: panelBg, border: `1px solid ${panelBorder}`, borderTop: `3px solid ${accentColor}`, padding: '28px 32px', maxWidth: 400, width: '90%', pointerEvents: 'auto', fontFamily: "'Lora', Georgia, serif", boxShadow: '0 8px 40px rgba(28,18,8,0.18)' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: 20 }}>
+          <div style={{ width: 36, height: 36, background: accentBg, border: `1px solid ${accentColor}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {isDangerous ? <TriangleAlert size={16} color={accentColor} strokeWidth={2} /> : <AlertCircle size={16} color={accentColor} strokeWidth={2} />}
           </div>
-
-          {!autoClose && (
-            <div className="flex gap-3 justify-end mt-6">
-              <Button
-                type="button"
-                onClick={onCancel}
-                disabled={isLoading}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 disabled:opacity-50"
-              >
-                {cancelLabel}
-              </Button>
-              {onConfirm && (
-                <Button
-                  type="button"
-                  onClick={onConfirm}
-                  disabled={isLoading}
-                  className={`px-4 py-2 text-white rounded-lg disabled:opacity-50 ${confirmButtonColor}`}
-                >
-                  {confirmLabel}
-                </Button>
-              )}
-            </div>
-          )}
+          <div>
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 17, fontWeight: 800, color: titleColor, margin: '0 0 4px' }}>{title}</h3>
+            <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, color: messageColor, lineHeight: 1.6, margin: 0 }}>{message}</p>
+          </div>
         </div>
+        {!autoClose && (
+          <div style={{ borderTop: `1px solid ${panelBorder}`, paddingTop: 18, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={onCancel} disabled={isLoading} style={{ padding: '9px 18px', background: '#FFFFFF', border: `1px solid ${isDangerous ? '#C98B84' : P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: isDangerous ? '#7C241C' : P.inkSecondary, cursor: 'pointer', transition: 'all 0.12s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = isDangerous ? '#FCE9E6' : P.parchment; (e.currentTarget as HTMLElement).style.borderColor = isDangerous ? accentColor : P.inkMuted; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#FFFFFF'; (e.currentTarget as HTMLElement).style.borderColor = isDangerous ? '#C98B84' : P.sand; }}>
+              {cancelLabel}
+            </button>
+            {onConfirm && (
+              <button type="button" onClick={onConfirm} disabled={isLoading} style={{ padding: '9px 18px', background: accentColor, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', cursor: isLoading ? 'not-allowed' : 'pointer', opacity: isLoading ? 0.6 : 1, transition: 'background 0.12s' }}>
+                {isLoading ? 'Processing…' : confirmLabel}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

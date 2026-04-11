@@ -1,7 +1,21 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button } from "../components/ui/button";
-import { BookOpen, Search, ChevronDown, FileText, MessageCircle } from "lucide-react";
+import { BookOpen, Brain, ChevronDown, Database, Layers, MessageCircle, Search, Shield, Target } from "lucide-react";
+
+import { P } from "../../constants/theme";
+
+const navItems = [
+  { label: "About", path: "/about" },
+  { label: "Contact", path: "/contact" },
+  { label: "Help", path: "/help" },
+];
+
+const footerColumns = [
+  { title: "Features", links: ["Semantic Search", "MCQ Generation", "Analytics", "Summaries"] },
+  { title: "Company", links: ["About", "Contact"] },
+  { title: "Resources", links: ["Help Center", "Documentation", "FAQ"] },
+  { title: "Legal", links: ["Privacy Policy", "Terms of Service", "Cookie Policy"] },
+];
 
 export function HelpPage() {
   useEffect(() => {
@@ -10,382 +24,228 @@ export function HelpPage() {
 
   const [openCategory, setOpenCategory] = useState<number | null>(0);
   const [expandedArticle, setExpandedArticle] = useState<number | null>(null);
-  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const categories = [
     {
       title: "Getting Started",
-      icon: FileText,
+      icon: Database,
       articles: [
-        {
-          id: 1,
-          title: "How to Create an Account",
-          description: "Step-by-step guide to signing up for LearnBox",
-          answer: "To create an account on LearnBox:\n\n1. Click the 'Get Started' button on the landing page\n2. Fill in your email address and create a strong password\n3. Enter your full name and select your college/university\n4. Verify your email by clicking the link sent to your inbox\n5. Complete your profile by adding a profile picture and interests\n6. Accept the terms and conditions\n7. You're all set! Log in to start learning.",
-        },
-        {
-          id: 2,
-          title: "First Steps After Registration",
-          description: "What to do after creating your account",
-          answer: "After registering on LearnBox:\n\n1. Complete your profile with a profile picture and bio\n2. Add your college/university and course details\n3. Upload your lecture materials or notes\n4. Explore the dashboard to familiarize yourself with features\n5. Check out the semantic search feature to find materials\n6. Join study groups if available in your institution\n7. Start with a practice MCQ to get familiar with the quiz interface",
-        },
-        {
-          id: 3,
-          title: "Accessing Your Dashboard",
-          description: "Navigate your personal learning dashboard",
-          answer: "Your LearnBox Dashboard provides:\n\n1. Overview: Quick stats on your learning progress\n2. Recent Materials: Access your recently viewed lecture notes\n3. Ongoing Tests: See active MCQ sessions and deadlines\n4. Progress Analytics: View your performance metrics\n5. Study Groups: Connect with classmates\n6. Settings: Customize your learning preferences\n7. Navigation Menu: Use the sidebar to access all features",
-        },
+        { id: 1, title: "Creating your account", description: "The fastest way to begin using LearnBox.", answer: "Select Get Started, enter your email, complete your profile, and set up your password. Once you're in, you can begin uploading or exploring academic content immediately." },
+        { id: 2, title: "What to do after registration", description: "The best first steps after your account is active.", answer: "Complete your academic details, connect to your course structure, upload initial study material, and test search or MCQ features to get comfortable with the workflow." },
       ],
     },
     {
-      title: "Semantic Search",
+      title: "Search & Discovery",
       icon: Search,
       articles: [
-        {
-          id: 4,
-          title: "How to Use Semantic Search",
-          description: "Find concepts across all your lecture materials",
-          answer: "Semantic Search helps you find related concepts, not just keywords:\n\n1. Go to the Search tab in your dashboard\n2. Type a concept you're looking for (e.g., 'photosynthesis')\n3. Search results show all related materials and concepts\n4. Results are ranked by relevance to your query\n5. Click on any result to view the full lecture or note\n6. Use filters to narrow down by subject or date\n7. Save frequently searched topics as favorites",
-        },
-        {
-          id: 5,
-          title: "Advanced Search Tips",
-          description: "Master advanced search filters and operators",
-          answer: "Advanced Search Tips:\n\n1. Use quotes: 'photosynthesis process' for exact phrases\n2. Exclude words: Use minus sign - 'photosynthesis -artificial'\n3. Filter by date: Search materials from specific time periods\n4. Filter by source: Search in specific lecture notes or subjects\n5. Related topics: See suggestions for related concepts\n6. Search history: View and reuse previous searches\n7. Combine multiple filters for precise results",
-        },
-        {
-          id: 6,
-          title: "Search Across Year Materials",
-          description: "Search through all your academic years",
-          answer: "Search Across Multiple Years:\n\n1. In the search settings, enable 'Search All Years'\n2. Select date range for your search\n3. View results organized by academic year\n4. Compare materials from different years\n5. Track concept evolution across your studies\n6. Create year-wise comparison reports\n7. Archive old materials while keeping them searchable",
-        },
+        { id: 4, title: "How semantic search works", description: "Search by meaning, not just exact words.", answer: "Semantic search helps you discover related concepts across lectures, notes, and resources even when you don’t remember the precise wording used in the source material." },
+        { id: 5, title: "Using filters effectively", description: "Narrow results by module, year, or source.", answer: "Use filters to reduce noise and focus on the most relevant material. This is especially useful when revising across large sets of academic resources." },
       ],
     },
     {
-      title: "MCQ Generation",
-      icon: FileText,
+      title: "Practice & AI Tools",
+      icon: Brain,
       articles: [
-        {
-          id: 7,
-          title: "Generating Practice Questions",
-          description: "Create MCQs from your lecture notes",
-          answer: "Generate Practice Questions:\n\n1. Go to MCQ Practice section\n2. Click 'Generate New Questions'\n3. Select the lecture or topic material\n4. Choose number of questions (5-50)\n5. Select difficulty level: Easy, Medium, or Hard\n6. Click Generate - AI will create questions\n7. Review and start practicing immediately\n8. Answers include detailed explanations",
-        },
-        {
-          id: 8,
-          title: "Customizing Question Difficulty",
-          description: "Adjust difficulty levels for practice",
-          answer: "Customize Question Difficulty:\n\n1. Easy: Basic concept understanding (definition and facts)\n2. Medium: Application of concepts (can be applied in scenarios)\n3. Hard: Analysis and critical thinking (requires deep understanding)\n4. Mix Mode: Combination of all difficulty levels\n5. Adaptive: System adjusts based on your performance\n6. Track difficulty progression in your analytics\n7. Use harder questions closer to exams",
-        },
-        {
-          id: 9,
-          title: "Understanding Feedback",
-          description: "Learn from detailed question explanations",
-          answer: "MCQ Feedback Features:\n\n1. Correct Answer: Shows why the right answer is correct\n2. Explanation: Detailed concept explanation from your materials\n3. Related Topics: Links to related lectures and notes\n4. Common Mistakes: Shows why other options are wrong\n5. Concept Map: Visual representation of connected concepts\n6. Additional Resources: References for further learning\n7. Performance tips: Suggestions based on your mistakes",
-        },
+        { id: 7, title: "Generating MCQs", description: "Turn documents into practice questions.", answer: "Upload study material or choose an existing source, then create an MCQ set with your preferred level of difficulty. LearnBox organizes the output for revision and self-testing." },
+        { id: 9, title: "Understanding feedback", description: "Use explanations to learn faster.", answer: "Question feedback is designed to reinforce understanding. Review both correct and incorrect responses to identify patterns and strengthen weak areas." },
       ],
     },
     {
-      title: "Analytics & Performance",
-      icon: FileText,
+      title: "Analytics",
+      icon: Target,
       articles: [
-        {
-          id: 10,
-          title: "Understanding Your Performance Dashboard",
-          description: "Interpret your learning analytics",
-          answer: "Performance Dashboard Breakdown:\n\n1. Overall Score: Your aggregate performance percentage\n2. Subject Breakdown: Performance in each subject/course\n3. Topic Analysis: Strength and weakness by topic\n4. Time Tracking: Hours spent studying by subject\n5. Progress Chart: Visual representation of improvement over time\n6. Comparison: Your performance vs. class average\n7. Learning Rate: Pace of your progress",
-        },
-        {
-          id: 11,
-          title: "Reading Performance Recommendations",
-          description: "Get personalized study suggestions",
-          answer: "Personalized Recommendations:\n\n1. Weak Areas: System identifies topics with low performance\n2. Suggested Materials: Specific lectures to review\n3. Practice Plans: Recommended practice questions by topic\n4. Study Schedule: AI-generated study timetable\n5. Peer Comparison: See how you compare with peers\n6. Next Steps: Actionable suggestions for improvement\n7. Goal Tracking: Progress toward learning goals",
-        },
-        {
-          id: 12,
-          title: "Tracking Your Progress",
-          description: "Monitor improvement over time",
-          answer: "Progress Tracking:\n\n1. Daily Streaks: Track consecutive study days\n2. Learning Goals: Set and track custom goals\n3. Milestone Achievements: Badges for milestones reached\n4. Historical Data: Review past performance\n5. Trend Analysis: See improvement patterns\n6. Export Reports: Download progress reports for teachers\n7. Progress Sharing: Share achievements with friends",
-        },
+        { id: 10, title: "Reading performance insights", description: "Track strengths and weak areas.", answer: "Analytics show how you are progressing over time, where you are strongest, and which topics need more focused revision." },
       ],
     },
     {
-      title: "Summaries & Digests",
-      icon: FileText,
+      title: "Summaries & Notes",
+      icon: Layers,
       articles: [
-        {
-          id: 13,
-          title: "Generating Lecture Summaries",
-          description: "Create quick summaries from lectures",
-          answer: "Generate Summaries:\n\n1. Open any lecture material\n2. Click 'Generate Summary' button\n3. Choose summary length: Short (2 min), Medium (5 min), or Long (10 min)\n4. AI analyzes the material and creates a concise summary\n5. Summary includes key points and concepts\n6. View in different formats (text, bullets, etc.)\n7. Download or share with classmates",
-        },
-        {
-          id: 14,
-          title: "Summary Formats",
-          description: "Choose between text, bullets, and mind maps",
-          answer: "Available Summary Formats:\n\n1. Text Format: Paragraph-style narrative summary\n2. Bullet Points: Key points in easy-to-scan format\n3. Mind Map: Visual representation of concepts\n4. Outline: Hierarchical structure of topics\n5. Flashcards: Key terms with definitions\n6. Timeline: Chronological breakdown if applicable\n7. Formula Sheet: Important equations and formulas",
-        },
-        {
-          id: 15,
-          title: "Exporting Summaries",
-          description: "Save and share your summaries",
-          answer: "Export & Share Summaries:\n\n1. Click Export button on summary\n2. Choose format: PDF, Word, or Image\n3. Download to your device\n4. Share via email or messaging apps\n5. Create a summary collection (study guide)\n6. Print-friendly versions available\n7. Cloud storage integration for easy access",
-        },
+        { id: 13, title: "Generating summaries", description: "Turn long material into usable revisions.", answer: "Choose a document or lecture source, request a summary, and use the generated digest to review key ideas more efficiently." },
       ],
     },
     {
-      title: "Account & Settings",
-      icon: FileText,
+      title: "Privacy & Control",
+      icon: Shield,
       articles: [
-        {
-          id: 16,
-          title: "Managing Your Profile",
-          description: "Update your personal information",
-          answer: "Profile Management:\n\n1. Go to Settings > Profile\n2. Update profile picture\n3. Edit name and contact information\n4. Add or change your college/university\n5. Update your interests and specialization\n6. Set learning preferences\n7. Choose notification settings\n8. Save changes",
-        },
-        {
-          id: 17,
-          title: "Privacy Settings",
-          description: "Control your data and privacy",
-          answer: "Privacy Controls:\n\n1. Profile Visibility: Make profile public or private\n2. Data Usage: Control what data LearnBox can use\n3. Marketing Emails: Opt-in/out of promotional emails\n4. Activity Sharing: Control who sees your learning activity\n5. Analytics Consent: Allow usage for improving the platform\n6. Download Data: Request your personal data export\n7. Account Deletion: Permanently delete your account if needed",
-        },
-        {
-          id: 18,
-          title: "Password & Security",
-          description: "Keep your account secure",
-          answer: "Secure Your Account:\n\n1. Change Password: Go to Settings > Security\n2. Use strong passwords: Mix of uppercase, lowercase, numbers, symbols\n3. Two-Factor Authentication: Enable for extra security\n4. Active Sessions: See and manage active login sessions\n5. Login History: Review recent login activity\n6. Trusted Devices: Recognize devices to reduce 2FA prompts\n7. Report Suspicious Activity: Contact support immediately if needed",
-        },
+        { id: 17, title: "Managing your data", description: "Control how your information is handled.", answer: "You can review what you upload, manage access to your materials, and use available settings to control how data is stored and used." },
       ],
     },
   ];
 
-  const filteredCategories = categories.map((category) => ({
-    ...category,
-    articles: category.articles.filter(
-      (article) =>
-        article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        article.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        article.answer.toLowerCase().includes(searchTerm.toLowerCase())
-    ),
-  })).filter((category) => category.articles.length > 0);
+  const filteredCategories = categories
+    .map((category) => ({
+      ...category,
+      articles: category.articles.filter(
+        (article) =>
+          article.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          article.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          article.answer.toLowerCase().includes(searchTerm.toLowerCase())
+      ),
+    }))
+    .filter((category) => category.articles.length > 0);
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="bg-white border-b border-border py-4 px-6 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-accent" />
-            <span className="text-2xl font-bold text-foreground">LearnBox</span>
-          </Link>
-          
-          <div className="flex items-center gap-3">
-            <Link to="/login">
-              <Button className="bg-transparent border border-accent text-accent hover:bg-accent hover:text-white rounded-full px-6">
-                Login
-              </Button>
+    <div style={{ minHeight: "100vh", background: P.parchment, color: P.ink, fontFamily: "'Lora', Georgia, serif" }}>
+      <style>{`
+        .help-nav-link{position:relative;color:${P.inkSecondary};text-decoration:none;transition:color 180ms ease}
+        .help-nav-link::after{content:"";position:absolute;left:0;bottom:-8px;width:100%;height:2px;background:${P.vermillion};transform:scaleX(0);transform-origin:left;transition:transform 180ms ease}
+        .help-nav-link:hover{color:${P.vermillion}}
+        .help-nav-link:hover::after{transform:scaleX(1)}
+        .help-shell{overflow-x:hidden}
+        .help-footer-grid{display:grid;grid-template-columns:minmax(220px,1.6fr) repeat(4,minmax(120px,1fr));gap:28px}
+        .help-card{transition:transform 220ms ease,box-shadow 220ms ease}
+        .help-card:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(28,18,8,.12)}
+        .cta-button{border-radius:16px;text-decoration:none;transition:transform 180ms ease,box-shadow 180ms ease,background 180ms ease,color 180ms ease}
+        .cta-button:hover{transform:translateY(-2px)}
+        .primary-cta:hover{box-shadow:0 16px 30px rgba(192,57,43,.22)}
+        .secondary-cta:hover{box-shadow:0 14px 28px rgba(28,18,8,.16)}
+        @media (max-width:980px){.help-footer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media (max-width:720px){.help-footer-grid{grid-template-columns:1fr}}
+      `}</style>
+
+      <div className="help-shell">
+        <header style={{ position: "sticky", top: 0, zIndex: 100, backdropFilter: "blur(14px)", background: "rgba(250, 247, 240, 0.92)", borderBottom: `1px solid ${P.sand}` }}>
+          <div style={{ width: "100%", maxWidth: 1280, margin: "0 auto", padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
+            <Link to="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
+              <div style={{ width: 42, height: 42, borderRadius: 14, background: P.vermillionBg, boxShadow: `inset 0 0 0 1px ${P.sand}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <BookOpen size={20} color={P.vermillion} strokeWidth={2} />
+              </div>
+              <div>
+                <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: P.inkMuted, marginBottom: 2 }}>Academic Platform</div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 23, fontWeight: 900, color: P.ink, letterSpacing: "-0.03em" }}>LearnBox</div>
+              </div>
             </Link>
-            
-            <Link to="/register">
-              <Button className="bg-accent hover:bg-accent/90 text-white rounded-full px-6">
-                Get Started
-              </Button>
-            </Link>
+
+            <nav style={{ display: "flex", alignItems: "center", gap: 28, flexWrap: "wrap" }}>
+              {navItems.map((item) => (
+                <Link key={item.label} to={item.path} className="help-nav-link" style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Link to="/login" className="cta-button secondary-cta" style={{ padding: "11px 20px", borderRadius: 16, background: P.parchmentDark, color: P.inkSecondary, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase" }}>Login</Link>
+              <Link to="/register" className="cta-button primary-cta" style={{ padding: "11px 22px", borderRadius: 16, background: P.vermillion, color: P.parchmentLight, boxShadow: "0 12px 24px rgba(192, 57, 43, 0.18)", fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase" }}>Get Started</Link>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Hero Section */}
-      <section className="bg-gradient-to-b from-accent to-accent/95 text-white px-6 py-20">
-        <div className="max-w-7xl mx-auto text-center space-y-6">
-          <h1 className="text-5xl md:text-6xl font-bold">Help Center</h1>
-          <p className="text-xl text-white/90 max-w-2xl mx-auto">
-            Find answers to your questions and learn how to make the most of LearnBox.
-          </p>
-        </div>
-      </section>
-
-      {/* Search Bar */}
-      <section className="bg-white px-6 py-12 border-b border-border">
-        <div className="max-w-4xl mx-auto">
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search for help articles..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 rounded-lg border border-border bg-slate-50 focus:outline-none focus:ring-2 focus:ring-accent/50"
-            />
+        <section style={{ position: "relative", overflow: "hidden", background: `linear-gradient(135deg, ${P.inkMuted} 0%, ${P.inkSecondary} 100%)`, color: P.parchmentLight, borderBottom: `1px solid ${P.sand}` }}>
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 18% 20%, rgba(245, 230, 228, 0.08), transparent 28%), radial-gradient(circle at 82% 18%, rgba(192, 57, 43, 0.14), transparent 22%)", pointerEvents: "none" }} />
+          <div style={{ width: "100%", maxWidth: 1280, margin: "0 auto", padding: "78px 20px 88px", position: "relative" }}>
+            <div style={{ maxWidth: 820 }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 20, padding: "8px 14px", borderRadius: 999, background: "rgba(250, 247, 240, 0.08)", boxShadow: `inset 0 0 0 1px rgba(232, 223, 208, 0.22)` }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: P.vermillion, display: "inline-block" }} />
+                <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.parchmentLight }}>Help & Guidance</span>
+              </div>
+              <h1 style={{ margin: "0 0 18px", fontFamily: "'Playfair Display', serif", fontSize: "clamp(2.8rem, 6vw, 5rem)", lineHeight: 0.98, letterSpacing: "-0.05em", color: P.parchmentLight, maxWidth: 760 }}>Find answers fast without leaving the flow of study.</h1>
+              <p style={{ margin: "0 0 28px", maxWidth: 680, fontSize: 18, lineHeight: 1.8, color: "#E7D9C6" }}>This help page now follows the same premium visual rhythm as the landing page, with cleaner spacing, clearer hierarchy, and a more useful search-first layout.</p>
+              <div style={{ position: "relative", maxWidth: 620 }}>
+                <Search size={18} color="#E7D9C6" style={{ position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)" }} />
+                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search help topics, answers, and workflows..." style={{ width: "100%", padding: "16px 18px 16px 50px", borderRadius: 20, border: "none", boxShadow: `inset 0 0 0 1px rgba(232, 223, 208, 0.24)`, background: "rgba(250, 247, 240, 0.08)", color: P.parchmentLight, fontFamily: "'Lora', Georgia, serif", fontSize: 16, boxSizing: "border-box" }} />
+              </div>
+            </div>
           </div>
-          {searchTerm && (
-            <p className="mt-3 text-sm text-muted-foreground">
-              Found {filteredCategories.reduce((sum, cat) => sum + cat.articles.length, 0)} results for "{searchTerm}"
-            </p>
-          )}
-        </div>
-      </section>
+        </section>
 
-      {/* Categories Section */}
-      <section className="bg-slate-50 px-6 py-20 border-b border-border">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-3xl font-bold text-foreground mb-12">Browse by Category</h2>
-          
-          <div className="space-y-4">
-            {filteredCategories.map((category, index) => {
-              const Icon = category.icon;
-              return (
-                <div key={index} className="bg-white rounded-lg border border-border overflow-hidden">
-                  <button
-                    onClick={() => setOpenCategory(openCategory === index ? null : index)}
-                    className="w-full px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="flex items-center gap-4">
-                      <Icon className="w-6 h-6 text-accent" />
-                      <h3 className="text-lg font-semibold text-foreground">{category.title}</h3>
-                    </div>
-                    <ChevronDown
-                      className={`w-5 h-5 text-muted-foreground transition-transform ${
-                        openCategory === index ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-
-                  {openCategory === index && (
-                    <div className="bg-slate-50 border-t border-border px-6 py-4 space-y-4">
-                      {category.articles.map((article) => (
-                        <div key={article.id} className="bg-white rounded-lg p-4 border border-border hover:border-accent/50 transition-all cursor-pointer">
-                          <button
-                            onClick={() => setExpandedArticle(expandedArticle === article.id ? null : article.id)}
-                            className="w-full text-left"
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <h4 className="font-semibold text-foreground hover:text-accent transition-colors">
-                                  {article.title}
-                                </h4>
-                                <p className="text-sm text-muted-foreground mt-1">{article.description}</p>
-                              </div>
-                              <ChevronDown
-                                className={`w-5 h-5 text-muted-foreground flex-shrink-0 ml-4 transition-transform ${
-                                  expandedArticle === article.id ? "rotate-180" : ""
-                                }`}
-                              />
-                            </div>
-                          </button>
-
-                          {expandedArticle === article.id && (
-                            <div className="mt-4 pt-4 border-t border-border">
-                              <p className="text-foreground whitespace-pre-wrap leading-relaxed text-sm">
-                                {article.answer}
-                              </p>
-                            </div>
-                          )}
+        <section style={{ padding: "34px 0 84px", background: `linear-gradient(180deg, ${P.parchmentLight} 0%, ${P.parchment} 100%)` }}>
+          <div style={{ width: "100%", maxWidth: 1280, margin: "0 auto", padding: "0 20px", display: "grid", gap: 22 }}>
+            {filteredCategories.length === 0 ? (
+              <div className="help-card" style={{ borderRadius: 28, padding: "34px 28px", background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, textAlign: "center" }}>
+                <p style={{ margin: 0, fontSize: 16, lineHeight: 1.7, color: P.inkMuted }}>No matching help topics were found. Try a broader keyword.</p>
+              </div>
+            ) : (
+              filteredCategories.map((category, categoryIndex) => {
+                const isOpen = openCategory === categoryIndex;
+                return (
+                  <div key={category.title} className="help-card" style={{ borderRadius: 28, background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, overflow: "hidden" }}>
+                    <button onClick={() => setOpenCategory(isOpen ? null : categoryIndex)} style={{ width: "100%", padding: "24px 24px", border: "none", background: isOpen ? P.parchmentDark : P.parchmentLight, color: P.ink, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 18 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                        <div style={{ width: 46, height: 46, borderRadius: 16, background: P.vermillionBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <category.icon size={18} color={P.vermillion} strokeWidth={2} />
                         </div>
-                      ))}
-                    </div>
-                  )}
+                        <div style={{ textAlign: "left" }}>
+                          <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: P.vermillion, marginBottom: 4 }}>Knowledge Base</div>
+                          <h2 style={{ margin: 0, fontFamily: "'Playfair Display', serif", fontSize: 26, lineHeight: 1.05, letterSpacing: "-0.03em", color: P.ink }}>{category.title}</h2>
+                        </div>
+                      </div>
+                      <ChevronDown size={20} color={P.inkSecondary} style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)", transition: "transform 180ms ease" }} />
+                    </button>
+
+                    {isOpen && (
+                      <div style={{ padding: "0 24px 24px", background: P.parchmentLight }}>
+                        <div style={{ display: "grid", gap: 14 }}>
+                          {category.articles.map((article) => {
+                            const expanded = expandedArticle === article.id;
+                            return (
+                              <div key={article.id} style={{ borderRadius: 22, background: P.parchment, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, overflow: "hidden" }}>
+                                <button onClick={() => setExpandedArticle(expanded ? null : article.id)} style={{ width: "100%", padding: "18px 18px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left" }}>
+                                  <h3 style={{ margin: "0 0 6px", fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: P.inkSecondary }}>{article.title}</h3>
+                                  <p style={{ margin: 0, fontSize: 14, lineHeight: 1.7, color: P.inkMuted }}>{article.description}</p>
+                                </button>
+                                {expanded && (
+                                  <div style={{ padding: "0 18px 18px", fontSize: 14.5, lineHeight: 1.8, color: P.inkSecondary }}>
+                                    {article.answer}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        <section style={{ position: "relative", overflow: "hidden", background: `linear-gradient(135deg, ${P.inkSecondary} 0%, ${P.inkMuted} 100%)`, color: P.parchmentLight, padding: "84px 0" }}>
+          <div style={{ width: "100%", maxWidth: 1280, margin: "0 auto", padding: "0 20px", textAlign: "center" }}>
+            <MessageCircle size={40} color={P.parchmentLight} style={{ marginBottom: 18 }} />
+            <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.vermillion, marginBottom: 12 }}>Still Need Help?</div>
+            <h2 style={{ margin: "0 0 14px", fontFamily: "'Playfair Display', serif", fontSize: "clamp(2.1rem, 4vw, 3.5rem)", lineHeight: 1.03, letterSpacing: "-0.04em", color: P.parchmentLight }}>Reach out when the knowledge base isn’t enough.</h2>
+            <p style={{ margin: "0 auto 28px", maxWidth: 620, fontSize: 17, lineHeight: 1.8, color: "#E7D9C6" }}>If you still need support, move straight to the contact page and send us your question directly.</p>
+            <Link to="/contact" className="cta-button primary-cta" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "16px 28px", borderRadius: 18, background: P.vermillion, color: P.parchmentLight, boxShadow: "0 18px 34px rgba(192, 57, 43, 0.24)", fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: "0.08em", textTransform: "uppercase" }}>Open Contact Page</Link>
+          </div>
+        </section>
+
+        <footer style={{ background: "#120D06", color: "#C8B898", borderTop: `1px solid ${P.inkSecondary}`, padding: "58px 0 34px" }}>
+          <div style={{ width: "100%", maxWidth: 1280, margin: "0 auto", padding: "0 20px" }}>
+            <div className="help-footer-grid" style={{ paddingBottom: 38, marginBottom: 28, borderBottom: `1px solid ${P.inkSecondary}` }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                  <BookOpen size={18} color={P.vermillion} strokeWidth={2} />
+                  <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 900, color: P.parchmentLight, letterSpacing: "-0.03em" }}>LearnBox</span>
                 </div>
-              );
-            })}
-          </div>
-
-          {filteredCategories.length === 0 && searchTerm && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground text-lg">
-                No results found for "{searchTerm}". Try different keywords.
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* Contact Support Section */}
-      <section className="bg-gradient-to-r from-accent to-primary text-white px-6 py-20">
-        <div className="max-w-4xl mx-auto text-center space-y-6">
-          <MessageCircle className="w-16 h-16 mx-auto opacity-80" />
-          <h2 className="text-4xl font-bold">Didn't find what you're looking for?</h2>
-          <p className="text-xl text-white/90">
-            Contact our support team and we'll be happy to help you.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
-            <Link to="/contact">
-              <Button className="bg-white hover:bg-white/90 text-accent rounded-full px-10 py-6 text-lg font-semibold">
-                Contact Support
-              </Button>
-            </Link>
-            <Link to="/">
-              <Button className="bg-white/20 hover:bg-white/30 text-white border border-white/50 rounded-full px-10 py-6 text-lg font-semibold">
-                Back to Home
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-slate-900 text-white px-6 py-16">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-12">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <BookOpen className="w-5 h-5" />
-                <span className="text-lg font-bold">LearnBox</span>
+                <p style={{ margin: 0, maxWidth: 280, fontSize: 13.5, lineHeight: 1.75, color: "#9E8E76" }}>Your academic command center for resources, revision, structured practice, and learning progress.</p>
               </div>
-              <p className="text-sm text-gray-400">
-                Your scholarly command center for lectures, slides, and academic excellence.
-              </p>
+              {footerColumns.map((column) => (
+                <div key={column.title}>
+                  <h4 style={{ margin: "0 0 16px", fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: P.parchmentLight }}>{column.title}</h4>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {column.links.map((link) => (
+                      <Link key={link} to="/" style={{ textDecoration: "none", fontSize: 13, color: "#9E8E76" }}>{link}</Link>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Features</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link to="/" className="hover:text-white transition-colors">Semantic Search</Link></li>
-                <li><Link to="/" className="hover:text-white transition-colors">MCQ Generation</Link></li>
-                <li><Link to="/" className="hover:text-white transition-colors">Analytics</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link to="/about" className="hover:text-white transition-colors">About</Link></li>
-                <li><Link to="/contact" className="hover:text-white transition-colors">Contact</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Resources</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link to="/help" className="hover:text-white transition-colors">Help Center</Link></li>
-                <li><Link to="/" className="hover:text-white transition-colors">Documentation</Link></li>
-                <li><Link to="/" className="hover:text-white transition-colors">FAQ</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Legal</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link to="/" className="hover:text-white transition-colors">Privacy Policy</Link></li>
-                <li><Link to="/" className="hover:text-white transition-colors">Terms of Service</Link></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="pt-12 border-t border-gray-800">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <p className="text-sm text-gray-400">
-                © 2025 LearnBox. All rights reserved.
-              </p>
-              <div className="flex gap-6 mt-4 md:mt-0">
-                <Link to="/" className="text-gray-400 hover:text-white transition-colors">Twitter</Link>
-                <Link to="/" className="text-gray-400 hover:text-white transition-colors">LinkedIn</Link>
-                <Link to="/" className="text-gray-400 hover:text-white transition-colors">GitHub</Link>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+              <p style={{ margin: 0, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, letterSpacing: "0.05em", color: "#8E7D66" }}>© 2025 LearnBox. All rights reserved.</p>
+              <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
+                {["Twitter", "LinkedIn", "GitHub"].map((social) => (
+                  <Link key={social} to="/" style={{ textDecoration: "none", fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#8E7D66" }}>{social}</Link>
+                ))}
               </div>
             </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }

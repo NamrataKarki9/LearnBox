@@ -273,7 +273,11 @@ export const deleteUser = async (req, res) => {
         try {
             // Check if user exists
             const userToDelete = await prisma.user.findUnique({
-                where: { id: userId }
+                where: { id: userId },
+                select: {
+                    id: true,
+                    username: true
+                }
             });
 
             if (!userToDelete) {
@@ -283,14 +287,121 @@ export const deleteUser = async (req, res) => {
                 });
             }
 
-            // Delete user
-            await prisma.user.delete({
-                where: { id: userId },
+            await prisma.$transaction(async (tx) => {
+                const [createdModules, createdMcqs, createdMcqSets] = await Promise.all([
+                    tx.module.findMany({
+                        where: { createdBy: userId },
+                        select: { id: true }
+                    }),
+                    tx.mCQ.findMany({
+                        where: { createdBy: userId },
+                        select: { id: true }
+                    }),
+                    tx.mCQSet.findMany({
+                        where: { createdBy: userId },
+                        select: { id: true }
+                    })
+                ]);
+
+                const moduleIds = createdModules.map((module) => module.id);
+                const mcqIds = createdMcqs.map((mcq) => mcq.id);
+                const mcqSetIds = createdMcqSets.map((set) => set.id);
+
+                // Remove direct user-owned records first.
+                await tx.collegeAdminInvitation.deleteMany({
+                    where: { createdBy: userId }
+                });
+
+                await tx.lLMConfig.deleteMany({
+                    where: { createdBy: userId }
+                });
+
+                await tx.documentSummary.deleteMany({
+                    where: { userId }
+                });
+
+                await tx.performanceAnalytics.deleteMany({
+                    where: {
+                        OR: [
+                            { studentId: userId },
+                            ...(moduleIds.length > 0 ? [{ moduleId: { in: moduleIds } }] : [])
+                        ]
+                    }
+                });
+
+                // Delete attempts before sessions and MCQs they may reference.
+                await tx.mCQAttempt.deleteMany({
+                    where: {
+                        OR: [
+                            { studentId: userId },
+                            ...(mcqIds.length > 0 ? [{ mcqId: { in: mcqIds } }] : [])
+                        ]
+                    }
+                });
+
+                await tx.progress.deleteMany({
+                    where: { studentId: userId }
+                });
+
+                await tx.quizSession.deleteMany({
+                    where: {
+                        OR: [
+                            { studentId: userId },
+                            ...(mcqSetIds.length > 0 ? [{ setId: { in: mcqSetIds } }] : []),
+                            ...(moduleIds.length > 0 ? [{ moduleId: { in: moduleIds } }] : [])
+                        ]
+                    }
+                });
+
+                // Delete content created by the user or attached to modules they created.
+                await tx.learningSite.deleteMany({
+                    where: {
+                        OR: [
+                            { addedBy: userId },
+                            ...(moduleIds.length > 0 ? [{ moduleId: { in: moduleIds } }] : [])
+                        ]
+                    }
+                });
+
+                await tx.resource.deleteMany({
+                    where: {
+                        OR: [
+                            { uploadedBy: userId },
+                            ...(moduleIds.length > 0 ? [{ moduleId: { in: moduleIds } }] : [])
+                        ]
+                    }
+                });
+
+                await tx.mCQ.deleteMany({
+                    where: {
+                        OR: [
+                            { createdBy: userId },
+                            ...(moduleIds.length > 0 ? [{ moduleId: { in: moduleIds } }] : [])
+                        ]
+                    }
+                });
+
+                await tx.mCQSet.deleteMany({
+                    where: {
+                        OR: [
+                            { createdBy: userId },
+                            ...(moduleIds.length > 0 ? [{ moduleId: { in: moduleIds } }] : [])
+                        ]
+                    }
+                });
+
+                await tx.module.deleteMany({
+                    where: { createdBy: userId }
+                });
+
+                await tx.user.delete({
+                    where: { id: userId }
+                });
             });
 
             res.status(HTTP_STATUS.OK).json({
                 success: true,
-                message: 'User deleted successfully.',
+                message: 'User permanently deleted successfully.',
                 data: {
                     id: userId,
                     username: userToDelete.username

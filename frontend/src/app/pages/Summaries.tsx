@@ -1,409 +1,191 @@
-/**
- * Summaries Page
- * Upload PDFs and get AI-powered summaries using local LLM
- */
-
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
 import { useNavigate } from 'react-router-dom';
 import { summaryAPI } from '../../services/api';
 import { toast } from 'sonner';
-import { Upload, FileText, Loader2, Download, Trash2, Clock } from 'lucide-react';
+import { Upload, FileText, Loader2, Trash2, Clock, BookOpen, LayoutDashboard, HelpCircle, AlignLeft, Link2, Settings, LogOut, ChevronRight } from 'lucide-react';
+import { useLogoutConfirm } from '../../hooks/useLogoutConfirm';
+import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
 
-interface Summary {
-  id: number;
-  originalFileName: string;
-  fileUrl: string;
-  quickSummary: string;
-  keyConcepts?: {
-    concepts: Array<{
-      term: string;
-      definition: string;
-    }>;
-  };
-  createdAt: string;
-  processingTime: number;
-}
+import { P } from '../../constants/theme';
 
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  fileName?: string;
-  isUploading?: boolean;
-}
+interface Summary { id: number; originalFileName: string; quickSummary: string; keyConcepts?: { concepts: Array<{ term: string; definition: string }> }; createdAt: string; processingTime: number; }
+interface ChatMessage { role: 'user' | 'assistant'; content: string; isUploading?: boolean; }
+
+const WELCOME = "Hi! Upload a PDF document and I'll provide a comprehensive summary with key concepts.";
+
+const cleanSummaryText = (text: string) =>
+  text
+    .replace(/\*\*/g, '')
+    .replace(/\*/g, '')
+    .replace(/^---+$/gm, '')
+    .replace(/^===+$/gm, '')
+    .replace(/^[•●▪■◦]\s*/gm, '- ')
+    .replace(/^\s*\d+\.\s+/gm, '- ')
+    .replace(/^\s*[A-Za-z]\)\s+/gm, '- ')
+    .replace(/^\s*-\s*/gm, '- ')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n[ \t]+/g, '\n')
+    .replace(/[ \t]+\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+const navItems = [
+  { label: 'Dashboard', icon: LayoutDashboard, path: '/student/dashboard' },
+  { label: 'Resources', icon: FileText, path: '/student/resources' },
+  { label: 'MCQs Practice', icon: HelpCircle, path: '/student/mcq-practice' },
+  { label: 'Summaries', icon: AlignLeft, path: null },
+  { label: 'Learning Sites', icon: Link2, path: '/student/learning-sites' },
+  { label: 'Settings', icon: Settings, path: '/student/settings' },
+];
 
 export default function Summaries() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const logoutConfirm = useLogoutConfirm();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
-
-  // States
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      role: 'assistant',
-      content: 'Hi! Upload a PDF document and I\'ll provide you with a comprehensive summary, key concepts, and structured notes. What would you like to learn about today?'
-    }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([{ role: 'assistant', content: WELCOME }]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [summaryHistory, setSummaryHistory] = useState<Summary[]>([]);
-  const [selectedSummary, setSelectedSummary] = useState<Summary | null>(null);
+  const [history, setHistory] = useState<Summary[]>([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
-  // Fetch summary history on mount
-  useEffect(() => {
-    fetchSummaryHistory();
-  }, []);
+  useEffect(() => { summaryAPI.getHistory().then(r => setHistory(r.data.data)).catch(() => {}); }, []);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  // Auto-scroll to bottom when new messages appear
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const fetchSummaryHistory = async () => {
-    try {
-      const response = await summaryAPI.getHistory();
-      setSummaryHistory(response.data.data);
-    } catch (error) {
-      console.error('Error fetching history:', error);
-    }
+  const fmt = (s: any) => {
+    return `Document: "${s.originalFileName || s.fileName}"\n\n${cleanSummaryText(s.quickSummary || '')}\n\nProcessing time: ${(s.processingTime / 1000).toFixed(2)}s`;
   };
 
-  const handleFileSelect = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    // Validate file
-    if (file.type !== 'application/pdf') {
-      toast.error('Please upload a PDF file');
-      return;
-    }
-
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('File size must be less than 10MB');
-      return;
-    }
-
-    // Add user message
-    setMessages(prev => [...prev, {
-      role: 'user',
-      content: `Uploaded: ${file.name}`,
-      fileName: file.name
-    }]);
-
-    // Add loading message
-    setMessages(prev => [...prev, {
-      role: 'assistant',
-      content: 'Processing your document... This may take a moment.',
-      isUploading: true
-    }]);
-
+  const upload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    if (file.type !== 'application/pdf') { toast.error('Please upload valid file.'); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error('Max 10MB'); return; }
+    setMessages(p => [...p, { role: 'user', content: `Uploaded: ${file.name}` }, { role: 'assistant', content: 'Processing...', isUploading: true }]);
     setIsProcessing(true);
-
     try {
-      const response = await summaryAPI.upload(file);
-      const summary = response.data.data;
-
-      // Remove loading message
-      setMessages(prev => prev.filter(msg => !msg.isUploading));
-
-      // Add summary response
-      const summaryMessage = formatSummaryMessage(summary);
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: summaryMessage
-      }]);
-
-      toast.success('Document processed successfully!');
-      fetchSummaryHistory(); // Refresh history
-
-    } catch (error: any) {
-      console.error('Upload error:', error);
-      
-      // Remove loading message
-      setMessages(prev => prev.filter(msg => !msg.isUploading));
-      
-      // Add error message
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: `Sorry, I couldn't process your document. ${error.response?.data?.message || 'Please try again.'}`
-      }]);
-
-      toast.error('Failed to process document');
-    } finally {
-      setIsProcessing(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
+      const r = await summaryAPI.upload(file);
+      setMessages(p => [...p.filter(m => !m.isUploading), { role: 'assistant', content: fmt(r.data.data) }]);
+      toast.success('Done!');
+      summaryAPI.getHistory().then(r2 => setHistory(r2.data.data)).catch(() => {});
+    } catch (err: any) {
+      const message = err.response?.data?.error || err.response?.data?.message || 'Failed to process document';
+      setMessages(p => [...p.filter(m => !m.isUploading), { role: 'assistant', content: `Sorry, couldn't process. ${message}` }]);
+      toast.error(message);
+    } finally { setIsProcessing(false); if (fileInputRef.current) fileInputRef.current.value = ''; }
   };
 
-  const formatSummaryMessage = (summary: any) => {
-    let message = `📄 Summary of "${summary.fileName}"\n\n`;
-    
-    message += `Quick Summary:\n${summary.quickSummary}\n\n`;
-    
-    if (summary.keyConcepts && summary.keyConcepts.concepts && summary.keyConcepts.concepts.length > 0) {
-      message += `Key Concepts:\n`;
-      summary.keyConcepts.concepts.forEach((concept: any, idx: number) => {
-        message += `${idx + 1}. ${concept.term}: ${concept.definition}\n`;
-      });
-      message += '\n';
-    }
-    
-    message += `⏱️ Processed in ${(summary.processingTime / 1000).toFixed(2)} seconds`;
-    
-    return message;
-  };
-
-  const loadSummaryFromHistory = async (summary: Summary) => {
-    setSelectedSummary(summary);
-    
-    // Add to chat
-    setMessages(prev => [...prev, {
-      role: 'user',
-      content: `Show me the summary for: ${summary.originalFileName}`
-    }]);
-
-    const summaryMessage = formatSummaryMessage({
-      fileName: summary.originalFileName,
-      quickSummary: summary.quickSummary,
-      keyConcepts: summary.keyConcepts,
-      processingTime: summary.processingTime
-    });
-
-    setMessages(prev => [...prev, {
-      role: 'assistant',
-      content: summaryMessage
-    }]);
-
-    setShowHistory(false);
-  };
-
-  const deleteSummary = async (id: number) => {
+  const deleteHistoryItem = async (id: number) => {
+    setDeletingId(id);
+    setHistory((prev) => prev.filter((item) => item.id !== id));
     try {
       await summaryAPI.deleteSummary(id);
-      toast.success('Summary deleted');
-      fetchSummaryHistory();
+      toast.success('Deleted');
     } catch (error) {
       toast.error('Failed to delete summary');
+      summaryAPI.getHistory().then(r => setHistory(r.data.data)).catch(() => {});
+    } finally {
+      setDeletingId(null);
     }
-  };
-
-  const clearChat = () => {
-    setMessages([{
-      role: 'assistant',
-      content: 'Hi! Upload a PDF document and I\'ll provide you with a comprehensive summary, key concepts, and structured notes. What would you like to learn about today?'
-    }]);
-    setSelectedSummary(null);
   };
 
   return (
-    <div className="flex min-h-screen bg-[#F5F5F5]">
-      {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-6">
-          <h1 className="text-xl font-bold text-gray-900">LearnBox</h1>
+    <div style={{ display: 'flex', minHeight: '100vh', background: P.parchment, fontFamily: "'Lora', Georgia, serif" }}>
+      <aside style={{ width: 232, background: P.parchmentLight, borderRight: `1px solid ${P.sand}`, display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', flexShrink: 0 }}>
+        <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${P.sand}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><BookOpen size={18} color={P.vermillion} strokeWidth={2} /><span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: 18, color: P.ink }}>LearnBox</span></div>
         </div>
-        <nav className="flex-1 px-4">
-          <button 
-            onClick={() => navigate('/student/dashboard')}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
-          >
-            Dashboard
-          </button>
-          <button 
-            onClick={() => navigate('/student/resources')}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
-          >
-            Resources
-          </button>
-          <button 
-            onClick={() => navigate('/student/mcq-practice')}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
-          >
-            MCQs Practice
-          </button>
-          <button className="w-full text-left px-4 py-3 text-gray-900 bg-gray-100 rounded-lg font-medium mb-1">
-            Summaries
-          </button>
-          <button 
-            onClick={() => navigate('/student/learning-sites')}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
-          >
-            Useful Learning Sites
-          </button>
-          <button 
-            onClick={() => navigate('/student/settings')}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
-          >
-            Settings
-          </button>
-          <button 
-            onClick={logout}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg"
-          >
-            Logout
-          </button>
+        <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {navItems.map(({ label, icon: Icon, path }, i) => {
+            const active = i === 3;
+            return (
+              <button key={label} onClick={() => path && navigate(path)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderLeft: active ? `3px solid ${P.vermillion}` : '3px solid transparent', background: active ? P.parchmentDark : 'transparent', color: active ? P.ink : P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: active ? 700 : 500, fontSize: 13.5, textAlign: 'left', cursor: path ? 'pointer' : 'default', width: '100%', transition: 'all 0.12s' }}
+                onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = P.parchmentDark; (e.currentTarget as HTMLElement).style.color = P.ink; }}}
+                onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = P.inkMuted; }}}
+              >
+                <Icon size={15} strokeWidth={active ? 2.5 : 1.8} style={{ flexShrink: 0 }} />
+                <span>{label}</span>
+                {active && <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.4 }} />}
+              </button>
+            );
+          })}
         </nav>
+        <div style={{ borderTop: `1px solid ${P.sand}`, padding: '14px 10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 12px', marginBottom: 4 }}>
+            <div style={{ width: 30, height: 30, background: P.inkMuted, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 800, fontSize: 13, color: P.parchment }}>{(user?.first_name || 'S').charAt(0).toUpperCase()}</span></div>
+            <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 13, color: P.ink, margin: 0 }}>{user?.first_name || user?.username}</p>
+          </div>
+          <button onClick={() => logoutConfirm.openConfirm(logout)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderLeft: '3px solid transparent', background: 'transparent', color: P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 500, fontSize: 13.5, width: '100%', textAlign: 'left', cursor: 'pointer', transition: 'all 0.12s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = P.vermillionBg; (e.currentTarget as HTMLElement).style.color = P.vermillion; (e.currentTarget as HTMLElement).style.borderLeftColor = P.vermillion; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = P.inkMuted; (e.currentTarget as HTMLElement).style.borderLeftColor = 'transparent'; }}>
+            <LogOut size={15} strokeWidth={1.8} /> Logout
+          </button>
+        </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <header className="bg-white border-b border-gray-200 px-8 py-4 flex justify-between items-center flex-shrink-0">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Document Summaries</h1>
-            <p className="text-sm text-gray-600">Upload PDFs and get AI-powered summaries instantly</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={() => setShowHistory(!showHistory)}
-              variant="outline"
-              className="flex items-center gap-2"
-            >
-              <Clock className="h-4 w-4" />
-              History ({summaryHistory.length})
-            </Button>
-            <button className="p-2 hover:bg-gray-100 rounded-lg">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </button>
-          </div>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <header style={{ background: P.parchmentLight, borderBottom: `1px solid ${P.sand}`, padding: '0 32px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 800, color: P.ink, margin: 0 }}>Document Summaries</h1>
+          <button onClick={() => setShowHistory(!showHistory)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', border: `1px solid ${P.sand}`, background: showHistory ? P.parchmentDark : 'transparent', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.ink, cursor: 'pointer' }}>
+            <Clock size={13} /> History ({history.length})
+          </button>
         </header>
-
-        <div className="flex-1 flex overflow-hidden">
-          {/* Chat Area */}
-          <div className="flex-1 flex flex-col">
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-8 space-y-4">
-              {messages.map((message, idx) => (
-                <div
-                  key={idx}
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                >
-                  <div
-                    className={`max-w-[70%] rounded-lg px-4 py-3 ${
-                      message.role === 'user'
-                        ? 'bg-[#A8C5B5] text-white'
-                        : 'bg-white border border-gray-200 text-gray-900'
-                    }`}
-                  >
-                    {message.isUploading ? (
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>{message.content}</span>
-                      </div>
-                    ) : (
-                      <div className="whitespace-pre-line text-sm">
-                        {message.content}
-                      </div>
-                    )}
+        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {messages.map((msg, i) => (
+                <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
+                  <div style={{ maxWidth: '72%', background: msg.role === 'user' ? P.ink : P.parchmentLight, color: msg.role === 'user' ? P.parchment : P.ink, border: `1px solid ${msg.role === 'user' ? 'transparent' : P.sand}`, padding: '12px 16px', fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, lineHeight: 1.65 }}>
+                    {msg.isUploading ? <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /><span>{msg.content}</span></div> : <div style={{ whiteSpace: 'pre-line' }}>{msg.content}</div>}
                   </div>
                 </div>
               ))}
               <div ref={chatEndRef} />
             </div>
-
-            {/* Input Area */}
-            <div className="border-t border-gray-200 bg-white p-6 flex-shrink-0">
-              <div className="flex gap-3">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleFileUpload}
-                  accept=".pdf"
-                  className="hidden"
-                  disabled={isProcessing}
-                />
-                <Button
-                  onClick={handleFileSelect}
-                  disabled={isProcessing}
-                  className="bg-[#A8C5B5] hover:bg-[#96B5A5] text-white flex items-center gap-2"
-                >
-                  <Upload className="h-4 w-4" />
-                  Upload PDF
-                </Button>
-                <Button
-                  onClick={clearChat}
-                  variant="outline"
-                  className="flex items-center gap-2"
-                >
-                  New Chat
-                </Button>
-                <div className="flex-1" />
-                <span className="text-xs text-gray-500 self-center">
-                  Powered by Gemma 3:1B (Local)
-                </span>
-              </div>
+            <div style={{ borderTop: `1px solid ${P.sand}`, background: P.parchmentLight, padding: '16px 32px', flexShrink: 0, display: 'flex', gap: 12, alignItems: 'center' }}>
+              <input type="file" ref={fileInputRef} onChange={upload} accept=".pdf" style={{ display: 'none' }} disabled={isProcessing} />
+              <button onClick={() => fileInputRef.current?.click()} disabled={isProcessing} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: P.inkMuted, color: P.parchmentLight, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.6 : 1, transition: 'background 0.15s' }}
+                onMouseEnter={e => { if (!isProcessing) (e.currentTarget as HTMLElement).style.background = P.vermillion; }}
+                onMouseLeave={e => { if (!isProcessing) (e.currentTarget as HTMLElement).style.background = P.ink; }}>
+                <Upload size={14} /> Upload PDF
+              </button>
+              <button onClick={() => setMessages([{ role: 'assistant', content: WELCOME }])} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: 'transparent', color: P.inkMuted, border: `1px solid ${P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 600, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer' }}>
+                New Chat
+              </button>
             </div>
           </div>
-
-          {/* History Sidebar */}
           {showHistory && (
-            <div className="w-80 border-l border-gray-200 bg-white overflow-y-auto">
-              <div className="p-4 border-b border-gray-200">
-                <h3 className="font-semibold text-gray-900">Summary History</h3>
-                <p className="text-xs text-gray-500 mt-1">
-                  {summaryHistory.length} document{summaryHistory.length !== 1 ? 's' : ''} processed
-                </p>
+            <div style={{ width: 280, borderLeft: `1px solid ${P.sand}`, background: P.parchmentLight, overflowY: 'auto', flexShrink: 0 }}>
+              <div style={{ padding: '16px 20px', borderBottom: `1px solid ${P.sand}` }}>
+                <h3 style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: P.ink, margin: 0 }}>Summary History</h3>
               </div>
-              <div className="p-4 space-y-3">
-                {summaryHistory.length === 0 ? (
-                  <div className="text-center py-8">
-                    <FileText className="h-12 w-12 text-gray-300 mx-auto mb-2" />
-                    <p className="text-sm text-gray-500">No summaries yet</p>
+              <div style={{ padding: '12px' }}>
+                {history.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px 12px' }}><FileText size={28} color={P.sand} strokeWidth={1} style={{ display: 'block', margin: '0 auto 10px' }} /><p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13, color: P.inkMuted }}>No summaries yet</p></div>
+                ) : history.map(s => (
+                  <div key={s.id} style={{ background: P.parchment, border: `1px solid ${P.sand}`, padding: '12px 14px', marginBottom: 8, cursor: 'pointer', transition: 'background 0.12s' }}
+                    onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = P.parchmentDark}
+                    onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = P.parchment}
+                    onClick={() => { setMessages(p => [...p, { role: 'user', content: `Show: ${s.originalFileName}` }, { role: 'assistant', content: fmt({ fileName: s.originalFileName, quickSummary: s.quickSummary, keyConcepts: s.keyConcepts, processingTime: s.processingTime }) }]); setShowHistory(false); }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 5, gap: 6 }}>
+                      <h4 style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 12, fontWeight: 700, color: P.ink, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{s.originalFileName}</h4>
+                      <button onClick={ev => { ev.stopPropagation(); if (!deletingId) void deleteHistoryItem(s.id); }} disabled={deletingId === s.id} style={{ background: 'none', border: 'none', cursor: deletingId === s.id ? 'default' : 'pointer', color: P.inkMuted, padding: 0, flexShrink: 0, opacity: deletingId === s.id ? 0.5 : 1 }}
+                        onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = P.vermillion)}
+                        onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = P.inkMuted)}>
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                    <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 11.5, color: P.inkMuted, margin: 0, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden' }}>{s.quickSummary}</p>
                   </div>
-                ) : (
-                  summaryHistory.map((summary) => (
-                    <Card
-                      key={summary.id}
-                      className="border border-gray-200 hover:shadow-md transition-shadow cursor-pointer"
-                      onClick={() => loadSummaryFromHistory(summary)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-start justify-between gap-2 mb-2">
-                          <div className="flex items-start gap-2 flex-1 min-w-0">
-                            <FileText className="h-4 w-4 text-[#A8C5B5] flex-shrink-0 mt-0.5" />
-                            <h4 className="text-sm font-medium text-gray-900 truncate">
-                              {summary.originalFileName}
-                            </h4>
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              deleteSummary(summary.id);
-                            }}
-                            className="text-gray-400 hover:text-red-500 flex-shrink-0"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                        <p className="text-xs text-gray-600 line-clamp-2 mb-2">
-                          {summary.quickSummary}
-                        </p>
-                        <div className="flex items-center justify-between text-xs text-gray-400">
-                          <span>{new Date(summary.createdAt).toLocaleDateString()}</span>
-                          {summary.keyConcepts?.concepts && (
-                            <span>{summary.keyConcepts.concepts.length} concepts</span>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
-                )}
+                ))}
               </div>
             </div>
           )}
         </div>
       </main>
+      <LogoutConfirmDialog isOpen={logoutConfirm.isOpen} onConfirm={logoutConfirm.onConfirm} onCancel={logoutConfirm.onCancel} isLoading={logoutConfirm.isLoading} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

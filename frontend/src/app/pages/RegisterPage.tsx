@@ -1,489 +1,299 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Label } from "../components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { useAuth } from "../../context/AuthContext";
 import { FieldError } from "../components/FieldValidation";
-import { PasswordStrengthIndicator } from "../components/PasswordStrengthIndicator";
-import { Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
+import { Eye, EyeOff, BookOpen } from "lucide-react";
 import {
-  validateUsername,
-  validateEmail,
-  validateFullName,
-  validatePassword,
-  validatePasswordMatch,
-  validateCollegeSelection,
-  sanitizeUsername,
-  sanitizeFullName,
+  validateUsername, validateEmail, validateFullName, validatePassword,
+  validatePasswordMatch, validateCollegeSelection, sanitizeUsername, sanitizeFullName,
 } from "../../utils/validators";
+
+const inkInput: React.CSSProperties = {
+  width: "100%",
+  padding: "12px 14px",
+  fontFamily: "'Lora', Georgia, serif",
+  fontSize: 15,
+  color: "#1C1208",
+  background: "#FAF7F0",
+  border: "none",
+  borderBottom: "2px solid #D4C5A9",
+  outline: "none",
+  transition: "border-color 0.15s",
+  boxSizing: "border-box",
+};
+
+const inkLabel: React.CSSProperties = {
+  fontFamily: "'Barlow Semi Condensed', sans-serif",
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: "0.1em",
+  textTransform: "uppercase" as const,
+  color: "#3D2E18",
+  display: "block",
+  marginBottom: 8,
+};
 
 export function RegisterPage() {
   const navigate = useNavigate();
   const { register } = useAuth();
-  
   const [colleges, setColleges] = useState<any[]>([]);
-  const [formData, setFormData] = useState({
-    collegeId: "",
-    username: "",
-    fullName: "",
-    email: "",
-    password: "",
-    confirmPassword: ""
-  });
-  
-  // Field-level validation errors
-  const [fieldErrors, setFieldErrors] = useState({
-    collegeId: "",
-    username: "",
-    fullName: "",
-    email: "",
-    password: "",
-    confirmPassword: ""
-  });
-  
-  // Touched fields (to show errors only after user interaction)
-  const [touched, setTouched] = useState({
-    collegeId: false,
-    username: false,
-    fullName: false,
-    email: false,
-    password: false,
-    confirmPassword: false
-  });
-  
+  const [formData, setFormData] = useState({ collegeId: "", username: "", fullName: "", email: "", password: "", confirmPassword: "" });
+  const [fieldErrors, setFieldErrors] = useState({ collegeId: "", username: "", fullName: "", email: "", password: "", confirmPassword: "" });
+  const [touched, setTouched] = useState({ collegeId: false, username: false, fullName: false, email: false, password: false, confirmPassword: false });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showPasswords, setShowPasswords] = useState({
-    password: false,
-    confirmPassword: false
-  });
+  const [showPasswords, setShowPasswords] = useState({ password: false, confirmPassword: false });
+  const validationOrder: Array<keyof typeof fieldErrors> = ["collegeId", "username", "fullName", "email", "password", "confirmPassword"];
 
-  // Fetch colleges on mount
   useEffect(() => {
     fetchColleges();
-    // Clear all fields on mount to prevent autofill
-    setFormData({
-      collegeId: "",
-      username: "",
-      fullName: "",
-      email: "",
-      password: "",
-      confirmPassword: ""
-    });
-    
-    // Force clear after a small delay to override browser autofill
-    const timer = setTimeout(() => {
-      setFormData({
-        collegeId: "",
-        username: "",
-        fullName: "",
-        email: "",
-        password: "",
-        confirmPassword: ""
+    const blank = { collegeId: "", username: "", fullName: "", email: "", password: "", confirmPassword: "" };
+    setFormData(blank);
+    const t = setTimeout(() => {
+      setFormData(blank);
+      ["email","password","confirmPassword","username","fullName"].forEach(id => {
+        const el = document.getElementById(id) as HTMLInputElement;
+        if (el) el.value = "";
       });
-      // Also clear the input elements directly
-      const emailInput = document.getElementById("email") as HTMLInputElement;
-      const passwordInput = document.getElementById("password") as HTMLInputElement;
-      const confirmPasswordInput = document.getElementById("confirmPassword") as HTMLInputElement;
-      const usernameInput = document.getElementById("username") as HTMLInputElement;
-      const fullNameInput = document.getElementById("fullName") as HTMLInputElement;
-      
-      if (emailInput) emailInput.value = "";
-      if (passwordInput) passwordInput.value = "";
-      if (confirmPasswordInput) confirmPasswordInput.value = "";
-      if (usernameInput) usernameInput.value = "";
-      if (fullNameInput) fullNameInput.value = "";
     }, 0);
-    
-    return () => clearTimeout(timer);
+    return () => clearTimeout(t);
   }, []);
 
   const fetchColleges = async () => {
     try {
-      console.log('Fetching colleges from:', 'http://localhost:5000/api/colleges/public');
-      const response = await fetch('http://localhost:5000/api/colleges/public');
-      console.log('Response status:', response.status);
-      
-      if (!response.ok) {
-        console.error('Failed to fetch colleges:', response.statusText);
-        setError('Failed to load colleges. Please refresh the page.');
-        return;
-      }
-      
-      const data = await response.json();
-      console.log('Colleges data:', data);
-      
-      if (data.success && data.data) {
-        // Data is already filtered by backend to only active colleges
-        setColleges(data.data);
-        console.log('Loaded colleges:', data.data.length);
-      } else {
-        setError('No colleges available. Please contact support.');
-      }
-    } catch (error) {
-      console.error('Failed to fetch colleges:', error);
-      setError('Unable to connect to server. Please check if the backend is running.');
-    }
+      const res = await fetch("http://localhost:5000/api/colleges/public");
+      if (!res.ok) { setError("Failed to load colleges."); return; }
+      const data = await res.json();
+      if (data.success && data.data) setColleges(data.data);
+      else setError("No colleges available.");
+    } catch { setError("Unable to connect to server."); }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
-
-    // Mark all fields as touched
-    setTouched({
-      collegeId: true,
-      username: true,
-      fullName: true,
-      email: true,
-      password: true,
-      confirmPassword: true
-    });
-
-    // Validate all fields
-    const newErrors: typeof fieldErrors = {
-      collegeId: "",
-      username: "",
-      fullName: "",
-      email: "",
-      password: "",
-      confirmPassword: ""
-    };
-
-    // Validate college
-    const collegeValidation = validateCollegeSelection(formData.collegeId);
-    if (!collegeValidation.valid) {
-      newErrors.collegeId = collegeValidation.error || "Invalid college";
-    }
-
-    // Validate username
-    const usernameValidation = validateUsername(formData.username);
-    if (!usernameValidation.valid) {
-      newErrors.username = usernameValidation.error || "Invalid username";
-    }
-
-    // Validate full name
-    const fullNameValidation = validateFullName(formData.fullName);
-    if (!fullNameValidation.valid) {
-      newErrors.fullName = fullNameValidation.error || "Invalid full name";
-    }
-
-    // Validate email
-    const emailValidation = validateEmail(formData.email);
-    if (!emailValidation.valid) {
-      newErrors.email = emailValidation.error || "Invalid email";
-    }
-
-    // Validate password
-    const passwordValidation = validatePassword(formData.password);
-    if (!passwordValidation.valid) {
-      newErrors.password = passwordValidation.errors[0] || "Invalid password";
-    }
-
-    // Validate password match
-    const passwordMatchValidation = validatePasswordMatch(formData.password, formData.confirmPassword);
-    if (!passwordMatchValidation.valid) {
-      newErrors.confirmPassword = passwordMatchValidation.error || "Passwords do not match";
-    }
-
+    e.preventDefault(); setError("");
+    setTouched({ collegeId: true, username: true, fullName: true, email: true, password: true, confirmPassword: true });
+    const newErrors = { collegeId: "", username: "", fullName: "", email: "", password: "", confirmPassword: "" };
+    const cv = validateCollegeSelection(formData.collegeId); if (!cv.valid) newErrors.collegeId = cv.error || "Required";
+    const uv = validateUsername(formData.username); if (!uv.valid) newErrors.username = uv.error || "Invalid";
+    const fv = validateFullName(formData.fullName); if (!fv.valid) newErrors.fullName = fv.error || "Invalid";
+    const ev = validateEmail(formData.email); if (!ev.valid) newErrors.email = ev.error || "Invalid";
+    const pv = validatePassword(formData.password); if (!pv.valid) newErrors.password = pv.errors[0] || "Invalid";
+    const pmv = validatePasswordMatch(formData.password, formData.confirmPassword); if (!pmv.valid) newErrors.confirmPassword = pmv.error || "Mismatch";
     setFieldErrors(newErrors);
-
-    // If there are any validation errors, show them
-    if (Object.values(newErrors).some(err => err !== "")) {
+    const firstError = validationOrder.map((key) => newErrors[key]).find(Boolean);
+    if (firstError) {
+      toast.error(firstError);
       return;
     }
-
     setLoading(true);
-
-    // Split full name into first and last name
-    const nameParts = formData.fullName.trim().split(" ");
-    const firstName = nameParts[0] || "";
-    const lastName = nameParts.slice(1).join(" ") || "";
-
-    const result = await register({
-      username: formData.username.trim(),
-      email: formData.email.trim(),
-      password: formData.password,
-      first_name: firstName,
-      last_name: lastName,
-      collegeId: parseInt(formData.collegeId)
-    });
-    
+    const parts = formData.fullName.trim().split(" ");
+    const result = await register({ username: formData.username.trim(), email: formData.email.trim(), password: formData.password, first_name: parts[0] || "", last_name: parts.slice(1).join(" ") || "", collegeId: parseInt(formData.collegeId) });
     setLoading(false);
-    
-    if (result.success) {
-      // Navigate to OTP verification page
-      navigate("/verify-otp", { 
-        state: { 
-          email: formData.email,
-          purpose: "REGISTER"
-        } 
-      });
-    } else {
-      setError(result.error || "Registration failed");
+    if (result.success) navigate("/verify-otp", { state: { email: formData.email, purpose: "REGISTER" } });
+    else {
+      const message = result.error || "Registration failed";
+      setError(message);
+      toast.error(message);
     }
   };
 
   const updateField = (field: string, value: string) => {
-    let sanitizedValue = value;
-    
-    // Sanitize username - only letters and underscores
-    if (field === "username") {
-      sanitizedValue = sanitizeUsername(value);
-    }
-    
-    // Sanitize full name - only letters, spaces, hyphens, apostrophes
-    if (field === "fullName") {
-      sanitizedValue = sanitizeFullName(value);
-    }
-    
-    setFormData(prev => ({ ...prev, [field]: sanitizedValue }));
-    
-    // Validate field in real-time (only if touched)
-    if (touched[field as keyof typeof touched]) {
-      validateField(field, sanitizedValue);
-    }
+    let v = value;
+    if (field === "username") v = sanitizeUsername(value);
+    if (field === "fullName") v = sanitizeFullName(value);
+    setFormData(p => ({ ...p, [field]: v }));
+    if (touched[field as keyof typeof touched]) validateFieldFn(field, v);
   };
 
-  const validateField = (fieldName: string, value: string) => {
-    let error = "";
-
-    switch (fieldName) {
-      case "username":
-        const usernameValidation = validateUsername(value);
-        error = usernameValidation.error || "";
-        break;
-      case "fullName":
-        const fullNameValidation = validateFullName(value);
-        error = fullNameValidation.error || "";
-        break;
-      case "email":
-        const emailValidation = validateEmail(value);
-        error = emailValidation.error || "";
-        break;
-      case "password":
-        const passwordValidation = validatePassword(value);
-        error = passwordValidation.errors[0] || "";
-        break;
-      case "confirmPassword":
-        const passwordMatchValidation = validatePasswordMatch(formData.password, value);
-        error = passwordMatchValidation.error || "";
-        break;
-      case "collegeId":
-        const collegeValidation = validateCollegeSelection(value);
-        error = collegeValidation.error || "";
-        break;
-      default:
-        break;
-    }
-
-    setFieldErrors(prev => ({ ...prev, [fieldName]: error }));
+  const validateFieldFn = (name: string, value: string) => {
+    let err = "";
+    if (name === "username") { const r = validateUsername(value); err = r.error || ""; }
+    else if (name === "fullName") { const r = validateFullName(value); err = r.error || ""; }
+    else if (name === "email") { const r = validateEmail(value); err = r.error || ""; }
+    else if (name === "password") { const r = validatePassword(value); err = r.errors[0] || ""; }
+    else if (name === "confirmPassword") { const r = validatePasswordMatch(formData.password, value); err = r.error || ""; }
+    else if (name === "collegeId") { const r = validateCollegeSelection(value); err = r.error || ""; }
+    setFieldErrors(p => ({ ...p, [name]: err }));
   };
 
-  const handleFieldBlur = (fieldName: string) => {
-    setTouched(prev => ({ ...prev, [fieldName]: true }));
-    validateField(fieldName, formData[fieldName as keyof typeof formData]);
+  const handleBlur = (name: string) => {
+    setTouched(p => ({ ...p, [name]: true }));
+    validateFieldFn(name, formData[name as keyof typeof formData]);
   };
+
+  const fields = [
+    { id: "username", label: "Username", placeholder: "john_doe", type: "text" },
+    { id: "fullName", label: "Full Name", placeholder: "Jane Smith", type: "text" },
+    { id: "email", label: "Email Address", placeholder: "your.email@example.com", type: "email" },
+    { id: "password", label: "Password", placeholder: "••••••••", type: "password" },
+    { id: "confirmPassword", label: "Confirm Password", placeholder: "••••••••", type: "password" },
+  ];
 
   return (
-    <div className="min-h-screen bg-accent flex flex-col">
-      {/* Header */}
-      <div className="py-6 px-6">
-        <Link to="/" className="text-2xl font-semibold text-white">
-          LearnBox
+    <div style={{ minHeight: "100vh", background: "#F5F0E8", display: "flex", flexDirection: "column", fontFamily: "'Lora', Georgia, serif" }}>
+      {/* Top bar */}
+      <div style={{ background: "#FAF7F0", borderBottom: "2px solid #1C1208", padding: "0 40px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <Link to="/" style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+          <BookOpen size={18} color="#C0392B" strokeWidth={2} />
+          <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: 20, color: "#1C1208" }}>LearnBox</span>
         </Link>
+        <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "#7A6A52" }}>Student Registration</span>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center px-4 pb-12">
-        <div className="w-full max-w-md bg-white rounded-3xl p-8 shadow-lg">
-          {/* College Selection */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2">Student Registration</h1>
-            <p className="text-sm text-muted-foreground mb-4">
-              Register as a student. Only students can register publicly.
-            </p>
-            <Label htmlFor="college" className="text-sm font-semibold mb-2 block">Select your college *</Label>
-            <Select 
-              value={formData.collegeId} 
-              onValueChange={(val) => {
-                updateField("collegeId", val);
-                setTouched(prev => ({ ...prev, collegeId: true }));
-              }}
-            >
-              <SelectTrigger className={`w-full bg-input-background border-0 rounded-xl py-6 ${
-                touched.collegeId && fieldErrors.collegeId ? "border-2 border-red-500" : ""
-              }`}>
-                <SelectValue placeholder="Choose your academic institution.." />
-              </SelectTrigger>
-              <SelectContent>
-                {colleges.length === 0 ? (
-                  <SelectItem value="loading" disabled>Loading colleges...</SelectItem>
-                ) : (
-                  colleges.map((college) => (
-                    <SelectItem key={college.id} value={college.id.toString()}>
-                      {college.name} ({college.code})
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-            {touched.collegeId && fieldErrors.collegeId && (
-              <FieldError error={fieldErrors.collegeId} />
-            )}
-          </div>
-
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4">
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
-            <div className="space-y-2">
-              <Label htmlFor="username" className="text-sm font-semibold">Username *</Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="john_doe (letters and underscores only)"
-                value={formData.username}
-                onChange={(e) => updateField("username", e.target.value)}
-                onBlur={() => handleFieldBlur("username")}
-                autoComplete="off"
-                className={`bg-input-background border-0 rounded-xl py-6 ${
-                  touched.username && fieldErrors.username ? "border-2 border-red-500" : ""
-                }`}
-                required
-              />
-              {touched.username && fieldErrors.username && (
-                <FieldError error={fieldErrors.username} />
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="fullName" className="text-sm font-semibold">Full Name *</Label>
-              <Input
-                id="fullName"
-                type="text"
-                placeholder="enter your full name"
-                value={formData.fullName}
-                onChange={(e) => updateField("fullName", e.target.value)}
-                onBlur={() => handleFieldBlur("fullName")}
-                autoComplete="off"
-                className={`bg-input-background border-0 rounded-xl py-6 ${
-                  touched.fullName && fieldErrors.fullName ? "border-2 border-red-500" : ""
-                }`}
-                required
-              />
-              {touched.fullName && fieldErrors.fullName && (
-                <FieldError error={fieldErrors.fullName} />
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-semibold">Email *</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="your.email@example.com"
-                value={formData.email}
-                onChange={(e) => updateField("email", e.target.value)}
-                onBlur={() => handleFieldBlur("email")}
-                autoComplete="off"
-                className={`bg-input-background border-0 rounded-xl py-6 ${
-                  touched.email && fieldErrors.email ? "border-2 border-red-500" : ""
-                }`}
-                required
-              />
-              {touched.email && fieldErrors.email && (
-                <FieldError error={fieldErrors.email} />
-              )}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-semibold">Password *</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPasswords.password ? "text" : "password"}
-                  placeholder="password"
-                  value={formData.password}
-                  onChange={(e) => updateField("password", e.target.value)}
-                  onBlur={() => handleFieldBlur("password")}
-                  autoComplete="new-password"
-                  className={`bg-input-background border-0 rounded-xl py-6 pr-10 ${
-                    touched.password && fieldErrors.password ? "border-2 border-red-500" : ""
-                  }`}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPasswords({ ...showPasswords, password: !showPasswords.password })}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  {showPasswords.password ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+      <div style={{ flex: 1, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "48px 24px" }}>
+        <div style={{ width: "100%", maxWidth: 480 }}>
+          <div style={{ background: "#FAF7F0", border: "1px solid #D4C5A9", borderTop: "3px solid #1C1208" }}>
+            {/* Header */}
+            <div style={{ borderBottom: "1px solid #D4C5A9", padding: "24px 32px 20px" }}>
+              <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: "#C0392B", marginBottom: 6 }}>
+                Create Account
               </div>
-              {touched.password && fieldErrors.password && (
-                <FieldError error={fieldErrors.password} />
-              )}
+              <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 800, color: "#1C1208", margin: 0, letterSpacing: "-0.02em" }}>
+                Student Registration
+              </h1>
+              <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, color: "#7A6A52", marginTop: 6, lineHeight: 1.6 }}>
+                Only students can register publicly. College admins are invited by administrators.
+              </p>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-sm font-semibold">Confirm Password *</Label>
-              <div className="relative">
-                <Input
-                  id="confirmPassword"
-                  type={showPasswords.confirmPassword ? "text" : "password"}
-                  placeholder="confirm password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => updateField("confirmPassword", e.target.value)}
-                  onBlur={() => handleFieldBlur("confirmPassword")}
-                  autoComplete="new-password"
-                  className={`bg-input-background border-0 rounded-xl py-6 pr-10 ${
-                    touched.confirmPassword && fieldErrors.confirmPassword ? "border-2 border-red-500" : ""
-                  }`}
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPasswords({ ...showPasswords, confirmPassword: !showPasswords.confirmPassword })}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                >
-                  {showPasswords.confirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+            <div style={{ padding: "28px 32px 32px" }}>
+              {/* College */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={inkLabel}>Select College *</label>
+                <Select value={formData.collegeId} onValueChange={(v) => { updateField("collegeId", v); setTouched(p => ({ ...p, collegeId: true })); }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose your academic institution…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {colleges.length === 0
+                      ? <SelectItem value="loading" disabled>Loading colleges…</SelectItem>
+                      : colleges.map(c => <SelectItem key={c.id} value={c.id.toString()}>{c.name} ({c.code})</SelectItem>)
+                    }
+                  </SelectContent>
+                </Select>
+                {touched.collegeId && fieldErrors.collegeId && <FieldError error={fieldErrors.collegeId} />}
               </div>
-              {touched.confirmPassword && fieldErrors.confirmPassword && (
-                <FieldError error={fieldErrors.confirmPassword} />
+
+              <div style={{ borderTop: "1px solid #D4C5A9", marginBottom: 20 }} />
+
+              {error && (
+                <div style={{ background: "#F5E6E4", borderLeft: "3px solid #C0392B", padding: "10px 14px", marginBottom: 20, fontFamily: "'Lora', Georgia, serif", fontSize: 13, color: "#7A1C10" }}>
+                  {error}
+                </div>
               )}
+
+              <form onSubmit={handleSubmit} autoComplete="off" noValidate style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                <input type="text" name="auth_username" autoComplete="username" tabIndex={-1} aria-hidden="true" style={{ position: "absolute", opacity: 0, pointerEvents: "none", height: 0, width: 0 }} />
+                <input type="password" name="auth_password" autoComplete="current-password" tabIndex={-1} aria-hidden="true" style={{ position: "absolute", opacity: 0, pointerEvents: "none", height: 0, width: 0 }} />
+                {fields.map(({ id, label, placeholder, type }) => {
+                  const isPassword = type === "password";
+                  const showToggle = id === "password" ? showPasswords.password : showPasswords.confirmPassword;
+                  const actualType = isPassword ? (showToggle ? "text" : "password") : type;
+                  const hasError = touched[id as keyof typeof touched] && fieldErrors[id as keyof typeof fieldErrors];
+                  return (
+                    <div key={id}>
+                      <label style={inkLabel}>{label} *</label>
+                      <div style={{ position: "relative" }}>
+                        <input
+                          id={id}
+                          type={actualType}
+                          placeholder={placeholder}
+                          name={`register-${id}`}
+                          value={formData[id as keyof typeof formData]}
+                          onChange={(e) => updateField(id, e.target.value)}
+                          autoComplete={id === "password" || id === "confirmPassword" ? "new-password" : "off"}
+                          readOnly
+                          style={{
+                            ...inkInput,
+                            paddingRight: isPassword ? 44 : 14,
+                            borderBottomColor: hasError ? "#C0392B" : "#D4C5A9",
+                          }}
+                          onFocus={(e) => {
+                            e.currentTarget.removeAttribute("readonly");
+                            e.target.style.borderBottomColor = "#1C1208";
+                          }}
+                          onBlur={(e) => {
+                            handleBlur(id);
+                            const currentValue = e.target.value;
+                            let nextError = "";
+                            if (id === "username") nextError = validateUsername(currentValue).error || "";
+                            else if (id === "fullName") nextError = validateFullName(currentValue).error || "";
+                            else if (id === "email") nextError = validateEmail(currentValue).error || "";
+                            else if (id === "password") nextError = validatePassword(currentValue).errors[0] || "";
+                            else if (id === "confirmPassword") nextError = validatePasswordMatch(formData.password, currentValue).error || "";
+                            e.target.style.borderBottomColor = nextError ? "#C0392B" : "#D4C5A9";
+                          }}
+                        />
+                        {isPassword && (
+                          <button
+                            type="button"
+                            onClick={() => setShowPasswords(p => ({ ...p, [id]: !p[id as keyof typeof p] }))}
+                            style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "#7A6A52", padding: 0, display: "flex" }}
+                          >
+                            {showToggle ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        )}
+                      </div>
+                      {touched[id as keyof typeof touched] && fieldErrors[id as keyof typeof fieldErrors] && (
+                        <FieldError error={fieldErrors[id as keyof typeof fieldErrors]} />
+                      )}
+                    </div>
+                  );
+                })}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  style={{
+                    marginTop: 8,
+                    width: "100%",
+                    padding: "14px",
+                    fontFamily: "'Barlow Semi Condensed', sans-serif",
+                    fontWeight: 700,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    fontSize: 14,
+                    background: loading ? "#D4C5A9" : "#1C1208",
+                    color: "#FAF7F0",
+                    border: "none",
+                    cursor: loading ? "not-allowed" : "pointer",
+                    transition: "background 0.15s",
+                  }}
+                  onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLElement).style.background = "#C0392B"; }}
+                  onMouseLeave={(e) => { if (!loading) (e.currentTarget as HTMLElement).style.background = "#1C1208"; }}
+                >
+                  {loading ? "Creating Account…" : "Create Account"}
+                </button>
+              </form>
+
+              <div style={{ borderTop: "1px solid #D4C5A9", margin: "24px 0" }} />
+              <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13, color: "#7A6A52", textAlign: "center", margin: 0 }}>
+                Already have an account?{" "}
+                <Link to="/login" style={{ color: "#C0392B", fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, letterSpacing: "0.04em", textDecoration: "none" }}
+                  onMouseEnter={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = "underline")}
+                  onMouseLeave={(e) => ((e.currentTarget as HTMLElement).style.textDecoration = "none")}
+                >
+                  Sign In
+                </Link>
+              </p>
+
+              {/* Security note */}
+              <div style={{ marginTop: 16, background: "#EDE5D4", border: "1px solid #D4C5A9", padding: "12px 16px" }}>
+                <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 12, color: "#7A6A52", margin: 0, lineHeight: 1.6 }}>
+                  🔒 <strong style={{ color: "#3D2E18" }}>Secure Registration:</strong> Only students may register publicly. Role assignment is controlled server‑side for security.
+                </p>
+              </div>
             </div>
-
-            <Button
-              type="submit"
-              className="w-full bg-primary text-primary-foreground rounded-xl py-6 text-base font-semibold hover:bg-primary/90"
-              disabled={loading}
-            >
-              {loading ? "Creating Account..." : "Create Account"}
-            </Button>
-          </form>
-
-          <div className="mt-6 text-center text-sm">
-            <span className="text-muted-foreground">Already have an account? </span>
-            <Link to="/login" className="text-primary font-semibold hover:underline">
-              Sign In
-            </Link>
-          </div>
-
-          {/* Security Notice */}
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-            <p className="text-xs text-blue-800">
-              <strong>🔒 Secure Registration:</strong> Only students can register publicly. 
-              College admins are created by super admins. Role assignment is controlled server-side for security.
-            </p>
           </div>
         </div>
+      </div>
+
+      <div style={{ borderTop: "1px solid #D4C5A9", padding: "16px 40px", background: "#EDE5D4", textAlign: "center" }}>
+        <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, letterSpacing: "0.06em", textTransform: "uppercase", color: "#7A6A52", margin: 0 }}>
+          © 2025 LearnBox. All rights reserved.
+        </p>
       </div>
     </div>
   );

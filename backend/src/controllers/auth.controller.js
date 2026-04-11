@@ -573,7 +573,8 @@ export const login = async (req, res) => {
             if (!user) {
                 return res.status(HTTP_STATUS.UNAUTHORIZED).json({ 
                     success: false,
-                    error: 'Incorrect password or email. Please try again.'
+                    error: 'No account found with this email. Please register to create a new account or check if you used a different email.',
+                    needsRegistration: true
                 });
             }
 
@@ -581,7 +582,7 @@ export const login = async (req, res) => {
             if (user.isActive === false) {
                 return res.status(HTTP_STATUS.FORBIDDEN).json({
                     success: false,
-                    error: 'Your account has been deactivated. Please contact support for assistance.'
+                    error: 'Your account has been terminated by the system administrator. Please contact support if you believe this is an error.'
                 });
             }
 

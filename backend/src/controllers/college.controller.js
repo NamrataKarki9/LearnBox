@@ -121,7 +121,7 @@ export const getCollegeById = async (req, res) => {
  */
 export const createCollege = async (req, res) => {
     try {
-        const { name, code, location, description, isActive = true } = req.body;
+        const { name, code, location, description, address, email, contactNumber, isActive = true } = req.body;
 
         // Validate required fields
         if (!name || !code) {
@@ -147,6 +147,9 @@ export const createCollege = async (req, res) => {
                 code: code.toUpperCase(),
                 location,
                 description,
+                address,
+                email,
+                contactNumber,
                 isActive
             }
         });
@@ -180,7 +183,7 @@ export const createCollege = async (req, res) => {
 export const updateCollege = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, code, location, description, isActive } = req.body;
+        const { name, code, location, description, address, email, contactNumber, isActive } = req.body;
 
         // Check if college exists
         const existingCollege = await prisma.college.findUnique({
@@ -198,6 +201,9 @@ export const updateCollege = async (req, res) => {
         if (code !== undefined) updateData.code = code.toUpperCase();
         if (location !== undefined) updateData.location = location;
         if (description !== undefined) updateData.description = description;
+        if (address !== undefined) updateData.address = address;
+        if (email !== undefined) updateData.email = email;
+        if (contactNumber !== undefined) updateData.contactNumber = contactNumber;
         if (isActive !== undefined) updateData.isActive = isActive;
 
         const college = await prisma.college.update({
@@ -264,7 +270,13 @@ export const deleteCollege = async (req, res) => {
                     const userIds = collegUsers.map(u => u.id);
                     console.log(`Found ${userIds.length} users to delete`);
 
-                    // 2. Delete MCQ Attempts (references users and MCQs)
+                    // 2. Delete College Admin Invitations
+                    const deletedInvitations = await tx.collegeAdminInvitation.deleteMany({
+                        where: { collegeId }
+                    });
+                    console.log(`✓ Deleted ${deletedInvitations.count} college admin invitations`);
+
+                    // 3. Delete MCQ Attempts (references users and MCQs)
                     if (userIds.length > 0) {
                         const deletedAttempts = await tx.mCQAttempt.deleteMany({
                             where: { studentId: { in: userIds } }
@@ -272,7 +284,7 @@ export const deleteCollege = async (req, res) => {
                         console.log(`✓ Deleted ${deletedAttempts.count} MCQ attempts`);
                     }
 
-                    // 3. Delete Progress records (references users)
+                    // 4. Delete Progress records (references users)
                     if (userIds.length > 0) {
                         const deletedProgress = await tx.progress.deleteMany({
                             where: { studentId: { in: userIds } }
@@ -280,7 +292,7 @@ export const deleteCollege = async (req, res) => {
                         console.log(`✓ Deleted ${deletedProgress.count} progress records`);
                     }
 
-                    // 4. Delete Performance Analytics (references users)
+                    // 5. Delete Performance Analytics (references users)
                     if (userIds.length > 0) {
                         const deletedAnalytics = await tx.performanceAnalytics.deleteMany({
                             where: { studentId: { in: userIds } }
@@ -288,7 +300,7 @@ export const deleteCollege = async (req, res) => {
                         console.log(`✓ Deleted ${deletedAnalytics.count} performance analytics`);
                     }
 
-                    // 5. Delete Document Summaries (references users)
+                    // 6. Delete Document Summaries (references users)
                     if (userIds.length > 0) {
                         const deletedSummaries = await tx.documentSummary.deleteMany({
                             where: { userId: { in: userIds } }
@@ -296,16 +308,9 @@ export const deleteCollege = async (req, res) => {
                         console.log(`✓ Deleted ${deletedSummaries.count} document summaries`);
                     }
 
-                    // 6. Delete Quiz Sessions
+                    // 7. Delete Quiz Sessions
                     const deletedSessions = await tx.quizSession.deleteMany({ where: { collegeId } });
                     console.log(`✓ Deleted ${deletedSessions.count} quiz sessions`);
-
-                    // 7. Delete SetMCQ entries (junction table - has cascade delete)
-                    // But manually delete them first to be safe
-                    const deletedSetMCQ = await tx.setMCQ.deleteMany({
-                        where: { set: { collegeId } }
-                    });
-                    console.log(`✓ Deleted ${deletedSetMCQ.count} set-MCQ mappings`);
 
                     // 8. Delete MCQs
                     const deletedMCQs = await tx.mCQ.deleteMany({ where: { collegeId } });

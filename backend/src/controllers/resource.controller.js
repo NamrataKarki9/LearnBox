@@ -8,6 +8,7 @@ import { HTTP_STATUS, ERROR_MESSAGES } from '../constants/errors.js';
 import { ROLES } from '../constants/roles.js';
 import { uploadToCloudinary, deleteFromCloudinary } from '../config/cloudinary.config.js';
 import { vectorizeResource, revectorizeResource, devectorizeResource } from '../services/vectorization.service.js';
+import { logAuditAction } from '../services/audit-log.service.js';
 import fs from 'fs';
 import { promisify } from 'util';
 import https from 'https';
@@ -194,6 +195,18 @@ export const uploadResource = async (req, res) => {
         vectorizeResource(resource).catch(err => {
             console.error('⚠️  Background vectorization failed for resource', resource.id, ':', err.message);
             // Vectorization failure doesn't affect the upload success
+        });
+
+        // Log audit action
+        await logAuditAction({
+            userId: req.user.id,
+            collegeId: collegeId,
+            actionType: 'CREATE',
+            entityType: 'RESOURCE',
+            entityId: resource.id,
+            entityName: resource.title,
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
         });
 
         res.status(HTTP_STATUS.CREATED).json({
@@ -503,6 +516,22 @@ export const updateResource = async (req, res) => {
             });
         }
 
+        // Log audit action
+        await logAuditAction({
+            userId: req.user.id,
+            collegeId: resource.collegeId,
+            actionType: 'UPDATE',
+            entityType: 'RESOURCE',
+            entityId: resource.id,
+            entityName: resource.title,
+            changes: {
+                before: existingResource,
+                after: resource
+            },
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
+        });
+
         res.status(HTTP_STATUS.OK).json({
             success: true,
             message: 'Resource updated successfully',
@@ -550,6 +579,18 @@ export const deleteResource = async (req, res) => {
 
         await prisma.resource.delete({
             where: { id: parseInt(id) }
+        });
+
+        // Log audit action
+        await logAuditAction({
+            userId: req.user.id,
+            collegeId: existingResource.collegeId,
+            actionType: 'DELETE',
+            entityType: 'RESOURCE',
+            entityId: existingResource.id,
+            entityName: existingResource.title,
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
         });
 
         res.status(HTTP_STATUS.OK).json({

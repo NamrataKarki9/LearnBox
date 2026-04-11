@@ -1,571 +1,255 @@
+/**
+ * Super Admin Settings Page — Paper & Ink Theme
+ */
+
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Textarea } from '../components/ui/textarea';
-import { Switch } from '../components/ui/switch';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Badge } from '../components/ui/badge';
-import { Separator } from '../components/ui/separator';
-import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar';
-import { ArrowLeft, Bell, Camera, CheckCircle, FileText, Globe, Lock, LogOut, Mail, Monitor, Moon, Palette, Phone, Save, Settings, Shield, Sun, User } from 'lucide-react';
+import { User, Lock, Palette, Camera, Save, Eye, EyeOff, AlertCircle, Sun, Moon } from 'lucide-react';
 import { authAPI } from '../../services/api';
 import { toast } from 'sonner';
+import { applyAdminTheme, getStoredAdminTheme, saveAdminTheme, type AdminTheme } from '../../utils/theme';
 
-type ThemeMode = 'light' | 'dark' | 'system';
-
-const applyTheme = (theme: ThemeMode) => {
-  const root = document.documentElement;
-  if (theme === 'dark') return root.classList.add('dark');
-  if (theme === 'light') return root.classList.remove('dark');
-  if (window.matchMedia('(prefers-color-scheme: dark)').matches) root.classList.add('dark');
-  else root.classList.remove('dark');
-};
+import { P } from '../../constants/theme';
 
 export default function SuperAdminSettingsPage() {
-  const { user, logout, updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const navigate = useNavigate();
 
-  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'notifications' | 'preferences'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'security' | 'preferences'>('profile');
+  const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [showPasswordFields, setShowPasswordFields] = useState({ currentPassword: false, newPassword: false, confirmPassword: false });
+  const [themeMode, setThemeMode] = useState<AdminTheme>(() => getStoredAdminTheme());
 
-  const [profile, setProfile] = useState({
-    first_name: (user as any)?.first_name || '',
-    last_name: (user as any)?.last_name || '',
-    username: user?.username || '',
-    email: user?.email || '',
-    phone: (user as any)?.phone || '',
-    bio: (user as any)?.bio || '',
-    avatar: (user as any)?.avatar || '',
-  });
+  const [profile, setProfile] = useState({ first_name: (user as any)?.first_name || '', last_name: (user as any)?.last_name || '', username: user?.username || '', email: user?.email || '', phone: (user as any)?.phone || '', bio: (user as any)?.bio || '', avatar: (user as any)?.avatar || '' });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [preferences, setPreferences] = useState({ theme: 'system', language: 'en' });
 
-  const [passwordForm, setPasswordForm] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: '',
-  });
-
-  const [notifications, setNotifications] = useState({
-    emailNotifications: true,
-    collegeUpdates: true,
-    userRegistrations: true,
-    systemAnnouncements: true,
-    weeklyReport: false,
-  });
-
-  const [preferences, setPreferences] = useState<{ theme: ThemeMode; language: string }>({
-    theme: 'system',
-    language: 'en'
-  });
+  // Apply saved admin theme on mount
+  useEffect(() => {
+    const savedTheme = getStoredAdminTheme();
+    applyAdminTheme(savedTheme);
+  }, []);
 
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const [meRes, settingsRes] = await Promise.all([
-          authAPI.getMe(),
-          authAPI.getSettings()
-        ]);
-
-        const mePayload: any = meRes.data;
-        const meUser = mePayload.user ? mePayload.user : mePayload;
-
-        setProfile((prev) => ({
-          ...prev,
-          first_name: meUser?.first_name || '',
-          last_name: meUser?.last_name || '',
-          username: meUser?.username || '',
-          email: meUser?.email || '',
-          phone: meUser?.phone || '',
-          bio: meUser?.bio || '',
-          avatar: meUser?.avatar || '',
-        }));
-
-        const settings = settingsRes.data?.data;
-        if (settings?.notifications) {
-          setNotifications(settings.notifications);
-        }
-        if (settings?.preferences) {
-          setPreferences(settings.preferences);
-          applyTheme(settings.preferences.theme || 'system');
-        }
-      } catch (error: any) {
-        toast.error(error.response?.data?.error || 'Failed to load settings');
-      }
+        const [meRes, settingsRes] = await Promise.all([authAPI.getMe(), authAPI.getSettings()]);
+        const mU = meRes.data.user || meRes.data;
+        setProfile(p => ({ ...p, first_name: mU?.first_name||'', last_name: mU?.last_name||'', username: mU?.username||'', email: mU?.email||'', phone: mU?.phone||'', bio: mU?.bio||'', avatar: mU?.avatar||'' }));
+        const s = settingsRes.data?.data;
+        if (s?.preferences) setPreferences(s.preferences);
+      } catch (error: any) { toast.error(error.response?.data?.error || 'Failed to load settings'); }
     };
-
     loadSettings();
   }, []);
 
-  const getInitials = () => {
-    if (profile.first_name && profile.last_name) {
-      return `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase();
-    }
-    return (profile.username || profile.email || 'SA').substring(0, 2).toUpperCase();
-  };
+  const getInitials = () => { if (profile.first_name && profile.last_name) return `${profile.first_name[0]}${profile.last_name[0]}`.toUpperCase(); return (profile.username || profile.email || 'SA').substring(0, 2).toUpperCase(); };
 
   const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { toast.error('Image size must be less than 5MB'); return; }
-    if (!file.type.startsWith('image/')) { toast.error('Please upload an image file'); return; }
-    const reader = new FileReader();
-    reader.onloadend = () => setProfile(p => ({ ...p, avatar: reader.result as string }));
-    reader.readAsDataURL(file);
+    const f = e.target.files?.[0]; if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { toast.error('Max 5MB'); return; }
+    if (!f.type.startsWith('image/')) { toast.error('Images only'); return; }
+    const r = new FileReader(); r.onloadend = () => { setProfile(p => ({ ...p, avatar: r.result as string })); setHasChanges(true); }; r.readAsDataURL(f);
   };
 
   const handleProfileUpdate = async () => {
     setIsSaving(true);
     try {
-      const response = await authAPI.updateProfile({
-        username: profile.username,
-        email: profile.email,
-        first_name: profile.first_name,
-        last_name: profile.last_name,
-        phone: profile.phone,
-        bio: profile.bio,
-        avatar: profile.avatar,
-      });
-      const updatedUser = response.data.user as any;
+      const u: any = {};
+      if (profile.first_name) u.first_name = profile.first_name;
+      if (profile.last_name) u.last_name = profile.last_name;
+      if (profile.username) u.username = profile.username;
+      if (profile.email) u.email = profile.email;
+      if (profile.phone) u.phone = profile.phone;
+      if (profile.bio) u.bio = profile.bio;
+      if (profile.avatar?.startsWith('data:')) u.avatar = profile.avatar; else if (profile.avatar === '') u.avatar = null;
+
+      const r = await authAPI.updateProfile(u);
+      const updatedUser = r.data.user as any;
       updateUser(updatedUser);
-      setProfile(p => ({ ...p, ...updatedUser }));
-      toast.success('Profile updated successfully');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to update profile');
-    } finally {
-      setIsSaving(false);
-    }
+      setProfile(p => ({ ...p, first_name: updatedUser?.first_name||'', last_name: updatedUser?.last_name||'', username: updatedUser?.username||'', email: updatedUser?.email||'', phone: updatedUser?.phone||'', bio: updatedUser?.bio||'', avatar: profile.avatar?.startsWith('data:')?profile.avatar:updatedUser?.avatar }));
+      setHasChanges(false);
+      toast.success('Profile updated');
+    } catch (e: any) { toast.error(e.response?.data?.error || 'Update failed'); } finally { setIsSaving(false); }
   };
 
   const handlePasswordChange = async () => {
-    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-      toast.error('New passwords do not match');
-      return;
-    }
-    if (passwordForm.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters long');
-      return;
-    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) { toast.error('Passwords do not match'); return; }
+    if (passwordForm.newPassword.length < 6) { toast.error('Min 6 chars'); return; }
     setIsSaving(true);
     try {
-      await authAPI.changePassword({
-        currentPassword: passwordForm.currentPassword,
-        newPassword: passwordForm.newPassword,
-      });
-      toast.success('Password changed successfully');
-      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to change password');
-    } finally {
-      setIsSaving(false);
-    }
+      await authAPI.changePassword({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword });
+      toast.success('Password changed'); setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (e: any) { toast.error(e.response?.data?.error || 'Change failed'); } finally { setIsSaving(false); }
   };
 
-  const handleNotificationSave = async () => {
+  const handlePreferencesUpdate = async () => {
     setIsSaving(true);
     try {
-      await authAPI.updateNotificationSettings(notifications);
-      toast.success('Notification preferences saved');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to save notification preferences');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  const handlePreferencesSave = async () => {
-    setIsSaving(true);
-    try {
-      await authAPI.updatePreferences(preferences);
-      applyTheme(preferences.theme);
-      toast.success('Preferences saved');
-    } catch (error: any) {
-      toast.error(error.response?.data?.error || 'Failed to save preferences');
+      saveAdminTheme(themeMode);
+      applyAdminTheme(themeMode);
+      setHasChanges(false);
+      toast.success('Theme preferences saved and applied');
+    } catch {
+      toast.error('Failed to save preferences');
     } finally {
       setIsSaving(false);
     }
   };
 
   const tabs = [
-    { id: 'profile' as const, label: 'Profile', icon: User },
+    { id: 'profile' as const, label: 'Identity', icon: User },
     { id: 'security' as const, label: 'Security', icon: Lock },
-    { id: 'notifications' as const, label: 'Notifications', icon: Bell },
-    { id: 'preferences' as const, label: 'Preferences', icon: Palette },
+    { id: 'preferences' as const, label: 'System Defaults', icon: Palette },
   ];
 
+  const iS: React.CSSProperties = { width: '100%', padding: '9px 12px', fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, color: P.ink, background: P.parchment, border: 'none', boxShadow: `inset 0 0 0 1px ${P.sandLight}`, outline: 'none', boxSizing: 'border-box' };
+  const iL: React.CSSProperties = { fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: P.inkSecondary, display: 'block', marginBottom: 2 };
+  const softPanel = `inset 0 0 0 1px ${P.sandLight}, 0 12px 28px rgba(28,18,8,0.05)`;
+  const themeCardStyle = (active: boolean): React.CSSProperties => ({
+    padding: '18px 18px 16px',
+    background: active ? P.parchmentLight : P.parchmentDark,
+    color: P.ink,
+    border: 'none',
+    boxShadow: active
+      ? `inset 0 0 0 1px ${P.sand}, 0 10px 24px rgba(28,18,8,0.08)`
+      : `inset 0 0 0 1px ${P.sandLight}`,
+    cursor: 'pointer',
+    textAlign: 'left',
+    transition: 'transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease',
+  });
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-card border-b border-border sticky top-0 z-10 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center space-x-3">
-              <Settings className="h-6 w-6 text-primary" />
-              <h1 className="text-2xl font-bold text-foreground">Account Settings</h1>
-            </div>
-            <Button variant="outline" onClick={() => navigate('/superadmin')}>
-              <ArrowLeft className="h-4 w-4 mr-2" />Back to Dashboard
-            </Button>
-          </div>
+    <div style={{ padding: '32px 40px', maxWidth: 1200, margin: '0 auto', display: 'flex', flexDirection: 'column', minHeight: '80vh' }}>
+      
+      <div style={{ marginBottom: 32, paddingBottom: 20, borderBottom: `1px solid ${P.sand}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: P.purple, marginBottom: 6 }}>Global Preferences</div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 800, color: P.ink, margin: 0 }}>System Configuration</h1>
+        </div>
+        <div>
+          {hasChanges && <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, color: P.vermillion, textTransform: 'uppercase', letterSpacing: '0.06em', boxShadow: `inset 0 0 0 1px ${P.vermillion}`, padding: '4px 8px', marginRight: 16 }}>Unsaved Changes</span>}
+          <button onClick={() => navigate('/superadmin')} style={{ padding: '8px 16px', background: 'transparent', border: 'none', boxShadow: `inset 0 0 0 1px ${P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer' }}>Back to Operations</button>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 4fr', gap: 40, flex: 1 }}>
+        <div>
+          <nav style={{ display: 'flex', flexDirection: 'column' }}>
+            {tabs.map(t => (
+              <button key={t.id} onClick={() => setActiveTab(t.id)} style={{ padding: '12px 16px', background: activeTab === t.id ? P.parchmentDark : 'transparent', color: activeTab === t.id ? P.ink : P.ink, border: 'none', borderLeft: activeTab === t.id ? `3px solid ${P.purple}` : `3px solid transparent`, boxShadow: activeTab === t.id ? `inset 0 0 0 1px ${P.sandLight}` : 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.1s', textAlign: 'left', marginBottom: -1 }}>
+                <t.icon size={16} /> {t.label}
+              </button>
+            ))}
+          </nav>
+        </div>
 
-          {/* Sidebar Navigation */}
-          <div className="hidden lg:block lg:col-span-1">
-            <Card className="sticky top-24">
-              <CardContent className="p-4">
-                <nav className="space-y-1">
-                  {tabs.map((t) => (
-                    <button
-                      key={t.id}
-                      onClick={() => setActiveTab(t.id)}
-                      className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                        activeTab === t.id
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-muted-foreground hover:bg-muted'
-                      }`}
-                    >
-                      <t.icon className="h-5 w-5" />
-                      <span>{t.label}</span>
-                    </button>
+        <div style={{ background: P.parchmentLight, boxShadow: softPanel, padding: 32 }}>
+          {activeTab === 'profile' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
+              <section>
+                <div style={{ marginBottom: 24 }}>
+                  <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 800, color: P.ink, margin: '0 0 4px', borderBottom: `1px solid ${P.sand}`, paddingBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}><User size={18} color={P.purple}/> Global Identity</h2>
+                </div>
+
+                <div style={{ display: 'flex', gap: 24, marginBottom: 32, alignItems: 'center' }}>
+                  <div style={{ width: 80, height: 80, background: P.parchmentDark, boxShadow: `inset 0 0 0 1px ${P.sand}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    {profile.avatar ? <img src={profile.avatar} alt="Avatar" style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 800, color: P.inkMuted }}>{getInitials()}</span>}
+                  </div>
+                  <div>
+                    <input id="aup" type="file" accept="image/*" onChange={handleAvatarUpload} style={{ display: 'none' }} />
+                    <button onClick={() => document.getElementById('aup')?.click()} style={{ padding: '6px 12px', background: 'transparent', border: 'none', boxShadow: `inset 0 0 0 1px ${P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}><Camera size={12}/> Change Portrait</button>
+                    {profile.avatar && <button onClick={() => {setProfile({...profile, avatar: ''}); setHasChanges(true);}} style={{ background: 'none', border: 'none', color: P.vermillion, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer' }}>Remove</button>}
+                  </div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 20 }}>
+                  <div><label style={iL}>First Name</label><input style={iS} value={profile.first_name} onChange={e=>{setProfile({...profile,first_name:e.target.value});setHasChanges(true);}} /></div>
+                  <div><label style={iL}>Last Name</label><input style={iS} value={profile.last_name} onChange={e=>{setProfile({...profile,last_name:e.target.value});setHasChanges(true);}} /></div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 24 }}>
+                  <div><label style={iL}>Username <span style={{ color: P.vermillion }}>*</span></label><input style={iS} value={profile.username} onChange={e=>{setProfile({...profile,username:e.target.value});setHasChanges(true);}} /></div>
+                  <div><label style={iL}>Email <span style={{ color: P.vermillion }}>*</span></label><input type="email" style={iS} value={profile.email} onChange={e=>{setProfile({...profile,email:e.target.value});setHasChanges(true);}} /></div>
+                  <div><label style={iL}>Phone</label><input type="tel" style={iS} value={profile.phone} onChange={e=>{setProfile({...profile,phone:e.target.value});setHasChanges(true);}} /></div>
+                  <div><label style={iL}>Administrative Bio</label><textarea style={{...iS, resize:'vertical'}} rows={2} value={profile.bio} onChange={e=>{setProfile({...profile,bio:e.target.value});setHasChanges(true);}} /></div>
+                </div>
+
+                <button onClick={handleProfileUpdate} disabled={isSaving} style={{ padding: '10px 20px', background: P.inkMuted, color: '#fff', border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', cursor: isSaving?'default':'pointer', display: 'flex', alignItems: 'center', gap: 8 }}><Save size={14}/> {isSaving?'Saving...':'Save '}</button>
+              </section>
+            </div>
+          )}
+
+          {activeTab === 'security' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 40 }}>
+              <section>
+                <div style={{ marginBottom: 24 }}>
+                  <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 800, color: P.ink, margin: '0 0 4px', borderBottom: `1px solid ${P.sand}`, paddingBottom: 8 }}>Cryptographic Keys</h2>
+                </div>
+                
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 24, maxWidth: 400 }}>
+                  {['currentPassword','newPassword','confirmPassword'].map((pf) => (
+                    <div key={pf} style={{ position: 'relative' }}>
+                      <label style={iL}>{pf.replace(/([A-Z])/g, ' $1').trim()}</label>
+                      <input type={(showPasswordFields as any)[pf] ? 'text' : 'password'} style={{...iS, paddingRight: 32}} value={(passwordForm as any)[pf]} onChange={e=>setPasswordForm({...passwordForm, [pf]: e.target.value})} />
+                      <button onClick={()=>setShowPasswordFields({...showPasswordFields, [pf]: !(showPasswordFields as any)[pf]})} style={{ position: 'absolute', right: 0, bottom: 8, background: 'none', border: 'none', cursor: 'pointer', color: P.inkMuted }}>
+                        {(showPasswordFields as any)[pf] ? <EyeOff size={14}/> : <Eye size={14}/>}
+                      </button>
+                    </div>
                   ))}
-                  <Separator className="my-2" />
-                  <button
-                    onClick={logout}
-                    className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-                  >
-                    <LogOut className="h-5 w-5" />
-                    <span>Sign Out</span>
-                  </button>
-                </nav>
-              </CardContent>
-            </Card>
-          </div>
+                </div>
+                
+                <button onClick={handlePasswordChange} disabled={isSaving} style={{ padding: '10px 20px', background: 'transparent', color: P.ink, border: 'none', boxShadow: `inset 0 0 0 1px ${P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', cursor: isSaving?'default':'pointer' }}>{isSaving?'Enacting...':'Re-key Credentials'}</button>
+              </section>
+            </div>
+          )}
 
-          {/* Mobile Tab Bar */}
-          <div className="lg:hidden mb-2">
-            <Card>
-              <CardContent className="p-2 flex gap-1 overflow-x-auto">
-                {tabs.map((t) => (
-                  <button
-                    key={t.id}
-                    onClick={() => setActiveTab(t.id)}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                      activeTab === t.id
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-muted'
-                    }`}
-                  >
-                    <t.icon className="h-4 w-4" />
-                    <span>{t.label}</span>
-                  </button>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
+          {activeTab === 'preferences' && (
+            <div>
+              <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 800, color: P.ink, margin: '0 0 24px', borderBottom: `1px solid ${P.sand}`, paddingBottom: 8 }}>System Preferences</h2>
+              <div style={{ background: P.parchmentDark, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, padding: 24, display: 'flex', flexDirection: 'column', gap: 24, maxWidth: 640 }}>
+                <div>
+                  <label style={iL}>Active Language</label>
+                  <select style={iS} value={preferences.language} onChange={async(e)=>{const nv=e.target.value; setPreferences({...preferences,language:nv}); await authAPI.updatePreferences({...preferences,language:nv}); toast.success('Language updated');}}>
+                    <option value="en">English (US)</option><option value="es">Español</option><option value="fr">Français</option><option value="de">Deutsch</option>
+                  </select>
+                </div>
 
-          {/* Main Content Area */}
-          <div className="lg:col-span-3 space-y-6">
-
-            {/* Profile Tab */}
-            {activeTab === 'profile' && (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <User className="h-5 w-5" />
-                      <span>Profile Information</span>
-                    </CardTitle>
-                    <CardDescription>Update your personal information and profile picture</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Avatar */}
-                    <div className="flex items-center space-x-6">
-                      <Avatar className="h-24 w-24">
-                        <AvatarImage src={profile.avatar} />
-                        <AvatarFallback className="text-2xl">{getInitials()}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <h3 className="text-sm font-medium text-foreground mb-2">Profile Picture</h3>
-                        <p className="text-sm text-muted-foreground mb-3">JPG, PNG or GIF. Max size 5MB.</p>
-                        <div className="flex items-center space-x-3">
-                          <Button variant="outline" size="sm" onClick={() => document.getElementById('sa-avatar-upload')?.click()}>
-                            <Camera className="h-4 w-4 mr-2" />Upload New
-                          </Button>
-                          {profile.avatar && (
-                            <Button variant="ghost" size="sm" onClick={() => setProfile(p => ({ ...p, avatar: '' }))}>Remove</Button>
-                          )}
-                          <input id="sa-avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarUpload} />
-                        </div>
+                <div>
+                  <label style={{ ...iL, marginBottom: 12 }}>Interface Theme</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                    <button
+                      onClick={() => { setThemeMode('light'); setHasChanges(true); }}
+                      style={themeCardStyle(themeMode === 'light')}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <Sun size={16} color={P.ink} />
+                        <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, textTransform: 'uppercase' }}>Light</span>
                       </div>
-                    </div>
-
-                    <Separator />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="sa-first-name">First Name</Label>
-                        <Input id="sa-first-name" value={profile.first_name} onChange={(e) => setProfile(p => ({ ...p, first_name: e.target.value }))} placeholder="Enter your first name" />
+                      <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 12, color: P.inkSecondary, margin: 0, lineHeight: 1.5 }}>Bright, editorial styling for the default admin experience.</p>
+                    </button>
+                    <button
+                      onClick={() => { setThemeMode('dark'); setHasChanges(true); }}
+                      style={themeCardStyle(themeMode === 'dark')}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                        <Moon size={16} color={P.ink} />
+                        <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, textTransform: 'uppercase' }}>Dark</span>
                       </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="sa-last-name">Last Name</Label>
-                        <Input id="sa-last-name" value={profile.last_name} onChange={(e) => setProfile(p => ({ ...p, last_name: e.target.value }))} placeholder="Enter your last name" />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="sa-username">Username</Label>
-                      <Input id="sa-username" value={profile.username} onChange={(e) => setProfile(p => ({ ...p, username: e.target.value }))} placeholder="Enter your username" />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="sa-email">Email Address</Label>
-                      <div className="flex items-center space-x-2">
-                        <Mail className="h-4 w-4 text-muted-foreground" />
-                        <Input id="sa-email" type="email" value={profile.email} onChange={(e) => setProfile(p => ({ ...p, email: e.target.value }))} placeholder="Enter your email" />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="sa-phone">Phone Number (Optional)</Label>
-                      <div className="flex items-center space-x-2">
-                        <Phone className="h-4 w-4 text-muted-foreground" />
-                        <Input id="sa-phone" type="tel" value={profile.phone} onChange={(e) => setProfile(p => ({ ...p, phone: e.target.value }))} placeholder="+1 (555) 000-0000" />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="sa-bio">Bio</Label>
-                      <Textarea id="sa-bio" value={profile.bio} onChange={(e) => setProfile(p => ({ ...p, bio: e.target.value }))} placeholder="Tell us a bit about yourself..." rows={4} maxLength={500} />
-                      <p className="text-xs text-muted-foreground">{profile.bio?.length || 0}/500 characters</p>
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-3">
-                      <h3 className="text-sm font-medium text-foreground">Account Information</h3>
-                      <div className="bg-muted rounded-lg p-4 space-y-2">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Role</span>
-                          <Badge variant="outline">Super Admin</Badge>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Account Status</span>
-                          <Badge variant="outline">Active</Badge>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <Button onClick={handleProfileUpdate} disabled={isSaving}>
-                        {isSaving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" />Save Changes</>}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            )}
-
-            {/* Security Tab */}
-            {activeTab === 'security' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Lock className="h-5 w-5" />
-                    <span>Password & Security</span>
-                  </CardTitle>
-                  <CardDescription>Manage your password and security settings</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-medium text-foreground">Change Password</h3>
-                    <div className="space-y-2">
-                      <Label>Current Password</Label>
-                      <Input type="password" value={passwordForm.currentPassword} onChange={(e) => setPasswordForm(p => ({ ...p, currentPassword: e.target.value }))} placeholder="Enter current password" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>New Password</Label>
-                      <Input type="password" value={passwordForm.newPassword} onChange={(e) => setPasswordForm(p => ({ ...p, newPassword: e.target.value }))} placeholder="Enter new password (min 6 characters)" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Confirm New Password</Label>
-                      <Input type="password" value={passwordForm.confirmPassword} onChange={(e) => setPasswordForm(p => ({ ...p, confirmPassword: e.target.value }))} placeholder="Confirm new password" />
-                    </div>
-                    <div className="flex justify-end">
-                      <Button variant="outline" onClick={handlePasswordChange} disabled={isSaving}>
-                        {isSaving ? 'Updating...' : 'Update Password'}
-                      </Button>
-                    </div>
+                      <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 12, color: P.inkSecondary, margin: 0, lineHeight: 1.5 }}>Lower-glare contrast for longer admin sessions and evening work.</p>
+                    </button>
                   </div>
+                </div>
 
-                  <Separator />
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+                  <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, color: P.inkSecondary, textTransform: 'uppercase' }}>Current Theme: <span style={{ color: P.ink, fontWeight: 800 }}>{themeMode === 'light' ? 'Light' : 'Dark'}</span></div>
+                  <button onClick={handlePreferencesUpdate} disabled={isSaving} style={{ padding: '10px 20px', background: P.inkMuted, color: '#fff', border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', cursor: isSaving?'default':'pointer', display: 'flex', alignItems: 'center', gap: 8 }}><Save size={14}/> {isSaving?'Saving...':'Save Preferences'}</button>
+                </div>
+              </div>
+            </div>
+          )}
 
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-medium text-foreground">Two-Factor Authentication</h3>
-                      <p className="text-sm text-muted-foreground">Add an extra layer of security to your account</p>
-                    </div>
-                    <Badge variant="secondary">Coming Soon</Badge>
-                  </div>
-
-                  <Separator />
-
-                  <div className="space-y-3">
-                    <h3 className="text-sm font-medium text-foreground">Active Sessions</h3>
-                    <div className="bg-muted rounded-lg p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center space-x-3">
-                          <Monitor className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <p className="text-sm font-medium text-foreground">Current Session</p>
-                            <p className="text-xs text-muted-foreground">Active now</p>
-                          </div>
-                        </div>
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Notifications Tab */}
-            {activeTab === 'notifications' && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center space-x-2">
-                    <Bell className="h-5 w-5" />
-                    <span>Notification Preferences</span>
-                  </CardTitle>
-                  <CardDescription>Choose what notifications you want to receive</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="sa-email-notif" className="text-base">Email Notifications</Label>
-                      <p className="text-sm text-muted-foreground">Receive notifications via email</p>
-                    </div>
-                    <Switch id="sa-email-notif" checked={notifications.emailNotifications} onCheckedChange={(c) => setNotifications((n: typeof notifications) => ({ ...n, emailNotifications: c }))} />
-                  </div>
-
-                  <Separator />
-
-                  <div className="space-y-4">
-                    <h3 className="text-sm font-medium text-foreground">Email Preferences</h3>
-                    <div className="space-y-4">
-                      {[
-                        { key: 'collegeUpdates', label: 'College Updates', desc: 'New college registrations and changes' },
-                        { key: 'userRegistrations', label: 'User Registrations', desc: 'New user sign-ups across all colleges' },
-                        { key: 'systemAnnouncements', label: 'System Announcements', desc: 'Important platform updates and maintenance' },
-                        { key: 'weeklyReport', label: 'Weekly Report', desc: 'Summary of platform activity and stats' },
-                      ].map(({ key, label, desc }) => (
-                        <div key={key} className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label>{label}</Label>
-                            <p className="text-sm text-muted-foreground">{desc}</p>
-                          </div>
-                          <Switch
-                            checked={notifications[key as keyof typeof notifications] as boolean}
-                            onCheckedChange={(c) => setNotifications((n: typeof notifications) => ({ ...n, [key]: c }))}
-                            disabled={!notifications.emailNotifications}
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end">
-                    <Button onClick={handleNotificationSave} disabled={isSaving}>
-                      {isSaving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" />Save Preferences</>}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Preferences Tab */}
-            {activeTab === 'preferences' && (
-              <>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <Palette className="h-5 w-5" />
-                      <span>Appearance & Preferences</span>
-                    </CardTitle>
-                    <CardDescription>Customize your dashboard experience</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-base">Theme</Label>
-                        <p className="text-sm text-muted-foreground mb-3">Choose your preferred color theme</p>
-                      </div>
-                      <Select value={preferences.theme} onValueChange={(v: ThemeMode) => setPreferences(p => ({ ...p, theme: v }))}>
-                        <SelectTrigger><SelectValue placeholder="Select theme" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="light"><div className="flex items-center gap-2"><Sun className="h-4 w-4" /><span>Light</span></div></SelectItem>
-                          <SelectItem value="dark"><div className="flex items-center gap-2"><Moon className="h-4 w-4" /><span>Dark</span></div></SelectItem>
-                          <SelectItem value="system"><div className="flex items-center gap-2"><Monitor className="h-4 w-4" /><span>System</span></div></SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <Separator />
-
-                    <div className="space-y-3">
-                      <div>
-                        <Label className="text-base">Language</Label>
-                        <p className="text-sm text-muted-foreground mb-3">Select your preferred language</p>
-                      </div>
-                      <Select value={preferences.language} onValueChange={(v) => setPreferences(p => ({ ...p, language: v }))}>
-                        <SelectTrigger><SelectValue placeholder="Select language" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="en"><div className="flex items-center gap-2"><Globe className="h-4 w-4" /><span>English</span></div></SelectItem>
-                          <SelectItem value="es"><div className="flex items-center gap-2"><Globe className="h-4 w-4" /><span>Español</span></div></SelectItem>
-                          <SelectItem value="fr"><div className="flex items-center gap-2"><Globe className="h-4 w-4" /><span>Français</span></div></SelectItem>
-                          <SelectItem value="de"><div className="flex items-center gap-2"><Globe className="h-4 w-4" /><span>Deutsch</span></div></SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <Button onClick={handlePreferencesSave} disabled={isSaving}>
-                        {isSaving ? 'Saving...' : <><Save className="h-4 w-4 mr-2" />Save Preferences</>}
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle>About LearnBox</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Version</span>
-                      <Badge variant="outline">1.0.0</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-muted-foreground">Last Updated</span>
-                      <span className="text-sm font-medium text-foreground">March 2026</span>
-                    </div>
-                    <Separator />
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="outline" size="sm"><FileText className="h-4 w-4 mr-2" />Terms of Service</Button>
-                      <Button variant="outline" size="sm"><Shield className="h-4 w-4 mr-2" />Privacy Policy</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
-            )}
-
-          </div>
         </div>
       </div>
     </div>

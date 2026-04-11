@@ -1,48 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { quizAPI } from '../../services/api';
-import { X } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { Badge } from '../components/ui/badge';
+import { X, BookOpen, Clock, Target, BarChart2, ChevronLeft } from 'lucide-react';
 
-interface QuizSession {
-  id: number;
-  score: number;
-  totalQuestions: number;
-  correctAnswers: number;
-  timeSpent?: number;
-  startedAt: string;
-  submittedAt: string;
-  set?: {
-    title: string;
-  };
-  module?: {
-    name: string;
-    code: string;
-  };
-}
+import { P } from '../../constants/theme';
 
-interface HistoryStats {
-  totalQuizzes: number;
-  averageScore: string;
-  totalQuestions: number;
-  totalCorrect: number;
-}
-
-interface QuizDetail {
-  session: QuizSession;
-  questions: Array<{
-    id: number;
-    question: string;
-    options: string[];
-    correctAnswer: string;
-    explanation?: string;
-    selectedAnswer: string;
-    isCorrect: boolean;
-    difficulty?: string;
-    topic?: string;
-  }>;
-}
+interface QuizSession { id: number; score: number; totalQuestions: number; correctAnswers: number; timeSpent?: number; startedAt: string; submittedAt: string; set?: { title: string }; module?: { name: string; code: string }; }
+interface HistoryStats { totalQuizzes: number; averageScore: string; totalQuestions: number; totalCorrect: number; }
+interface QuizDetail { session: QuizSession; questions: Array<{ id: number; question: string; options: string[]; correctAnswer: string; explanation?: string; selectedAnswer: string; isCorrect: boolean; difficulty?: string; topic?: string }>; }
 
 export default function MCQHistoryPage() {
   const navigate = useNavigate();
@@ -50,421 +15,171 @@ export default function MCQHistoryPage() {
   const [stats, setStats] = useState<HistoryStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterModule, setFilterModule] = useState<string>('');
   const [selectedQuiz, setSelectedQuiz] = useState<QuizDetail | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
 
   useEffect(() => {
-    fetchHistory();
-  }, [filterModule]);
+    quizAPI.getHistory({ limit: 50 }).then(r => { setHistory(r.data.data); setStats(r.data.stats); }).catch(e => setError(e.response?.data?.error || 'Failed')).finally(() => setLoading(false));
+  }, []);
 
-  const fetchHistory = async () => {
+  const fmtDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const fmtTime = (s?: number) => { if (!s) return '-'; const m = Math.floor(s / 60); return `${m}:${(s % 60).toString().padStart(2, '0')}`; };
+  const scoreColor = (s: number) => s >= 80 ? P.moss : s >= 60 ? '#A07A30' : P.vermillion;
+
+  const fetchDetails = async (id: number) => {
+    setLoadingDetails(true);
     try {
-      setLoading(true);
-      setError(null);
-      const params: any = { limit: 50 };
-      if (filterModule) {
-        params.moduleId = parseInt(filterModule);
-      }
-
-      console.log('📚 Fetching quiz history with params:', params);
-      const response = await quizAPI.getHistory(params);
-      console.log('✅ Quiz history response:', response.data);
-      setHistory(response.data.data);
-      setStats(response.data.stats);
-    } catch (err: any) {
-      console.error('❌ Failed to fetch quiz history:', err);
-      console.error('Error response:', err.response);
-      const errorMessage = err.response?.data?.error || err.response?.data?.details || err.message || 'Failed to load history';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
+      const r = await quizAPI.getSession(id);
+      const d = r.data.data;
+      setSelectedQuiz({ session: { id: d.id, score: d.score, totalQuestions: d.totalQuestions, correctAnswers: d.correctAnswers, timeSpent: d.timeSpent, startedAt: d.startedAt, submittedAt: d.submittedAt, set: d.set, module: d.module }, questions: d.attempts.map((a: any) => ({ id: a.mcq.id, question: a.mcq.question, options: a.mcq.options, correctAnswer: a.mcq.correctAnswer, explanation: a.mcq.explanation, selectedAnswer: a.selectedAnswer, isCorrect: a.isCorrect, difficulty: a.mcq.difficulty, topic: a.mcq.topic })) });
+    } catch { setError('Failed to load quiz details'); }
+    finally { setLoadingDetails(false); }
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const formatTime = (seconds?: number) => {
-    if (!seconds) return 'N/A';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const getScoreColor = (score: number) => {
-    if (score >= 80) return 'text-green-600 bg-green-50';
-    if (score >= 60) return 'text-yellow-600 bg-yellow-50';
-    return 'text-red-600 bg-red-50';
-  };
-
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case 'EASY': return 'bg-green-100 text-green-800';
-      case 'MEDIUM': return 'bg-yellow-100 text-yellow-800';
-      case 'HARD': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const fetchQuizDetails = async (sessionId: number) => {
-    try {
-      setLoadingDetails(true);
-      const response = await quizAPI.getSession(sessionId);
-      const sessionData = response.data.data;
-
-      // Transform the backend data to our QuizDetail format
-      const questions = sessionData.attempts.map((attempt: any) => ({
-        id: attempt.mcq.id,
-        question: attempt.mcq.question,
-        options: attempt.mcq.options,
-        correctAnswer: attempt.mcq.correctAnswer,
-        explanation: attempt.mcq.explanation,
-        selectedAnswer: attempt.selectedAnswer,
-        isCorrect: attempt.isCorrect,
-        difficulty: attempt.mcq.difficulty,
-        topic: attempt.mcq.topic
-      }));
-
-      setSelectedQuiz({
-        session: {
-          id: sessionData.id,
-          score: sessionData.score,
-          totalQuestions: sessionData.totalQuestions,
-          correctAnswers: sessionData.correctAnswers,
-          timeSpent: sessionData.timeSpent,
-          startedAt: sessionData.startedAt,
-          submittedAt: sessionData.submittedAt,
-          set: sessionData.set,
-          module: sessionData.module
-        },
-        questions
-      });
-    } catch (err: any) {
-      console.error('Failed to fetch quiz details:', err);
-      setError('Failed to load quiz details');
-    } finally {
-      setLoadingDetails(false);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your quiz history...</p>
-        </div>
+  if (loading) return (
+    <div style={{ minHeight: '100vh', background: P.parchment, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ display: 'inline-block', width: 36, height: 36, border: `2px solid ${P.ink}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+        <p style={{ fontFamily: "'Lora', Georgia, serif", color: P.inkMuted, fontSize: 13, marginTop: 12 }}>Loading history…</p>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
-    );
-  }
+    </div>
+  );
 
   return (
-    <div className="min-h-screen bg-[#F5F5F5] py-8">
-        <div className="max-w-6xl mx-auto px-4">
-          {/* Header */}
-          <div className="mb-6">
-            <button
-              onClick={() => navigate('/student/dashboard')}
-              className="text-[#A8C5B5] hover:text-[#8fb3a3] mb-4 flex items-center font-medium transition-colors"
-            >
-              ← Back to Dashboard
-            </button>
-            <h1 className="text-3xl font-bold text-gray-900">MCQ Practice History</h1>
-            <p className="text-gray-600 mt-2">Track your progress and review past quiz attempts</p>
-          </div>
+    <div style={{ minHeight: '100vh', background: P.parchment, fontFamily: "'Lora', Georgia, serif", padding: '32px 40px' }}>
+      <div style={{ maxWidth: 900, margin: '0 auto' }}>
+        {/* Back */}
+        <button onClick={() => navigate('/student/mcq-practice')} style={{ display: 'flex', alignItems: 'center', gap: 7, background: 'none', border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.08em', textTransform: 'uppercase', color: P.inkMuted, cursor: 'pointer', marginBottom: 24, padding: 0 }}
+          onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = P.vermillion)}
+          onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = P.inkMuted)}>
+          <ChevronLeft size={13} /> Back to MCQ Practice
+        </button>
 
-          {/* Error State */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-800 p-4 rounded-lg mb-6">
-              {error}
-            </div>
-          )}
-
-          {/* Statistics Cards */}
-          {stats && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-                <div className="text-3xl font-bold text-[#A8C5B5]">{stats.totalQuizzes}</div>
-                <div className="text-sm text-gray-600 mt-1">Total Quizzes</div>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-                <div className="text-3xl font-bold text-green-600">{stats.averageScore}%</div>
-                <div className="text-sm text-gray-600 mt-1">Average Score</div>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-                <div className="text-3xl font-bold text-blue-600">{stats.totalQuestions}</div>
-                <div className="text-sm text-gray-600 mt-1">Questions Answered</div>
-              </div>
-              <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-100">
-                <div className="text-3xl font-bold text-purple-600">
-                  {stats.totalQuestions > 0
-                    ? ((stats.totalCorrect / stats.totalQuestions) * 100).toFixed(1)
-                    : 0}%
-                </div>
-                <div className="text-sm text-gray-600 mt-1">Overall Accuracy</div>
-              </div>
-            </div>
-          )}
-
-          {/* Quiz History List */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-100">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-xl font-semibold text-gray-900">Quiz History</h2>
-            </div>
-
-            {history.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">
-                <div className="text-5xl mb-3">📝</div>
-                <p className="text-lg mb-2">No quiz history yet</p>
-                <p className="text-sm mb-4">Start practicing to see your history here!</p>
-                <button
-                  onClick={() => navigate('/student/mcq-practice')}
-                  className="bg-primary text-white px-6 py-2 rounded-lg hover:bg-primary/90 transition-colors"
-                >
-                  Start Practicing
-                </button>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-200">
-                {history.map((session) => (
-                  <div key={session.id} className="p-4 hover:bg-gray-50 transition-colors">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h3 className="font-semibold text-lg text-gray-900">
-                            {session.set?.title || 'Custom Practice'}
-                          </h3>
-                          {session.module && (
-                            <span className="text-sm bg-primary/20 text-primary px-2 py-1 rounded font-medium">
-                              {session.module.code}
-                            </span>
-                          )}
-                        </div>
-                        
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-2">
-                          <div>
-                            <span className="font-medium">Questions:</span> {session.totalQuestions}
-                          </div>
-                          <div>
-                            <span className="font-medium">Correct:</span> {session.correctAnswers}
-                          </div>
-                          <div>
-                            <span className="font-medium">Time:</span> {formatTime(session.timeSpent)}
-                          </div>
-                          <div>
-                            <span className="font-medium">Date:</span> {formatDate(session.submittedAt)}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="ml-4 text-right">
-                        <div className={`text-3xl font-bold px-4 py-2 rounded-lg ${getScoreColor(session.score)}`}>
-                          {session.score}%
-                        </div>
-                        <button
-                          onClick={() => fetchQuizDetails(session.id)}
-                          className="mt-2 text-sm text-[#A8C5B5] hover:text-[#8fb3a3] hover:underline font-medium transition-colors"
-                        >
-                          View Details
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="mt-3">
-                      <div className="w-full bg-gray-200 rounded-full h-2">
-                        <div
-                          className={`h-2 rounded-full ${
-                            session.score >= 80 ? 'bg-green-600' :
-                            session.score >= 60 ? 'bg-yellow-600' : 'bg-red-600'
-                          }`}
-                          style={{ width: `${session.score}%` }}
-                        ></div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Action Buttons */}
-          <div className="mt-6 flex gap-3 justify-center">
-            <button
-              onClick={() => navigate('/student/mcq-practice')}
-              className="bg-primary text-white px-6 py-3 rounded-lg hover:bg-primary/90 shadow-sm transition-colors font-medium"
-            >
-              Practice More MCQs
-            </button>
-          </div>
+        {/* Header */}
+        <div style={{ marginBottom: 28, paddingBottom: 20, borderBottom: `1px solid ${P.sand}` }}>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: P.vermillion, marginBottom: 6 }}>Progress Tracking</div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: P.ink, margin: 0 }}>MCQ Practice History</h1>
         </div>
 
-        {/* Quiz Details Modal */}
-        {selectedQuiz && (
-          <div className="fixed inset-0 bg-gray-900 bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-gray-200">
-              {/* Modal Header */}
-              <div className="p-6 border-b border-gray-200 bg-gradient-to-br from-white to-gray-50">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                      {selectedQuiz.session.set?.title || 'Custom Practice'}
-                    </h2>
-                    <p className="text-sm text-gray-600">
-                      Completed on {formatDate(selectedQuiz.session.submittedAt)}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setSelectedQuiz(null)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded-lg"
-                  >
-                    <X className="h-6 w-6" />
-                  </button>
-                </div>
+        {error && <div style={{ background: P.vermillionBg, borderLeft: `3px solid ${P.vermillion}`, padding: '10px 14px', marginBottom: 20, fontFamily: "'Lora', Georgia, serif", fontSize: 13, color: '#7A1C10' }}>{error}</div>}
 
-                {/* Score and Stats */}
-                <div className="grid grid-cols-4 gap-4 mt-4">
-                  <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
-                    <div className={`text-3xl font-bold ${
-                      selectedQuiz.session.score >= 80 ? 'text-green-600' :
-                      selectedQuiz.session.score >= 60 ? 'text-yellow-600' : 'text-red-600'
-                    }`}>
-                      {selectedQuiz.session.score}%
-                    </div>
-                    <div className="text-xs text-gray-600 mt-1">Score</div>
-                  </div>
-                  <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
-                    <div className="text-3xl font-bold text-[#A8C5B5]">{selectedQuiz.session.totalQuestions}</div>
-                    <div className="text-xs text-gray-600 mt-1">Questions</div>
-                  </div>
-                  <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
-                    <div className="text-3xl font-bold text-green-600">{selectedQuiz.session.correctAnswers}</div>
-                    <div className="text-xs text-gray-600 mt-1">Correct</div>
-                  </div>
-                  <div className="text-center p-3 bg-white rounded-lg border border-gray-100">
-                    <div className="text-3xl font-bold text-blue-600">{formatTime(selectedQuiz.session.timeSpent)}</div>
-                    <div className="text-xs text-gray-600 mt-1">Time</div>
-                  </div>
-                </div>
+        {/* Stats */}
+        {stats && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, border: `1px solid ${P.sand}`, marginBottom: 28 }}>
+            {[
+              { label: 'Total Quizzes', value: stats.totalQuizzes, color: P.ink },
+              { label: 'Average Score', value: `${stats.averageScore}%`, color: P.moss },
+              { label: 'Questions Done', value: stats.totalQuestions, color: P.inkSecondary },
+              { label: 'Overall Accuracy', value: stats.totalQuestions > 0 ? `${((stats.totalCorrect / stats.totalQuestions) * 100).toFixed(1)}%` : '0%', color: P.vermillion },
+            ].map(({ label, value, color }, i) => (
+              <div key={label} style={{ background: P.parchmentLight, padding: '20px 22px', borderRight: i < 3 ? `1px solid ${P.sand}` : 'none' }}>
+                <p style={{ fontFamily: "var(--font-numeric)", fontSize: 28, fontWeight: 800, color, margin: 0, lineHeight: 1 }}>{value}</p>
+                <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, marginTop: 5, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{label}</p>
               </div>
-
-              {/* Questions List */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {loadingDetails ? (
-                  <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-                    <p className="text-gray-600">Loading quiz details...</p>
-                  </div>
-                ) : (
-                  selectedQuiz.questions.map((question, index) => {
-                    const options = typeof question.options === 'string' 
-                      ? JSON.parse(question.options) 
-                      : question.options;
-
-                    return (
-                      <div
-                        key={question.id}
-                        className={`border rounded-lg p-5 ${
-                          question.isCorrect 
-                            ? 'border-green-200 bg-green-50/50' 
-                            : 'border-red-200 bg-red-50/50'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <span className="font-semibold text-gray-700">Q{index + 1}.</span>
-                            {question.difficulty && (
-                              <Badge className={getDifficultyColor(question.difficulty)}>
-                                {question.difficulty}
-                              </Badge>
-                            )}
-                            {question.isCorrect ? (
-                              <Badge className="bg-green-100 text-green-800">✓ Correct</Badge>
-                            ) : (
-                              <Badge className="bg-red-100 text-red-800">✗ Incorrect</Badge>
-                            )}
-                          </div>
-                          {question.topic && (
-                            <Badge variant="outline" className="text-xs">{question.topic}</Badge>
-                          )}
-                        </div>
-
-                        <p className="text-gray-900 mb-4">{question.question}</p>
-
-                        <div className="space-y-2 mb-4">
-                          {options.map((option: string, idx: number) => {
-                            const isSelected = option === question.selectedAnswer;
-                            const isCorrect = option === question.correctAnswer;
-
-                            return (
-                              <div
-                                key={idx}
-                                className={`p-3 rounded-lg border-2 ${
-                                  isCorrect
-                                    ? 'border-green-500 bg-green-50'
-                                    : isSelected
-                                    ? 'border-red-500 bg-red-50'
-                                    : 'border-gray-200 bg-white'
-                                }`}
-                              >
-                                <div className="flex items-center gap-2">
-                                  {isCorrect && (
-                                    <span className="text-green-600 font-semibold">✓</span>
-                                  )}
-                                  {isSelected && !isCorrect && (
-                                    <span className="text-red-600 font-semibold">✗</span>
-                                  )}
-                                  <span className={`${
-                                    isCorrect ? 'font-semibold text-green-900' :
-                                    isSelected ? 'font-semibold text-red-900' : 'text-gray-700'
-                                  }`}>
-                                    {option}
-                                  </span>
-                                  {isSelected && (
-                                    <span className="ml-auto text-xs text-gray-600">(Your answer)</span>
-                                  )}
-                                  {isCorrect && (
-                                    <span className="ml-auto text-xs text-green-700">(Correct answer)</span>
-                                  )}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {question.explanation && (
-                          <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
-                            <p className="text-xs font-semibold text-primary mb-1.5">💡 Explanation:</p>
-                            <p className="text-sm text-gray-700 leading-relaxed">{question.explanation}</p>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-              {/* Modal Footer */}
-              <div className="p-4 border-t border-gray-200 bg-gray-50">
-                <Button
-                  onClick={() => setSelectedQuiz(null)}
-                  className="w-full bg-primary hover:bg-primary/90 text-white"
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
+            ))}
           </div>
         )}
+
+        {/* History list */}
+        <div style={{ border: `1px solid ${P.sand}`, background: P.parchmentLight }}>
+          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${P.sand}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ background: P.inkMuted, color: P.parchment, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 10px' }}>Quiz History</span>
+            <div style={{ flex: 1, height: 1, background: P.sand }} />
+          </div>
+          {history.length === 0 ? (
+            <div style={{ padding: '56px 24px', textAlign: 'center' }}>
+              <BookOpen size={40} color={P.sand} strokeWidth={1} style={{ display: 'block', margin: '0 auto 16px' }} />
+              <p style={{ fontFamily: "'Lora', Georgia, serif", color: P.inkMuted, fontSize: 14, marginBottom: 16 }}>No quiz history yet. Start practising!</p>
+              <button onClick={() => navigate('/student/mcq-practice')} style={{ padding: '10px 24px', background: P.inkMuted, color: P.parchmentLight, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>Start Practising</button>
+            </div>
+          ) : history.map((s, i) => (
+            <div key={s.id} style={{ padding: '18px 20px', borderBottom: i < history.length - 1 ? `1px solid ${P.sandLight}` : 'none', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 20, transition: 'background 0.12s' }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = P.parchmentDark}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                  <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700, color: P.ink, margin: 0 }}>{s.set?.title || 'Custom Practice'}</h3>
+                  {s.module && <span style={{ background: P.mossBg, color: P.moss, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '2px 8px' }}>{s.module.code}</span>}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, auto)', gap: '0 24px', marginBottom: 10 }}>
+                  {[['Questions', s.totalQuestions], ['Correct', s.correctAnswers], ['Time', fmtTime(s.timeSpent)], ['Date', fmtDate(s.submittedAt)]].map(([k, v]) => (
+                    <span key={k as string} style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, letterSpacing: '0.04em', textTransform: 'uppercase' }}><strong style={{ color: P.inkSecondary }}>{k}:</strong> {v}</span>
+                  ))}
+                </div>
+                <div style={{ height: 3, background: P.sandLight }}>
+                  <div style={{ height: '100%', width: `${s.score}%`, background: scoreColor(s.score), transition: 'width 0.4s' }} />
+                </div>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 800, color: scoreColor(s.score), marginBottom: 6 }}>{s.score}%</div>
+                <button onClick={() => fetchDetails(s.id)} style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.vermillion, background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', textDecorationColor: P.vermillion }}>View Details</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div style={{ marginTop: 24, textAlign: 'center' }}>
+          <button onClick={() => navigate('/student/mcq-practice')} style={{ padding: '12px 32px', background: P.inkMuted, color: P.parchmentLight, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>Practice More MCQs</button>
+        </div>
       </div>
+
+      {/* Detail modal */}
+      {selectedQuiz && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,18,8,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
+          <div style={{ background: P.parchmentLight, border: `2px solid ${P.ink}`, maxWidth: 800, width: '100%', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '20px 24px', borderBottom: `1px solid ${P.sand}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexShrink: 0 }}>
+              <div>
+                <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 800, color: P.ink, margin: 0 }}>{selectedQuiz.session.set?.title || 'Custom Practice'}</h2>
+                <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13, color: P.inkMuted, marginTop: 4 }}>Completed on {fmtDate(selectedQuiz.session.submittedAt)}</p>
+              </div>
+              <button onClick={() => setSelectedQuiz(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: P.inkMuted, display: 'flex', padding: 0 }}
+                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = P.ink)}
+                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = P.inkMuted)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderBottom: `1px solid ${P.sand}`, flexShrink: 0 }}>
+              {[['Score', `${selectedQuiz.session.score}%`, scoreColor(selectedQuiz.session.score)], ['Questions', selectedQuiz.session.totalQuestions, P.ink], ['Correct', selectedQuiz.session.correctAnswers, P.moss], ['Time', fmtTime(selectedQuiz.session.timeSpent), P.inkSecondary]].map(([k, v, c], i) => (
+                <div key={k as string} style={{ padding: '16px 20px', borderRight: i < 3 ? `1px solid ${P.sand}` : 'none', textAlign: 'center' }}>
+                  <p style={{ fontFamily: "var(--font-numeric)", fontSize: 22, fontWeight: 800, color: c as string, margin: 0 }}>{v}</p>
+                  <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, color: P.inkMuted, margin: '4px 0 0', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{k}</p>
+                </div>
+              ))}
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {loadingDetails ? <p style={{ textAlign: 'center', color: P.inkMuted, fontFamily: "'Lora', Georgia, serif" }}>Loading…</p> : selectedQuiz.questions.map((q, idx) => {
+                const opts = typeof q.options === 'string' ? JSON.parse(q.options) : q.options;
+                return (
+                  <div key={q.id} style={{ border: `1px solid ${q.isCorrect ? P.moss : P.vermillion}`, borderLeft: `3px solid ${q.isCorrect ? P.moss : P.vermillion}`, padding: '16px 18px', background: q.isCorrect ? '#F0F5EE' : P.vermillionBg }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                      <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, color: P.inkMuted }}>Q{idx+1}.</span>
+                      {q.difficulty && <span style={{ background: P.parchmentDark, border: `1px solid ${P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: P.inkMuted, padding: '1px 7px' }}>{q.difficulty}</span>}
+                      <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: q.isCorrect ? P.moss : P.vermillion, padding: '1px 7px', border: `1px solid ${q.isCorrect ? P.moss : P.vermillion}` }}>{q.isCorrect ? '✓ Correct' : '✗ Incorrect'}</span>
+                    </div>
+                    <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, color: P.ink, marginBottom: 12, lineHeight: 1.6 }}>{q.question}</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      {opts.map((opt: string, oi: number) => {
+                        const isSel = opt === q.selectedAnswer, isCorr = opt === q.correctAnswer;
+                        return (
+                          <div key={oi} style={{ padding: '8px 12px', border: `2px solid ${isCorr ? P.moss : isSel ? P.vermillion : P.sand}`, background: isCorr ? '#EBF3E8' : isSel ? P.vermillionBg : P.parchmentLight }}>
+                            <span style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13, color: isCorr ? P.moss : isSel ? P.vermillion : P.ink }}>{isCorr ? '✓ ' : isSel && !isCorr ? '✗ ' : ''}{opt}{isSel && <span style={{ marginLeft: 8, fontSize: 11, color: P.inkMuted }}>(your answer)</span>}{isCorr && <span style={{ marginLeft: 8, fontSize: 11, color: P.moss }}>(correct)</span>}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {q.explanation && <div style={{ marginTop: 10, background: P.parchmentDark, borderLeft: `3px solid ${P.moss}`, padding: '8px 12px' }}><p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 12.5, color: P.inkSecondary, fontStyle: 'italic', margin: 0 }}>💡 {q.explanation}</p></div>}
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ padding: '14px 24px', borderTop: `1px solid ${P.sand}`, flexShrink: 0 }}>
+              <button onClick={() => setSelectedQuiz(null)} style={{ width: '100%', padding: '12px', background: P.inkMuted, color: P.parchmentLight, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase', cursor: 'pointer' }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+    </div>
   );
 }

@@ -254,9 +254,9 @@ export const validateLoginForm = (data: {
   if (!emailValidation.valid) {
     errors.email = emailValidation.error || 'Invalid email';
   }
-  
+
   // Validate password exists
-  if (!data.password) {
+  if (!data.password || data.password.trim().length === 0) {
     errors.password = 'Password is required.';
   }
   

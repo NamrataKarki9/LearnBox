@@ -175,7 +175,7 @@ export default function InvitationAcceptPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center">
-            <div className="bg-[#7C9E9E]/10 rounded-full p-3">
+            <div className="bg-[#7C9E9E]/10 p-3">
               <Building2 className="h-8 w-8 text-[#7C9E9E]" />
             </div>
           </div>
@@ -190,16 +190,16 @@ export default function InvitationAcceptPage() {
           {validationState === 'loading' && (
             <div className="space-y-4 text-center py-8">
               <div className="inline-block">
-                <div className="w-8 h-8 border-4 border-[#7C9E9E]/20 border-t-[#7C9E9E] rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-[#7C9E9E]/20 border-t-[#7C9E9E] animate-spin" />
               </div>
-              <p className="text-gray-600">Validating your invitation...</p>
+              <p className="text-ink-secondary">Validating your invitation...</p>
             </div>
           )}
 
           {/* Invalid State */}
           {validationState === 'invalid' && (
             <div className="space-y-4 py-8">
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-2">
+              <div className="bg-red-50 border border-red-200 p-4 space-y-2">
                 <div className="flex gap-2">
                   <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
                   <div>
@@ -221,7 +221,7 @@ export default function InvitationAcceptPage() {
           {validationState === 'valid' && (
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Invitation Info */}
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+              <div className="bg-blue-50 border border-blue-200 p-3 space-y-2">
                 <p className="text-sm text-blue-700 font-semibold">Invitation Details:</p>
                 <div className="space-y-1 text-sm text-blue-600">
                   <p>
@@ -284,7 +284,7 @@ export default function InvitationAcceptPage() {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink-secondary"
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -301,19 +301,19 @@ export default function InvitationAcceptPage() {
                       {[1, 2, 3].map((i) => (
                         <div
                           key={i}
-                          className={`h-1.5 flex-1 rounded-full transition-colors ${
+                          className={`h-1.5 flex-1  transition-colors ${
                             i <= (passwordStrength === 'weak' ? 1 : passwordStrength === 'medium' ? 2 : 3)
                               ? i === 1
                                 ? 'bg-red-500'
                                 : i === 2
                                 ? 'bg-yellow-500'
                                 : 'bg-green-500'
-                              : 'bg-gray-200'
+                              : 'bg-parchment-dark'
                           }`}
                         />
                       ))}
                     </div>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-ink-muted">
                       Strength:{' '}
                       <span
                         className={
@@ -334,7 +334,7 @@ export default function InvitationAcceptPage() {
                   <p className="text-sm text-red-500">{formErrors.password}</p>
                 )}
 
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-ink-muted">
                   Must contain at least 8 characters, one number and one special character
                 </p>
               </div>
@@ -374,7 +374,7 @@ export default function InvitationAcceptPage() {
                   : 'Complete Registration'}
               </Button>
 
-              <div className="text-center text-sm text-gray-600">
+              <div className="text-center text-sm text-ink-secondary">
                 Already have an account?{' '}
                 <button
                   type="button"
@@ -390,15 +390,15 @@ export default function InvitationAcceptPage() {
           {/* Success State */}
           {validationState === 'success' && (
             <div className="space-y-4 py-8 text-center">
-              <div className="bg-green-50 rounded-full w-16 h-16 flex items-center justify-center mx-auto">
+              <div className="bg-green-50 w-16 h-16 flex items-center justify-center mx-auto">
                 <CheckCircle className="h-8 w-8 text-green-600" />
               </div>
               <div className="space-y-2">
                 <p className="font-semibold text-lg text-gray-900">Registration Successful!</p>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-ink-secondary">
                   Your College Admin account has been created successfully.
                 </p>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-ink-muted">
                   You will be redirected to login shortly...
                 </p>
               </div>
@@ -415,9 +415,9 @@ export default function InvitationAcceptPage() {
           {validationState === 'registering' && (
             <div className="space-y-4 text-center py-8">
               <div className="inline-block">
-                <div className="w-8 h-8 border-4 border-[#7C9E9E]/20 border-t-[#7C9E9E] rounded-full animate-spin" />
+                <div className="w-8 h-8 border-4 border-[#7C9E9E]/20 border-t-[#7C9E9E] animate-spin" />
               </div>
-              <p className="text-gray-600">Creating your account...</p>
+              <p className="text-ink-secondary">Creating your account...</p>
             </div>
           )}
         </CardContent>

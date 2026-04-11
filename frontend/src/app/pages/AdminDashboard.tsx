@@ -1,20 +1,27 @@
 /**
- * Admin Dashboard Layout
- * Wrapper with sidebar navigation for admin routes
+ * Admin Dashboard Layout — Paper & Ink Theme
  */
-
-import { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
-import { Button } from '../components/ui/button';
 import AdminOverview from './AdminOverview';
 import AdminResourcesPage from './AdminResourcesPage';
 import AdminModulesPage from './AdminModulesPage';
 import AdminMCQSetsPage from './AdminMCQSetsPage';
 import AdminLearningSitesPage from './AdminLearningSitesPage';
-import { LayoutDashboard, FileText, BookOpen, Settings, LogOut, Brain, Link2 } from 'lucide-react';
+import { LayoutDashboard, FileText, BookOpen, Settings, LogOut, Brain, Link2, ChevronRight } from 'lucide-react';
 import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
 import { useLogoutConfirm } from '../../hooks/useLogoutConfirm';
+
+import { P } from '../../constants/theme';
+
+const NAV = [
+  { path: '/admin/dashboard', label: 'Dashboard',        icon: LayoutDashboard, exact: true },
+  { path: '/admin/resources', label: 'Manage Resources', icon: FileText },
+  { path: '/admin/modules',   label: 'Manage Modules',   icon: BookOpen },
+  { path: '/admin/mcq-sets',  label: 'MCQ Sets',         icon: Brain },
+  { path: '/admin/learning-sites', label: 'Learning Sites', icon: Link2 },
+  { path: '/admin/settings',  label: 'Settings',          icon: Settings },
+];
 
 export default function AdminDashboard() {
   const { user, logout } = useAuth();
@@ -22,125 +29,70 @@ export default function AdminDashboard() {
   const location = useLocation();
   const logoutConfirm = useLogoutConfirm();
 
-  const navItems = [
-    { 
-      path: '/admin/dashboard', 
-      label: 'Dashboard', 
-      icon: LayoutDashboard,
-      exact: true 
-    },
-    { 
-      path: '/admin/resources', 
-      label: 'Manage Resources', 
-      icon: FileText 
-    },
-    { 
-      path: '/admin/modules', 
-      label: 'Manage Modules', 
-      icon: BookOpen 
-    },
-    { 
-      path: '/admin/mcq-sets', 
-      label: 'MCQ Sets', 
-      icon: Brain 
-    },
-    {
-      path: '/admin/learning-sites',
-      label: 'Learning Sites',
-      icon: Link2
-    },
-    { 
-      path: '/admin/settings', 
-      label: 'Settings', 
-      icon: Settings
-    },
-  ];
+  const isActive = (path: string, exact?: boolean) =>
+    exact ? location.pathname === path : location.pathname.startsWith(path);
 
-  const isActive = (path: string, exact?: boolean) => {
-    if (exact) {
-      return location.pathname === path;
-    }
-    return location.pathname.startsWith(path);
-  };
+  const currentLabel = NAV.find(n => isActive(n.path, n.exact))?.label || 'Admin Dashboard';
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div style={{ display: 'flex', minHeight: '100vh', background: P.parchment, fontFamily: "'Lora', Georgia, serif" }}>
+
       {/* Sidebar */}
-      <aside className="w-64 bg-card border-r border-border flex flex-col fixed h-screen">
-        <div className="p-6 border-b border-border">
-          <h1 className="text-xl font-bold text-foreground">LearnBox</h1>
-          <p className="text-xs text-muted-foreground mt-1">Admin Portal</p>
+      <aside style={{ width: 240, background: P.parchmentLight, borderRight: `1px solid ${P.sand}`, display: 'flex', flexDirection: 'column', position: 'fixed', height: '100vh', zIndex: 20 }}>
+        <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${P.sand}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <BookOpen size={18} color={P.vermillion} strokeWidth={2} />
+            <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: 18, color: P.ink }}>LearnBox</span>
+          </div>
+          <div style={{ marginTop: 6, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: P.inkMuted }}>Admin Portal</div>
         </div>
-        
-        <nav className="flex-1 px-4 py-4 overflow-y-auto">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.path, item.exact);
-            
+
+        <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 1, overflowY: 'auto' }}>
+          {NAV.map(({ path, label, icon: Icon, exact }) => {
+            const active = isActive(path, exact);
             return (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className={`
-                  w-full text-left px-4 py-3 rounded-lg mb-1 flex items-center gap-3 transition-colors
-                  ${active 
-                    ? 'text-foreground bg-accent font-medium' 
-                    : 'text-muted-foreground hover:bg-muted'
-                  }
-                `}
-              >
-                <Icon className="h-5 w-5" />
-                <span>{item.label}</span>
+              <button key={path} onClick={() => navigate(path)}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderLeft: active ? `3px solid ${P.vermillion}` : '3px solid transparent', background: active ? P.parchmentDark : 'transparent', color: active ? P.ink : P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: active ? 700 : 500, fontSize: 13.5, textAlign: 'left', cursor: 'pointer', width: '100%', transition: 'all 0.12s' }}
+                onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = P.parchmentDark; (e.currentTarget as HTMLElement).style.color = P.ink; } }}
+                onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = P.inkMuted; } }}>
+                <Icon size={15} strokeWidth={active ? 2.5 : 1.8} style={{ flexShrink: 0 }} />
+                <span>{label}</span>
+                {active && <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.4 }} />}
               </button>
             );
           })}
         </nav>
 
-        {/* User Info */}
-        <div className="p-4 border-t border-border">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground font-medium">
-              {user?.first_name?.[0] || user?.username?.[0] || 'A'}
+        <div style={{ borderTop: `1px solid ${P.sand}`, padding: '14px 10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 12px', marginBottom: 4 }}>
+            <div style={{ width: 30, height: 30, background: P.inkMuted, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 800, fontSize: 13, color: P.parchment }}>{(user?.first_name || user?.username || 'A').charAt(0).toUpperCase()}</span>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-foreground text-sm truncate">
-                {user?.first_name} {user?.last_name}
-              </div>
-              <div className="text-xs text-muted-foreground">College Admin</div>
+            <div>
+              <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 13, color: P.ink, margin: 0 }}>{user?.first_name} {user?.last_name}</p>
+              <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, color: P.inkMuted, margin: 0, letterSpacing: '0.06em', textTransform: 'uppercase' }}>College Admin</p>
             </div>
           </div>
-          <Button
-            onClick={() => logoutConfirm.openConfirm(logout)}
-            variant="outline"
-            className="w-full"
-            size="sm"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
+          <button onClick={() => logoutConfirm.openConfirm(logout)}
+            style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderLeft: '3px solid transparent', background: 'transparent', color: P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 500, fontSize: 13.5, width: '100%', textAlign: 'left', cursor: 'pointer', transition: 'all 0.12s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = P.vermillionBg; (e.currentTarget as HTMLElement).style.color = P.vermillion; (e.currentTarget as HTMLElement).style.borderLeftColor = P.vermillion; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = P.inkMuted; (e.currentTarget as HTMLElement).style.borderLeftColor = 'transparent'; }}>
+            <LogOut size={15} strokeWidth={1.8} /> Logout
+          </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 ml-64 min-h-screen overflow-auto">
-        {/* Header */}
-        <header className="bg-card border-b border-border px-8 py-4 sticky top-0 z-10">
-          <div className="flex justify-between items-center">
-            <div>
-              <h2 className="text-xl font-bold text-foreground">
-                {navItems.find(item => isActive(item.path, item.exact))?.label || 'Admin Dashboard'}
-              </h2>
-            </div>
-            <button className="p-2 hover:bg-muted rounded-lg transition-colors">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </button>
+      {/* Main */}
+      <main style={{ flex: 1, marginLeft: 240, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        {/* Topbar */}
+        <header style={{ background: P.parchmentLight, borderBottom: `1px solid ${P.sand}`, padding: '0 40px', height: 60, display: 'flex', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
+          <div>
+            <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: P.vermillion }}>Admin Portal</span>
+            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: P.ink, margin: 0 }}>{currentLabel}</h2>
           </div>
         </header>
 
-        {/* Nested Routes */}
-        <div className="min-h-[calc(100vh-73px)]">
+        <div style={{ flex: 1, background: P.parchment }}>
           <Routes>
             <Route index element={<AdminOverview />} />
             <Route path="dashboard" element={<AdminOverview />} />
@@ -151,21 +103,12 @@ export default function AdminDashboard() {
           </Routes>
         </div>
 
-        {/* Footer */}
-        <footer className="bg-muted py-6 border-t border-border">
-          <div className="text-center text-sm text-muted-foreground">
-            2025 LearnBox. All rights reserved.
-          </div>
+        <footer style={{ background: P.parchmentLight, borderTop: `1px solid ${P.sand}`, padding: '16px 40px', textAlign: 'center', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+          © 2025 LearnBox. All rights reserved.
         </footer>
       </main>
 
-      {/* Logout Confirmation Dialog */}
-      <LogoutConfirmDialog
-        isOpen={logoutConfirm.isOpen}
-        onConfirm={logoutConfirm.onConfirm}
-        onCancel={logoutConfirm.onCancel}
-        isLoading={logoutConfirm.isLoading}
-      />
+      <LogoutConfirmDialog isOpen={logoutConfirm.isOpen} onConfirm={logoutConfirm.onConfirm} onCancel={logoutConfirm.onCancel} isLoading={logoutConfirm.isLoading} />
     </div>
   );
 }

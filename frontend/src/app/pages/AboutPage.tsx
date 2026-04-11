@@ -1,264 +1,214 @@
-import { Link } from "react-router-dom";
 import { useEffect } from "react";
-import { Button } from "../components/ui/button";
-import { BookOpen, Users, Target, Heart, Zap, Award } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Award, BookOpen, Heart, Target, Trophy, Users, Zap } from "lucide-react";
+
+import { P } from "../../constants/theme";
+
+const navItems = [
+  { label: "About", path: "/about" },
+  { label: "Contact", path: "/contact" },
+  { label: "Help", path: "/help" },
+];
+
+const footerColumns = [
+  { title: "Features", links: ["Semantic Search", "MCQ Generation", "Analytics", "Summaries"] },
+  { title: "Company", links: ["About", "Contact"] },
+  { title: "Resources", links: ["Help Center", "Documentation", "FAQ"] },
+  { title: "Legal", links: ["Privacy Policy", "Terms of Service", "Cookie Policy"] },
+];
+
+const values = [
+  { icon: Heart, title: "Student-Centric", description: "Everything we build is shaped around better learning outcomes and calmer study experiences." },
+  { icon: Zap, title: "Innovation First", description: "We use modern tools thoughtfully to make academic work feel clearer, faster, and more useful." },
+  { icon: Award, title: "Quality Learning", description: "We care about real academic progress, not just polished interfaces or feature volume." },
+  { icon: Users, title: "Community", description: "LearnBox is built to support collaboration between students, educators, and institutions." },
+];
+
+const milestones = [
+  { year: "2025", title: "Founded", description: "LearnBox began with a simple goal: make academic support more intelligent and accessible." },
+  { year: "2025", title: "Beta Launch", description: "We launched an early version with core AI-assisted learning features and student feedback loops." },
+  { year: "2026", title: "Expansion", description: "The platform matured with stronger workflows for resources, practice, summaries, and analytics." },
+  { year: "2026", title: "Scale", description: "LearnBox continued growing through institutional interest and wider student adoption." },
+];
+
+const team = [
+  { name: "Namrata Karki", role: "Founder & CEO", description: "Guides LearnBox with a long-term vision for modern, AI-supported education.", icon: "NK" },
+  { name: "Aayusha Kandel", role: "Product & Design Lead", description: "Shapes the product experience so students can focus on clarity, not friction.", icon: "AK" },
+  { name: "Ashika Kambang", role: "Technology Lead", description: "Builds the technical systems that power LearnBox’s intelligent academic workflows.", icon: "AK" },
+  { name: "Subu", role: "Operations & Growth", description: "Expands partnerships and helps LearnBox reach more students and institutions.", icon: "SU" },
+];
 
 export function AboutPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-  const team = [
-    {
-      name: "Namrata Karki",
-      role: "Founder & CEO",
-      description: "Visionary leader driving LearnBox's mission to transform education through AI.",
-      icon: "👩‍💼",
-    },
-    {
-      name: "Aayusha Kandel",
-      role: "Product & Design Lead",
-      description: "Creates intuitive user experiences that make learning accessible to all.",
-      icon: "👩‍🎨",
-    },
-    {
-      name: "Ashika Kambang",
-      role: "Technology Lead",
-      description: "Builds robust AI systems and backend infrastructure for LearnBox.",
-      icon: "👩‍💻",
-    },
-    {
-      name: "Subu",
-      role: "Operations & Growth",
-      description: "Scales LearnBox and builds partnerships with educational institutions.",
-      icon: "👨‍💼",
-    },
-  ];
-
-  const values = [
-    {
-      icon: Heart,
-      title: "Student-Centric",
-      description: "Everything we build is designed with students' success in mind.",
-    },
-    {
-      icon: Zap,
-      title: "Innovation First",
-      description: "We constantly push boundaries with cutting-edge AI and technology.",
-    },
-    {
-      icon: Award,
-      title: "Quality Learning",
-      description: "We believe in measurable learning outcomes and real academic impact.",
-    },
-    {
-      icon: Users,
-      title: "Community",
-      description: "We foster a supportive community where students help each other learn.",
-    },
-  ];
-
-  const milestones = [
-    { year: "2025", title: "Founded", description: "LearnBox launched with core AI-powered learning features" },
-    { year: "2025", title: "Beta Launch", description: "Launched beta with early adopters and feedback integration" },
-    { year: "2026", title: "Expansion", description: "Expanded team and enhanced platform capabilities" },
-    { year: "2026", title: "Scale", description: "Growing user base and institutional partnerships" },
-  ];
 
   return (
-    <div className="min-h-screen flex flex-col">
-      {/* Header */}
-      <header className="bg-white border-b border-border py-4 px-6 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
-            <BookOpen className="w-6 h-6 text-accent" />
-            <span className="text-2xl font-bold text-foreground">LearnBox</span>
-          </Link>
-          
-          <div className="flex items-center gap-3">
-            <Link to="/login">
-              <Button className="bg-transparent border border-accent text-accent hover:bg-accent hover:text-white rounded-full px-6">
-                Login
-              </Button>
+    <div style={{ minHeight: "100vh", background: P.parchment, color: P.ink, fontFamily: "'Lora', Georgia, serif" }}>
+      <style>{`
+        .about-nav-link{position:relative;color:${P.inkSecondary};text-decoration:none;transition:color 180ms ease}
+        .about-nav-link::after{content:"";position:absolute;left:0;bottom:-8px;width:100%;height:2px;background:${P.vermillion};transform:scaleX(0);transform-origin:left;transition:transform 180ms ease}
+        .about-nav-link:hover{color:${P.vermillion}}
+        .about-nav-link:hover::after{transform:scaleX(1)}
+        .about-shell{overflow-x:hidden}
+        .about-value-grid,.about-timeline-grid,.about-team-grid,.about-footer-grid{display:grid}
+        .about-value-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+        .about-timeline-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+        .about-team-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+        .about-footer-grid{grid-template-columns:minmax(220px,1.6fr) repeat(4,minmax(120px,1fr));gap:28px}
+        .about-card{transition:transform 220ms ease,box-shadow 220ms ease}
+        .about-card:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(28,18,8,.12)}
+        .cta-button{border-radius:16px;text-decoration:none;transition:transform 180ms ease,box-shadow 180ms ease,background 180ms ease,color 180ms ease}
+        .cta-button:hover{transform:translateY(-2px)}
+        .primary-cta:hover{box-shadow:0 16px 30px rgba(192,57,43,.22)}
+        .secondary-cta:hover{box-shadow:0 14px 28px rgba(28,18,8,.16)}
+        @media (max-width:1180px){.about-value-grid,.about-timeline-grid,.about-team-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.about-footer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media (max-width:720px){.about-value-grid,.about-timeline-grid,.about-team-grid,.about-footer-grid{grid-template-columns:1fr}}
+      `}</style>
+
+      <div className="about-shell">
+        <header style={{ position: "sticky", top: 0, zIndex: 100, backdropFilter: "blur(14px)", background: "rgba(250, 247, 240, 0.92)", borderBottom: `1px solid ${P.sand}` }}>
+          <div style={{ width: "100%", maxWidth: 1280, margin: "0 auto", padding: "18px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 24, flexWrap: "wrap" }}>
+            <Link to="/" style={{ display: "flex", alignItems: "center", gap: 12, textDecoration: "none" }}>
+              <div style={{ width: 42, height: 42, borderRadius: 14, background: P.vermillionBg, boxShadow: `inset 0 0 0 1px ${P.sand}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <BookOpen size={20} color={P.vermillion} strokeWidth={2} />
+              </div>
+              <div>
+                <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: P.inkMuted, marginBottom: 2 }}>Academic Platform</div>
+                <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 23, fontWeight: 900, color: P.ink, letterSpacing: "-0.03em" }}>LearnBox</div>
+              </div>
             </Link>
-            
-            <Link to="/register">
-              <Button className="bg-accent hover:bg-accent/90 text-white rounded-full px-6">
-                Get Started
-              </Button>
-            </Link>
+            <nav style={{ display: "flex", alignItems: "center", gap: 28, flexWrap: "wrap" }}>
+              {navItems.map((item) => (
+                <Link key={item.label} to={item.path} className="about-nav-link" style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                  {item.label}
+                </Link>
+              ))}
+            </nav>
+            <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Link to="/login" className="cta-button secondary-cta" style={{ padding: "11px 20px", borderRadius: 16, background: P.parchmentDark, color: P.inkSecondary, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase" }}>Login</Link>
+              <Link to="/register" className="cta-button primary-cta" style={{ padding: "11px 22px", borderRadius: 16, background: P.vermillion, color: P.parchmentLight, boxShadow: "0 12px 24px rgba(192, 57, 43, 0.18)", fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 13, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase" }}>Get Started</Link>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
 
-      {/* Hero Section */}
-      <section className="bg-gradient-to-b from-accent to-accent/95 text-white px-6 py-20">
-        <div className="max-w-7xl mx-auto text-center space-y-6">
-          <h1 className="text-5xl md:text-6xl font-bold">About LearnBox</h1>
-          <p className="text-xl text-white/90 max-w-2xl mx-auto">
-            Reimagining how students learn and master their degrees with AI-powered tools.
-          </p>
-        </div>
-      </section>
-
-      {/* Mission Section */}
-      <section className="bg-white px-6 py-20 border-b border-border">
-        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-          <div className="space-y-6">
-            <h2 className="text-4xl font-bold text-foreground">Our Mission</h2>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              We believe every student deserves access to intelligent learning tools that adapt to their unique needs. LearnBox transforms passive learning into active, measurable progress.
-            </p>
-            <p className="text-lg text-muted-foreground leading-relaxed">
-              By combining cutting-edge AI with pedagogical expertise, we create a learning experience that's not just informative, but truly transformative.
-            </p>
+        <section style={{ position: "relative", overflow: "hidden", background: `linear-gradient(135deg, ${P.inkMuted} 0%, ${P.inkSecondary} 100%)`, color: P.parchmentLight, borderBottom: `1px solid ${P.sand}` }}>
+          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 18% 20%, rgba(245, 230, 228, 0.08), transparent 28%), radial-gradient(circle at 82% 18%, rgba(192, 57, 43, 0.14), transparent 22%)", pointerEvents: "none" }} />
+          <div style={{ width: "100%", maxWidth: 1280, margin: "0 auto", padding: "78px 20px 88px", position: "relative" }}>
+            <div style={{ maxWidth: 820 }}>
+              <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 20, padding: "8px 14px", borderRadius: 999, background: "rgba(250, 247, 240, 0.08)", boxShadow: `inset 0 0 0 1px rgba(232, 223, 208, 0.22)` }}>
+                <span style={{ width: 8, height: 8, borderRadius: "50%", background: P.vermillion, display: "inline-block" }} />
+                <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.parchmentLight }}>About LearnBox</span>
+              </div>
+              <h1 style={{ margin: "0 0 18px", fontFamily: "'Playfair Display', serif", fontSize: "clamp(2.8rem, 6vw, 5rem)", lineHeight: 0.98, letterSpacing: "-0.05em", color: P.parchmentLight, maxWidth: 820 }}>We’re building a more thoughtful academic platform for modern learners.</h1>
+              <p style={{ margin: 0, maxWidth: 700, fontSize: 18, lineHeight: 1.8, color: "#E7D9C6" }}>LearnBox exists to help students move from passive content consumption to clearer, more structured academic progress with the support of carefully applied AI.</p>
+            </div>
           </div>
-          <div className="bg-gradient-to-br from-accent/10 to-primary/10 rounded-2xl p-12 flex items-center justify-center min-h-96">
-            <Target className="w-40 h-40 text-accent/30" strokeWidth={1} />
-          </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Values Section */}
-      <section className="bg-slate-50 px-6 py-20 border-b border-border">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-4xl font-bold text-center text-foreground mb-16">Our Core Values</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {values.map((value, index) => {
-              const Icon = value.icon;
-              return (
-                <div
-                  key={index}
-                  className="bg-white p-8 rounded-2xl border border-border hover:border-accent/50 transition-all"
-                >
-                  <Icon className="w-10 h-10 text-accent mb-4" />
-                  <h3 className="text-xl font-bold text-foreground mb-3">{value.title}</h3>
-                  <p className="text-muted-foreground">{value.description}</p>
+        <section style={{ padding: "34px 0 84px", background: `linear-gradient(180deg, ${P.parchmentLight} 0%, ${P.parchment} 100%)` }}>
+          <div style={{ width: "100%", maxWidth: 1280, margin: "0 auto", padding: "0 20px", display: "grid", gap: 26 }}>
+            <div className="about-card" style={{ borderRadius: 30, background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, padding: "32px 30px" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1.05fr) minmax(280px,.95fr)", gap: 28, alignItems: "center" }}>
+                <div>
+                  <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.vermillion, marginBottom: 10 }}>Our Mission</div>
+                  <h2 style={{ margin: "0 0 12px", fontFamily: "'Playfair Display', serif", fontSize: 34, lineHeight: 1.02, letterSpacing: "-0.04em", color: P.ink }}>Reimagining academic mastery with clarity, focus, and useful intelligence.</h2>
+                  <p style={{ margin: "0 0 12px", fontSize: 15.5, lineHeight: 1.8, color: P.inkMuted }}>We believe every student deserves tools that simplify the complexity of study rather than adding more noise. LearnBox turns resources into something easier to search, practice, summarize, and improve from.</p>
+                  <p style={{ margin: 0, fontSize: 15.5, lineHeight: 1.8, color: P.inkMuted }}>Our work is grounded in educational usefulness: sharper workflows, calmer interfaces, and academic systems that help students build confidence over time.</p>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+                <div style={{ borderRadius: 28, background: P.parchmentDark, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, minHeight: 280, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 70% 30%, rgba(192, 57, 43, 0.12), transparent 24%)" }} />
+                  <Target size={96} color={P.vermillion} strokeWidth={1.4} />
+                </div>
+              </div>
+            </div>
 
-      {/* Timeline Section */}
-      <section className="bg-white px-6 py-20 border-b border-border">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-4xl font-bold text-center text-foreground mb-16">Our Journey</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {milestones.map((milestone, index) => (
-              <div key={index} className="relative">
-                <div className="flex items-center gap-4 mb-4">
-                  <div className="w-12 h-12 bg-accent rounded-full flex items-center justify-center text-white font-bold">
-                    {index + 1}
+            <div>
+              <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.vermillion, marginBottom: 12 }}>Core Values</div>
+              <div className="about-value-grid">
+                {values.map((value) => (
+                  <div key={value.title} className="about-card" style={{ borderRadius: 24, background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, padding: "26px 22px" }}>
+                    <div style={{ width: 52, height: 52, borderRadius: 18, background: P.vermillionBg, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>
+                      <value.icon size={20} color={P.vermillion} strokeWidth={2} />
+                    </div>
+                    <h3 style={{ margin: "0 0 10px", fontFamily: "'Playfair Display', serif", fontSize: 22, lineHeight: 1.12, color: P.ink }}>{value.title}</h3>
+                    <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.75, color: P.inkMuted }}>{value.description}</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-semibold text-accent">{milestone.year}</p>
-                    <h3 className="text-lg font-bold text-foreground">{milestone.title}</h3>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.vermillion, marginBottom: 12 }}>Timeline</div>
+              <div className="about-timeline-grid">
+                {milestones.map((milestone) => (
+                  <div key={milestone.title} className="about-card" style={{ borderRadius: 24, background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, padding: "24px 22px" }}>
+                    <div style={{ display: "inline-flex", padding: "6px 10px", borderRadius: 999, background: P.vermillionBg, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: P.vermillion, marginBottom: 14 }}>{milestone.year}</div>
+                    <h3 style={{ margin: "0 0 8px", fontFamily: "'Playfair Display', serif", fontSize: 22, lineHeight: 1.1, color: P.ink }}>{milestone.title}</h3>
+                    <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.75, color: P.inkMuted }}>{milestone.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.vermillion, marginBottom: 12 }}>The Team</div>
+              <div className="about-team-grid">
+                {team.map((member) => (
+                  <div key={member.name} className="about-card" style={{ borderRadius: 24, background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, padding: "26px 22px" }}>
+                    <div style={{ width: 72, height: 72, borderRadius: 22, background: P.parchmentDark, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 900, letterSpacing: "-0.03em", color: P.ink }}>{member.icon}</div>
+                    <h3 style={{ margin: "0 0 4px", fontFamily: "'Playfair Display', serif", fontSize: 22, lineHeight: 1.08, color: P.ink }}>{member.name}</h3>
+                    <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: P.vermillion, marginBottom: 12 }}>{member.role}</div>
+                    <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.75, color: P.inkMuted }}>{member.description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section style={{ position: "relative", overflow: "hidden", background: `linear-gradient(135deg, ${P.inkSecondary} 0%, ${P.inkMuted} 100%)`, color: P.parchmentLight, padding: "84px 0" }}>
+          <div style={{ width: "100%", maxWidth: 1280, margin: "0 auto", padding: "0 20px", textAlign: "center" }}>
+            <Trophy size={40} color={P.parchmentLight} style={{ marginBottom: 18 }} />
+            <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.vermillion, marginBottom: 12 }}>Join LearnBox</div>
+            <h2 style={{ margin: "0 0 14px", fontFamily: "'Playfair Display', serif", fontSize: "clamp(2.1rem, 4vw, 3.5rem)", lineHeight: 1.03, letterSpacing: "-0.04em", color: P.parchmentLight }}>Build a calmer, smarter academic workflow with us.</h2>
+            <p style={{ margin: "0 auto 28px", maxWidth: 620, fontSize: 17, lineHeight: 1.8, color: "#E7D9C6" }}>LearnBox is for students who want more structure, more clarity, and better support in the way they study.</p>
+            <Link to="/register" className="cta-button primary-cta" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", padding: "16px 28px", borderRadius: 18, background: P.vermillion, color: P.parchmentLight, boxShadow: "0 18px 34px rgba(192, 57, 43, 0.24)", fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 14, letterSpacing: "0.08em", textTransform: "uppercase" }}>Get Started</Link>
+          </div>
+        </section>
+
+        <footer style={{ background: "#120D06", color: "#C8B898", borderTop: `1px solid ${P.inkSecondary}`, padding: "58px 0 34px" }}>
+          <div style={{ width: "100%", maxWidth: 1280, margin: "0 auto", padding: "0 20px" }}>
+            <div className="about-footer-grid" style={{ paddingBottom: 38, marginBottom: 28, borderBottom: `1px solid ${P.inkSecondary}` }}>
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                  <BookOpen size={18} color={P.vermillion} strokeWidth={2} />
+                  <span style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 900, color: P.parchmentLight, letterSpacing: "-0.03em" }}>LearnBox</span>
+                </div>
+                <p style={{ margin: 0, maxWidth: 280, fontSize: 13.5, lineHeight: 1.75, color: "#9E8E76" }}>Your academic command center for resources, revision, structured practice, and learning progress.</p>
+              </div>
+              {footerColumns.map((column) => (
+                <div key={column.title}>
+                  <h4 style={{ margin: "0 0 16px", fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: P.parchmentLight }}>{column.title}</h4>
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {column.links.map((link) => (
+                      <Link key={link} to="/" style={{ textDecoration: "none", fontSize: 13, color: "#9E8E76" }}>{link}</Link>
+                    ))}
                   </div>
                 </div>
-                <p className="text-muted-foreground ml-16">{milestone.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Team Section */}
-      <section className="bg-slate-50 px-6 py-20 border-b border-border">
-        <div className="max-w-7xl mx-auto">
-          <h2 className="text-4xl font-bold text-center text-foreground mb-4">Meet Our Team</h2>
-          <p className="text-center text-muted-foreground text-lg mb-16 max-w-2xl mx-auto">
-            A diverse team of educators, engineers, and innovators united by a passion for transforming education.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {team.map((member, index) => (
-              <div key={index} className="bg-white rounded-2xl p-8 text-center border border-border hover:border-accent/50 transition-all">
-                <div className="text-5xl mb-4">{member.icon}</div>
-                <h3 className="text-xl font-bold text-foreground mb-1">{member.name}</h3>
-                <p className="text-accent font-semibold mb-3">{member.role}</p>
-                <p className="text-muted-foreground">{member.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="bg-gradient-to-r from-accent to-primary text-white px-6 py-20">
-        <div className="max-w-4xl mx-auto text-center space-y-6">
-          <h2 className="text-4xl font-bold">Ready to Join Our Community?</h2>
-          <p className="text-xl text-white/90">Start your journey with LearnBox today.</p>
-          <Link to="/register">
-            <Button className="bg-white hover:bg-white/90 text-accent rounded-full px-10 py-6 text-lg font-semibold">
-              Get Started Now
-            </Button>
-          </Link>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="bg-slate-900 text-white px-6 py-16">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-12">
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <BookOpen className="w-5 h-5" />
-                <span className="text-lg font-bold">LearnBox</span>
-              </div>
-              <p className="text-sm text-gray-400">
-                Your scholarly command center for lectures, slides, and academic excellence.
-              </p>
+              ))}
             </div>
-            
-            <div>
-              <h4 className="font-semibold mb-4">Features</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link to="/" className="hover:text-white transition-colors">Semantic Search</Link></li>
-                <li><Link to="/" className="hover:text-white transition-colors">MCQ Generation</Link></li>
-                <li><Link to="/" className="hover:text-white transition-colors">Analytics</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Company</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link to="/about" className="hover:text-white transition-colors">About</Link></li>
-                <li><Link to="/contact" className="hover:text-white transition-colors">Contact</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Resources</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link to="/help" className="hover:text-white transition-colors">Help Center</Link></li>
-                <li><Link to="/" className="hover:text-white transition-colors">Documentation</Link></li>
-                <li><Link to="/" className="hover:text-white transition-colors">FAQ</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-semibold mb-4">Legal</h4>
-              <ul className="space-y-2 text-sm text-gray-400">
-                <li><Link to="/" className="hover:text-white transition-colors">Privacy Policy</Link></li>
-                <li><Link to="/" className="hover:text-white transition-colors">Terms of Service</Link></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="pt-12 border-t border-gray-800">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-              <p className="text-sm text-gray-400">
-                © 2025 LearnBox. All rights reserved.
-              </p>
-              <div className="flex gap-6 mt-4 md:mt-0">
-                <Link to="/" className="text-gray-400 hover:text-white transition-colors">Twitter</Link>
-                <Link to="/" className="text-gray-400 hover:text-white transition-colors">LinkedIn</Link>
-                <Link to="/" className="text-gray-400 hover:text-white transition-colors">GitHub</Link>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+              <p style={{ margin: 0, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, letterSpacing: "0.05em", color: "#8E7D66" }}>© 2025 LearnBox. All rights reserved.</p>
+              <div style={{ display: "flex", gap: 22, flexWrap: "wrap" }}>
+                {["Twitter", "LinkedIn", "GitHub"].map((social) => (
+                  <Link key={social} to="/" style={{ textDecoration: "none", fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.07em", textTransform: "uppercase", color: "#8E7D66" }}>{social}</Link>
+                ))}
               </div>
             </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      </div>
     </div>
   );
 }

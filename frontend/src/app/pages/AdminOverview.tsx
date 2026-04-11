@@ -1,34 +1,17 @@
 /**
- * Admin Overview/Dashboard Page
- * Shows stats, recent activity, and quick actions
+ * Admin Overview — Paper & Ink Theme
  */
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { resourceAPI, moduleAPI, facultyAPI, Resource, Faculty } from '../../services/api';
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import UploadResourceDialog from '../components/UploadResourceDialog';
 import { toast } from 'sonner';
-import { 
-  FileText, 
-  BookOpen, 
-  Users, 
-  TrendingUp, 
-  Clock, 
-  Upload,
-  Download,
-  Eye,
-  Calendar
-} from 'lucide-react';
+import { FileText, BookOpen, Clock, Upload, Eye, Download, Calendar, TrendingUp } from 'lucide-react';
 
-interface Module {
-  id: number;
-  name: string;
-  code: string;
-  facultyId: number;
-}
+import { P } from '../../constants/theme';
+
+interface Module { id: number; name: string; code: string; facultyId: number; }
 
 export default function AdminOverview() {
   const navigate = useNavigate();
@@ -39,294 +22,164 @@ export default function AdminOverview() {
   const [loading, setLoading] = useState(true);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
-    if (!user?.collegeId) {
-      toast.error('Unable to load data: No college assigned');
-      setLoading(false);
-      return;
-    }
-
+    if (!user?.collegeId) { toast.error('No college assigned'); setLoading(false); return; }
     setLoading(true);
     try {
-      console.log('🔄 Fetching overview data for college:', user.collegeId);
-      
-      const [resourcesRes, modulesRes, facultiesRes] = await Promise.all([
+      const [rR, mR, fR] = await Promise.all([
         resourceAPI.getAll({ collegeId: user.collegeId }),
         moduleAPI.getAll({ collegeId: user.collegeId }),
-        facultyAPI.getAll({ collegeId: user.collegeId })
+        facultyAPI.getAll({ collegeId: user.collegeId }),
       ]);
-      
-      setResources(resourcesRes.data.data || []);
-      setModules(modulesRes.data.data || []);
-      setFaculties(facultiesRes.data.data || []);
-    } catch (error) {
-      console.error('Error fetching data:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setLoading(false);
-    }
+      setResources(rR.data.data || []);
+      setModules(mR.data.data || []);
+      setFaculties(fR.data.data || []);
+    } catch { toast.error('Failed to load dashboard data'); }
+    finally { setLoading(false); }
   };
 
-  const handleUploadSuccess = () => {
-    toast.success('Resource uploaded successfully!');
-    fetchData();
+  const recentResources = resources.filter(r => { const d = new Date(r.createdAt); const y = new Date(); y.setDate(y.getDate() - 1); return d > y; }).length;
+  const thisWeekResources = resources.filter(r => { const d = new Date(r.createdAt); const w = new Date(); w.setDate(w.getDate() - 7); return d > w; }).length;
+  const recentUploads = [...resources].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 10);
+  const resourcesByFaculty = faculties.map(f => ({ name: f.name, code: f.code, count: resources.filter(r => r.facultyId === f.id).length })).sort((a, b) => b.count - a.count);
+
+  const fmtDate = (d: string) => {
+    const date = new Date(d); const now = new Date(); const h = (now.getTime() - date.getTime()) / 3600000;
+    if (h < 1) return 'Just now'; if (h < 24) return `${Math.floor(h)}h ago`; if (h < 48) return 'Yesterday';
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  // Calculate stats
-  const recentResources = resources.filter(r => {
-    const uploadDate = new Date(r.createdAt);
-    const yesterday = new Date();
-    yesterday.setDate(yesterday.getDate() - 1);
-    return uploadDate > yesterday;
-  }).length;
-
-  const thisWeekResources = resources.filter(r => {
-    const uploadDate = new Date(r.createdAt);
-    const weekAgo = new Date();
-    weekAgo.setDate(weekAgo.getDate() - 7);
-    return uploadDate > weekAgo;
-  }).length;
-
-  // Get resource distribution by faculty
-  const resourcesByFaculty = faculties.map(faculty => ({
-    name: faculty.name,
-    code: faculty.code,
-    count: resources.filter(r => r.facultyId === faculty.id).length
-  })).sort((a, b) => b.count - a.count);
-
-  // Get recent uploads (last 10)
-  const recentUploads = [...resources]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 10);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
-    if (diffInHours < 1) {
-      return 'Just now';
-    } else if (diffInHours < 24) {
-      return `${Math.floor(diffInHours)}h ago`;
-    } else if (diffInHours < 48) {
-      return 'Yesterday';
-    } else {
-      return date.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric'
-      });
-    }
-  };
+  const statCards = [
+    { label: 'Total Resources', value: resources.length, sub: 'Across all modules', icon: FileText, color: P.vermillion, bg: P.vermillionBg, onClick: () => navigate('/admin/resources') },
+    { label: 'Active Modules', value: modules.length, sub: `In ${faculties.length} faculties`, icon: BookOpen, color: P.moss, bg: P.mossBg, onClick: () => navigate('/admin/modules') },
+    { label: 'Last 24 Hours', value: recentResources, sub: 'New uploads', icon: Clock, color: '#A07A30', bg: '#FEF5E4' },
+    { label: 'This Week', value: thisWeekResources, sub: 'Resources added', icon: Calendar, color: P.ink, bg: P.parchmentDark },
+  ];
+  const softPanel: React.CSSProperties = { background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}, 0 10px 24px rgba(28,18,8,0.04)` };
+  const softPrimaryButton: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: P.parchmentDark, color: P.inkSecondary, border: 'none', boxShadow: `inset 0 0 0 1px ${P.sandLight}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', transition: 'background 0.15s, box-shadow 0.15s, color 0.15s' };
+  const softGhostButton: React.CSSProperties = { ...softPrimaryButton, background: P.parchmentLight };
 
   return (
-    <div className="p-8">
-      {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Admin Dashboard</h1>
-        <p className="text-gray-600">Overview of your college's academic resources</p>
+    <div style={{ padding: '32px 40px', maxWidth: 1200, margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ marginBottom: 28, paddingBottom: 20, borderBottom: `1px solid ${P.sand}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: P.vermillion, marginBottom: 6 }}>Overview</div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: P.ink, margin: 0 }}>Admin Dashboard</h1>
+          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 14, color: P.inkMuted, marginTop: 4 }}>Academic resources overview for your college</p>
+        </div>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button onClick={() => setUploadDialogOpen(true)}
+            style={softPrimaryButton}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = P.parchment; (e.currentTarget as HTMLElement).style.boxShadow = `inset 0 0 0 1px ${P.sand}`; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = P.parchmentDark; (e.currentTarget as HTMLElement).style.boxShadow = `inset 0 0 0 1px ${P.sandLight}`; }}>
+            <Upload size={13} /> Upload Resource
+          </button>
+          <button onClick={() => navigate('/admin/modules')}
+            style={softGhostButton}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = P.parchmentDark; (e.currentTarget as HTMLElement).style.color = P.ink; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = P.parchmentLight; (e.currentTarget as HTMLElement).style.color = P.inkSecondary; }}>
+            <BookOpen size={13} /> Manage Modules
+          </button>
+        </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="flex gap-3 mb-6">
-        <Button 
-          className="bg-primary hover:bg-primary/90 text-white"
-          onClick={() => setUploadDialogOpen(true)}
-        >
-          <Upload className="h-4 w-4 mr-2" />
-          Upload Resource
-        </Button>
-        <Button 
-          variant="outline"
-          onClick={() => navigate('/admin/modules')}
-        >
-          <BookOpen className="h-4 w-4 mr-2" />
-          Manage Modules
-        </Button>
+      {/* Stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, ...softPanel, marginBottom: 28 }}>
+        {statCards.map(({ label, value, sub, icon: Icon, color, bg, onClick }, i) => (
+          <div key={label} onClick={onClick}
+            style={{ background: P.parchmentLight, padding: '20px 22px', borderRight: i < 3 ? `1px solid ${P.sand}` : 'none', cursor: onClick ? 'pointer' : 'default', transition: 'background 0.12s' }}
+            onMouseEnter={e => { if (onClick) (e.currentTarget as HTMLElement).style.background = P.parchmentDark; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = P.parchmentLight; }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+              <div style={{ width: 40, height: 40, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon size={18} color={color} strokeWidth={2} />
+              </div>
+              {i === 0 && <TrendingUp size={14} color={P.moss} strokeWidth={2} />}
+            </div>
+            <p style={{ fontFamily: "var(--font-numeric)", fontSize: 28, fontWeight: 800, color: P.ink, margin: '0 0 2px', lineHeight: 1 }}>{loading ? '—' : value}</p>
+            <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, color: P.inkSecondary, margin: '4px 0 1px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>{label}</p>
+            <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 11.5, color: P.inkMuted, margin: 0 }}>{sub}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Main Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <Card className="border border-gray-200 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/resources')}>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                <FileText className="h-6 w-6 text-blue-600" />
+      {/* Two column */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 24 }}>
+        {/* Recent uploads */}
+        <div style={softPanel}>
+          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${P.sandLight}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ background: P.inkMuted, color: P.parchment, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 10px' }}>Recent Uploads</span>
+          </div>
+          {loading ? (
+            <div style={{ padding: '40px', textAlign: 'center', fontFamily: "'Lora', Georgia, serif", color: P.inkMuted, fontSize: 13 }}>Loading…</div>
+          ) : recentUploads.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', fontFamily: "'Lora', Georgia, serif", color: P.inkMuted, fontSize: 13 }}>No recent uploads</div>
+          ) : recentUploads.map((r, i) => (
+            <div key={r.id} onClick={() => navigate('/admin/resources')}
+              style={{ padding: '12px 20px', borderBottom: i < recentUploads.length - 1 ? `1px solid ${P.sandLight}` : 'none', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, cursor: 'pointer', transition: 'background 0.12s' }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = P.parchmentDark}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flex: 1 }}>
+                <div style={{ width: 30, height: 30, background: P.vermillionBg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <FileText size={13} color={P.vermillion} strokeWidth={2} />
+                </div>
+                <div>
+                  <h4 style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13, fontWeight: 700, color: P.ink, margin: 0, lineHeight: 1.3 }}>{r.title}</h4>
+                  <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, margin: '2px 0 0', letterSpacing: '0.04em' }}>{r.module?.name || 'No module'}</p>
+                </div>
               </div>
-              <TrendingUp className="h-5 w-5 text-green-500" />
+              <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, whiteSpace: 'nowrap', flexShrink: 0 }}>{fmtDate(r.createdAt)}</span>
             </div>
-            <h3 className="text-sm font-medium text-gray-600 mb-1">Total Resources</h3>
-            <p className="text-3xl font-bold text-gray-900 mb-2">{resources.length}</p>
-            <p className="text-xs text-gray-500">Across all modules</p>
-          </CardContent>
-        </Card>
+          ))}
+        </div>
 
-        <Card className="border border-gray-200 hover:shadow-lg transition-shadow cursor-pointer" onClick={() => navigate('/admin/modules')}>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-                <BookOpen className="h-6 w-6 text-purple-600" />
+        {/* Resources by faculty */}
+        <div style={softPanel}>
+          <div style={{ padding: '14px 20px', borderBottom: `1px solid ${P.sandLight}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ background: P.inkMuted, color: P.parchment, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '3px 10px' }}>By Faculty</span>
+          </div>
+          {loading ? (
+            <div style={{ padding: '40px', textAlign: 'center', fontFamily: "'Lora', Georgia, serif", color: P.inkMuted, fontSize: 13 }}>Loading…</div>
+          ) : resourcesByFaculty.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', fontFamily: "'Lora', Georgia, serif", color: P.inkMuted, fontSize: 13 }}>No data available</div>
+          ) : resourcesByFaculty.map((f, i) => (
+            <div key={i} style={{ padding: '14px 20px', borderBottom: i < resourcesByFaculty.length - 1 ? `1px solid ${P.sandLight}` : 'none' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+                <div>
+                  <h4 style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13, fontWeight: 700, color: P.ink, margin: 0 }}>{f.name}</h4>
+                  <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, margin: '2px 0 0' }}>{f.code}</p>
+                </div>
+                <span style={{ fontFamily: "var(--font-numeric)", fontSize: 20, fontWeight: 800, color: P.vermillion }}>{f.count}</span>
+              </div>
+              <div style={{ height: 3, background: P.sandLight }}>
+                <div style={{ height: '100%', width: resources.length > 0 ? `${(f.count / resources.length) * 100}%` : '0%', background: P.vermillion, transition: 'width 0.4s' }} />
               </div>
             </div>
-            <h3 className="text-sm font-medium text-gray-600 mb-1">Active Modules</h3>
-            <p className="text-3xl font-bold text-gray-900 mb-2">{modules.length}</p>
-            <p className="text-xs text-gray-500">In {faculties.length} faculties</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-gray-200 hover:shadow-lg transition-shadow">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                <Clock className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-            <h3 className="text-sm font-medium text-gray-600 mb-1">Last 24 Hours</h3>
-            <p className="text-3xl font-bold text-gray-900 mb-2">{recentResources}</p>
-            <p className="text-xs text-gray-500">New uploads</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border border-gray-200 hover:shadow-lg transition-shadow">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-orange-600" />
-              </div>
-            </div>
-            <h3 className="text-sm font-medium text-gray-600 mb-1">This Week</h3>
-            <p className="text-3xl font-bold text-gray-900 mb-2">{thisWeekResources}</p>
-            <p className="text-xs text-gray-500">Resources added</p>
-          </CardContent>
-        </Card>
+          ))}
+        </div>
       </div>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle className="text-lg font-semibold">Recent Uploads</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="p-8 text-center text-gray-500">Loading...</div>
-            ) : recentUploads.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">No recent uploads</div>
-            ) : (
-              <div className="divide-y">
-                {recentUploads.map((resource) => (
-                  <div key={resource.id} className="p-4 hover:bg-gray-50 cursor-pointer" onClick={() => navigate('/admin/resources')}>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-start gap-3 flex-1">
-                        <div className="w-8 h-8 bg-blue-100 rounded flex items-center justify-center flex-shrink-0">
-                          <FileText className="h-4 w-4 text-blue-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium text-gray-900 truncate">{resource.title}</h4>
-                          <p className="text-xs text-gray-500">{resource.module?.name || 'No module'}</p>
-                        </div>
-                      </div>
-                      <span className="text-xs text-gray-400 whitespace-nowrap ml-2">
-                        {formatDate(resource.createdAt)}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Resources by Faculty */}
-        <Card>
-          <CardHeader className="border-b">
-            <CardTitle className="text-lg font-semibold">Resources by Faculty</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {loading ? (
-              <div className="p-8 text-center text-gray-500">Loading...</div>
-            ) : resourcesByFaculty.length === 0 ? (
-              <div className="p-8 text-center text-gray-500">No data available</div>
-            ) : (
-              <div className="divide-y">
-                {resourcesByFaculty.map((faculty, idx) => (
-                  <div key={idx} className="p-4 hover:bg-gray-50">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h4 className="text-sm font-medium text-gray-900">{faculty.name}</h4>
-                        <p className="text-xs text-gray-500">{faculty.code}</p>
-                      </div>
-                      <span className="text-lg font-bold text-primary">{faculty.count}</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-primary h-2 rounded-full transition-all"
-                        style={{ width: `${(faculty.count / resources.length) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* Bottom stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0, ...softPanel }}>
+        {[
+          { label: 'PDF Documents', value: resources.filter(r => r.fileType?.toLowerCase() === 'pdf').length, icon: FileText, color: P.vermillion },
+          { label: 'Image Files', value: resources.filter(r => ['jpg','jpeg','png','gif'].includes(r.fileType?.toLowerCase())).length, icon: Eye, color: P.moss },
+          { label: 'Other Files', value: resources.filter(r => !['pdf','jpg','jpeg','png','gif'].includes(r.fileType?.toLowerCase())).length, icon: Download, color: '#A07A30' },
+        ].map(({ label, value, icon: Icon, color }, i) => (
+          <div key={label} style={{ background: P.parchmentLight, padding: '18px 22px', borderRight: i < 2 ? `1px solid ${P.sand}` : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, color: P.inkMuted, letterSpacing: '0.06em', textTransform: 'uppercase', margin: '0 0 4px' }}>{label}</p>
+              <p style={{ fontFamily: "var(--font-numeric)", fontSize: 22, fontWeight: 800, color: P.ink, margin: 0 }}>{loading ? '—' : value}</p>
+            </div>
+            <Icon size={28} color={color} strokeWidth={1} />
+          </div>
+        ))}
       </div>
 
-      {/* Quick Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">PDF Documents</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {resources.filter(r => r.fileType.toLowerCase() === 'pdf').length}
-                </p>
-              </div>
-              <FileText className="h-8 w-8 text-red-400" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Image Files</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {resources.filter(r => ['jpg', 'jpeg', 'png', 'gif'].includes(r.fileType.toLowerCase())).length}
-                </p>
-              </div>
-              <Eye className="h-8 w-8 text-blue-400" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600 mb-1">Other Files</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {resources.filter(r => !['pdf', 'jpg', 'jpeg', 'png', 'gif'].includes(r.fileType.toLowerCase())).length}
-                </p>
-              </div>
-              <Download className="h-8 w-8 text-green-400" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Upload Dialog */}
-      <UploadResourceDialog
-        open={uploadDialogOpen}
-        onClose={() => setUploadDialogOpen(false)}
-        onSuccess={handleUploadSuccess}
-      />
+      <UploadResourceDialog open={uploadDialogOpen} onClose={() => setUploadDialogOpen(false)} onSuccess={() => { toast.success('Uploaded!'); fetchData(); }} />
     </div>
   );
 }

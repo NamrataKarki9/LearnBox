@@ -1,348 +1,208 @@
-/**
- * Student Resources Page
- * Students can filter and view resources by Faculty, Year, and Module
- */
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useFilters } from '../../context/FilterContext';
 import { useNavigate } from 'react-router-dom';
 import { resourceAPI, facultyAPI, type Resource, type Faculty } from '../../services/api';
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
-import { Alert, AlertDescription } from '../components/ui/alert';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { Download, FileText, Book, GraduationCap, Eye, X } from 'lucide-react';
+import { Download, FileText, BookOpen, GraduationCap, Eye, LayoutDashboard, HelpCircle, AlignLeft, Link2, Settings, LogOut, ChevronRight } from 'lucide-react';
+import { useLogoutConfirm } from '../../hooks/useLogoutConfirm';
+import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
+
+import { P } from '../../constants/theme';
 
 export default function StudentResourcesPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const filters = useFilters();
-  
+  const logoutConfirm = useLogoutConfirm();
   const [resources, setResources] = useState<Resource[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
-  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
-  // Resource viewer state
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewingResource, setViewingResource] = useState<{ url: string; title: string } | null>(null);
 
-  // Fetch faculties on mount for display
   useEffect(() => {
-    fetchFaculties();
+    facultyAPI.getAll().then(r => setFaculties(r.data.data || [])).catch(() => {});
   }, []);
 
-  // Fetch resources when filters change
   useEffect(() => {
-    fetchResources();
+    const go = async () => {
+      setLoading(true); setError('');
+      try {
+        const params: any = {};
+        if (filters.facultyId !== 'all') params.facultyId = parseInt(filters.facultyId);
+        if (filters.year !== 'all') params.year = parseInt(filters.year);
+        if (filters.moduleId !== 'all') params.moduleId = parseInt(filters.moduleId);
+        const r = await resourceAPI.filter(params);
+        setResources(r.data.data || []);
+      } catch (e: any) { setError(e.response?.data?.error || 'Failed to fetch resources'); }
+      finally { setLoading(false); }
+    };
+    go();
   }, [filters.facultyId, filters.year, filters.moduleId]);
 
-  const fetchFaculties = async () => {
-    try {
-      const response = await facultyAPI.getAll();
-      setFaculties(response.data.data || []);
-    } catch (err) {
-      console.error('Error fetching faculties:', err);
-    }
-  };
+  const handleDownload = (id: number) => { try { window.open(resourceAPI.getDownloadUrl(id), '_blank', 'noopener,noreferrer'); } catch {} };
+  const handleView = (r: Resource) => { try { setViewingResource({ url: resourceAPI.getDownloadUrl(r.id), title: r.title }); setViewerOpen(true); } catch {} };
 
+  const faculty = faculties.find(f => f.id.toString() === filters.facultyId);
+  const filterLabel = [
+    faculty ? faculty.name : 'All Faculties',
+    filters.year !== 'all' ? `Year ${filters.year}` : 'All Years',
+    filters.moduleId !== 'all' ? 'Selected Module' : 'All Modules',
+  ].join(' › ');
 
-
-  const fetchResources = async () => {
-    setLoading(true);
-    setError('');
-    
-    try {
-      const params: any = {};
-      
-      if (filters.facultyId !== 'all') params.facultyId = parseInt(filters.facultyId);
-      if (filters.year !== 'all') params.year = parseInt(filters.year);
-      if (filters.moduleId !== 'all') params.moduleId = parseInt(filters.moduleId);
-      
-      const response = await resourceAPI.filter(params);
-      setResources(response.data.data || []);
-    } catch (err: any) {
-      console.error('Error fetching resources:', err);
-      setError(err.response?.data?.error || 'Failed to fetch resources');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDownload = (resourceId: number) => {
-    try {
-      // Use the backend proxy URL which forces correct headers
-      const downloadUrl = resourceAPI.getDownloadUrl(resourceId);
-      window.open(downloadUrl, '_blank', 'noopener,noreferrer');
-    } catch (error) {
-      console.error('Download error:', error);
-    }
-  };
-
-  const handleView = (resource: Resource) => {
-    try {
-      // Use the backend proxy URL which serves the resource
-      const viewUrl = resourceAPI.getDownloadUrl(resource.id);
-      setViewingResource({ url: viewUrl, title: resource.title });
-      setViewerOpen(true);
-    } catch (error) {
-      console.error('View error:', error);
-    }
-  };
-
-  const getFileIcon = (fileType: string) => {
-    return <FileText className="h-8 w-8 text-blue-500" />;
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
-  };
-
-  // Get current filter display names
-  const getFilterDisplayNames = () => {
-    const faculty = faculties.find(f => f.id.toString() === filters.facultyId);
-    return {
-      faculty: faculty ? faculty.name : 'All Faculties',
-      year: filters.year !== 'all' ? `Year ${filters.year}` : 'All Years',
-      module: resources[0]?.module?.name || (filters.moduleId !== 'all' ? 'Selected Module' : 'All Modules')
-    };
-  };
+  const navItems = [
+    { label: 'Dashboard', icon: LayoutDashboard, path: '/student/dashboard' },
+    { label: 'Resources', icon: FileText, path: null },
+    { label: 'MCQs Practice', icon: HelpCircle, path: '/student/mcq-practice' },
+    { label: 'Summaries', icon: AlignLeft, path: '/student/summaries' },
+    { label: 'Learning Sites', icon: Link2, path: '/student/learning-sites' },
+    { label: 'Settings', icon: Settings, path: '/student/settings' },
+  ];
 
   return (
-    <div className="flex min-h-screen bg-[#F5F5F5]">
+    <div style={{ display: 'flex', minHeight: '100vh', background: P.parchment, fontFamily: "'Lora', Georgia, serif" }}>
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-6">
-          <h1 className="text-xl font-bold text-gray-900">LearnBox</h1>
-        </div>
-        <nav className="flex-1 px-4">
-          <button 
-            onClick={() => navigate('/student/dashboard')}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
-          >
-            Dashboard
-          </button>
-          <button className="w-full text-left px-4 py-3 text-gray-900 bg-gray-100 rounded-lg font-medium mb-1">
-            Resources
-          </button>
-          <button 
-            onClick={() => navigate('/student/mcq-practice')}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
-          >
-            MCQs Practice
-          </button>
-          <button 
-            onClick={() => navigate('/student/summaries')}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
-          >
-            Summaries
-          </button>
-          <button 
-            onClick={() => navigate('/student/learning-sites')}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
-          >
-            Useful Learning Sites
-          </button>
-          <button 
-            onClick={() => navigate('/student/settings')}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg mb-1"
-          >
-            Settings
-          </button>
-          <button 
-            onClick={logout}
-            className="w-full text-left px-4 py-3 text-gray-600 hover:bg-gray-50 rounded-lg"
-          >
-            Logout
-          </button>
-        </nav>
-        
-        {/* User Info */}
-        <div className="p-4 border-t border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-medium">
-              {user?.first_name?.[0] || user?.username?.[0] || 'S'}
-            </div>
-            <div>
-              <div className="font-medium text-gray-900">
-                {user?.first_name} {user?.last_name}
-              </div>
-              <div className="text-xs text-gray-500">Student</div>
-            </div>
+      <aside style={{ width: 232, background: P.parchmentLight, borderRight: `1px solid ${P.sand}`, display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', flexShrink: 0 }}>
+        <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${P.sand}` }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <BookOpen size={18} color={P.vermillion} strokeWidth={2} />
+            <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: 18, color: P.ink }}>LearnBox</span>
           </div>
+          <div style={{ marginTop: 6, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: P.inkMuted }}>Student Portal</div>
+        </div>
+        <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {navItems.map(({ label, icon: Icon, path }, i) => {
+            const active = i === 1;
+            return (
+              <button key={label} onClick={() => path && navigate(path)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderLeft: active ? `3px solid ${P.vermillion}` : `3px solid transparent`, background: active ? P.parchmentDark : 'transparent', color: active ? P.ink : P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: active ? 700 : 500, fontSize: 13.5, letterSpacing: '0.02em', textAlign: 'left', cursor: path ? 'pointer' : 'default', width: '100%', transition: 'all 0.12s' }}
+                onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = P.parchmentDark; (e.currentTarget as HTMLElement).style.color = P.ink; }}}
+                onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = P.inkMuted; }}}
+              >
+                <Icon size={15} strokeWidth={active ? 2.5 : 1.8} style={{ flexShrink: 0 }} />
+                <span>{label}</span>
+                {active && <ChevronRight size={12} style={{ marginLeft: 'auto', opacity: 0.4 }} />}
+              </button>
+            );
+          })}
+        </nav>
+        <div style={{ borderTop: `1px solid ${P.sand}`, padding: '14px 10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 12px', marginBottom: 4 }}>
+            <div style={{ width: 30, height: 30, background: P.inkMuted, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 800, fontSize: 13, color: P.parchment }}>{(user?.first_name || user?.username || 'S').charAt(0).toUpperCase()}</span>
+            </div>
+            <div><p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 13, color: P.ink, margin: 0 }}>{user?.first_name || user?.username}</p><p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, color: P.inkMuted, margin: 0, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Student</p></div>
+          </div>
+          <button onClick={() => logoutConfirm.openConfirm(logout)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderLeft: '3px solid transparent', background: 'transparent', color: P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 500, fontSize: 13.5, width: '100%', textAlign: 'left', cursor: 'pointer', transition: 'all 0.12s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = P.vermillionBg; (e.currentTarget as HTMLElement).style.color = P.vermillion; (e.currentTarget as HTMLElement).style.borderLeftColor = P.vermillion; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = P.inkMuted; (e.currentTarget as HTMLElement).style.borderLeftColor = 'transparent'; }}
+          >
+            <LogOut size={15} strokeWidth={1.8} /> Logout
+          </button>
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="flex-1 p-8">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Learning Resources</h1>
-            <p className="text-gray-600">Browse and download study materials for your courses</p>
+      {/* Main */}
+      <main style={{ flex: 1, padding: '32px', overflow: 'auto' }}>
+        {/* Page header */}
+        <div style={{ marginBottom: 28, paddingBottom: 20, borderBottom: `1px solid ${P.sand}` }}>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: P.vermillion, marginBottom: 6 }}>Learning Materials</div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: P.ink, margin: 0 }}>Resources</h1>
+          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 14, color: P.inkMuted, marginTop: 6 }}>Browse and download study materials for your courses.</p>
+        </div>
+
+        {/* Filter summary bar */}
+        <div style={{ background: P.parchmentLight, border: `1px solid ${P.sand}`, borderLeft: `3px solid ${P.ink}`, padding: '14px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <BookOpen size={14} color={P.vermillion} strokeWidth={2} />
+            <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.inkMuted }}>Viewing:</span>
+            <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 13, fontWeight: 700, color: P.ink }}>{filterLabel}</span>
           </div>
+          <button onClick={() => navigate('/student/dashboard')} style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '7px 16px', border: `1px solid ${P.sand}`, background: 'transparent', color: P.inkSecondary, cursor: 'pointer', transition: 'all 0.12s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = P.parchmentDark; (e.currentTarget as HTMLElement).style.borderColor = P.ink; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.borderColor = P.sand; }}>
+            Change Selection
+          </button>
+        </div>
 
-          {/* Current Selection Display */}
-          <Card className="mb-6 bg-gradient-to-r from-primary/10 to-primary/5 border-primary/30">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center gap-3 flex-wrap">
-                  <Book className="h-5 w-5 text-primary" />
-                  <span className="text-sm font-medium text-gray-700">Viewing resources for:</span>
-                  <div className="flex gap-2 flex-wrap">
-                    <Badge variant="secondary" className="bg-primary text-white hover:bg-primary/90 px-3 py-1">
-                      {getFilterDisplayNames().faculty}
-                    </Badge>
-                    <Badge variant="secondary" className="bg-primary text-white hover:bg-primary/90 px-3 py-1">
-                      {getFilterDisplayNames().year}
-                    </Badge>
-                    {filters.moduleId !== 'all' && (
-                      <Badge variant="secondary" className="bg-primary text-white hover:bg-primary/90 px-3 py-1">
-                        {getFilterDisplayNames().module}
-                      </Badge>
-                    )}
+        {/* Error */}
+        {error && <div style={{ background: P.vermillionBg, borderLeft: `3px solid ${P.vermillion}`, padding: '12px 16px', marginBottom: 20, fontFamily: "'Lora', Georgia, serif", fontSize: 13, color: '#7A1C10' }}>{error}</div>}
+
+        {/* Resources */}
+        {loading ? (
+          <div style={{ background: P.parchmentLight, border: `1px solid ${P.sand}`, padding: '64px 24px', textAlign: 'center' }}>
+            <div style={{ display: 'inline-block', width: 32, height: 32, border: `2px solid ${P.ink}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+            <p style={{ fontFamily: "'Lora', Georgia, serif", color: P.inkMuted, fontSize: 13, marginTop: 12 }}>Loading resources…</p>
+          </div>
+        ) : resources.length === 0 ? (
+          <div style={{ background: P.parchmentLight, border: `1px solid ${P.sand}`, padding: '64px 24px', textAlign: 'center' }}>
+            <BookOpen size={40} color={P.sand} strokeWidth={1} style={{ display: 'block', margin: '0 auto 16px' }} />
+            <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 700, color: P.ink, marginBottom: 8 }}>No resources found</h3>
+            <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 14, color: P.inkMuted }}>
+              {filters.facultyId !== 'all' || filters.year !== 'all' || filters.moduleId !== 'all'
+                ? 'Try adjusting your filters to find more resources.'
+                : 'No resources have been uploaded yet.'}
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0, border: `1px solid ${P.sand}` }}>
+            {resources.map((res, i) => (
+              <div key={res.id} style={{ background: P.parchmentLight, padding: '22px 24px', borderRight: i % 3 < 2 ? `1px solid ${P.sand}` : 'none', borderBottom: i < resources.length - (resources.length % 3 || 3) ? `1px solid ${P.sand}` : 'none', transition: 'background 0.15s' }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = P.parchmentDark}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = P.parchmentLight}
+              >
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                  <div style={{ width: 36, height: 36, background: P.parchmentDark, border: `1px solid ${P.sand}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <FileText size={16} color={P.vermillion} strokeWidth={2} />
                   </div>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/student-dashboard')}
-                  className="border-primary text-primary hover:bg-primary/10"
-                >
-                  Change Selection
-                </Button>
-              </div>
-              {(filters.facultyId !== 'all' || filters.year !== 'all' || filters.moduleId !== 'all') && (
-                <p className="text-xs text-gray-500 mt-3">
-                  💡 Change your selection from the Dashboard to view different resources
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Error Message */}
-          {error && (
-            <Alert variant="destructive" className="mb-6">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          {/* Resource Cards */}
-          {loading ? (
-            <div className="text-center py-12">
-              <p className="text-gray-600">Loading resources...</p>
-            </div>
-          ) : resources.length === 0 ? (
-            <Card>
-              <CardContent className="py-12">
-                <div className="text-center">
-                  <Book className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No resources found</h3>
-                  <p className="text-gray-600">
-                    {filters.facultyId !== 'all' || filters.year !== 'all' || filters.moduleId !== 'all'
-                      ? 'Try adjusting your filters to find more resources.'
-                      : 'No resources have been uploaded yet.'}
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {resources.map((resource) => (
-                <Card key={resource.id} className="hover:shadow-lg transition-shadow">
-                  <CardContent className="p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0">
-                        {getFileIcon(resource.fileType)}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700, color: P.ink, marginBottom: 6, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{res.title}</h3>
+                    {res.description && <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 12.5, color: P.inkMuted, marginBottom: 10, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden' }}>{res.description}</p>}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <GraduationCap size={11} color={P.inkMuted} />
+                        <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, letterSpacing: '0.04em' }}>{res.faculty?.code} — {res.faculty?.name}</span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2 truncate">
-                          {resource.title}
-                        </h3>
-                        
-                        {resource.description && (
-                          <p className="text-sm text-gray-600 mb-3 line-clamp-2">
-                            {resource.description}
-                          </p>
-                        )}
-                        
-                        <div className="space-y-1 mb-4">
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <GraduationCap className="h-4 w-4" />
-                            <span>{resource.faculty?.code} - {resource.faculty?.name}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-gray-600">
-                            <Book className="h-4 w-4" />
-                            <span>Year {resource.year} - {resource.module?.name}</span>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center justify-between mt-4">
-                          <span className="text-xs text-gray-500">
-                            {formatDate(resource.createdAt)}
-                          </span>
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => handleView(resource)}
-                              className="border-primary text-primary hover:bg-primary/10"
-                            >
-                              <Eye className="h-4 w-4 mr-1" />
-                              View
-                            </Button>
-                            <Button
-                              size="sm"
-                              onClick={() => handleDownload(resource.id)}
-                              className="bg-primary hover:bg-primary/90 text-white"
-                            >
-                              <Download className="h-4 w-4 mr-1" />
-                              Download
-                            </Button>
-                          </div>
-                        </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <BookOpen size={11} color={P.inkMuted} />
+                        <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, letterSpacing: '0.04em' }}>Year {res.year} — {res.module?.name}</span>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, color: P.inkMuted, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        {new Date(res.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </span>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button onClick={() => handleView(res)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', border: `1px solid ${P.sand}`, background: 'transparent', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.inkSecondary, cursor: 'pointer' }}>
+                          <Eye size={12} strokeWidth={2} /> View
+                        </button>
+                        <button onClick={() => handleDownload(res.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', border: 'none', background: P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.parchment, cursor: 'pointer' }}>
+                          <Download size={12} strokeWidth={2} /> DL
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </main>
 
-      {/* Resource Viewer Modal */}
+      {/* Viewer modal */}
       <Dialog open={viewerOpen} onOpenChange={setViewerOpen}>
-        <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-0">
-          <DialogHeader className="px-6 py-4 border-b flex-shrink-0 bg-white">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-lg font-semibold">
-                {viewingResource?.title}
-              </DialogTitle>
-              <div className="flex items-center gap-2 text-xs text-gray-500">
-                <span>💡 Use browser zoom (Ctrl +/-) or PDF viewer controls to adjust size</span>
-              </div>
-            </div>
+        <DialogContent className="max-w-[95vw] w-full h-[95vh] flex flex-col p-0" style={{ border: `2px solid ${P.ink}` }}>
+          <DialogHeader style={{ padding: '14px 24px', borderBottom: `1px solid ${P.sand}`, background: P.parchmentLight, flexShrink: 0 }}>
+            <DialogTitle style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700, color: P.ink }}>{viewingResource?.title}</DialogTitle>
           </DialogHeader>
-          <div className="flex-1 min-h-0 bg-gray-100">
-            {viewingResource && (
-              <iframe
-                src={`${viewingResource.url}#zoom=page-width&view=FitH`}
-                className="w-full h-full border-0"
-                title={viewingResource.title}
-                allow="fullscreen"
-              />
-            )}
+          <div style={{ flex: 1, minHeight: 0, background: P.parchmentDark }}>
+            {viewingResource && <iframe src={`${viewingResource.url}#zoom=page-width&view=FitH`} style={{ width: '100%', height: '100%', border: 'none' }} title={viewingResource.title} allow="fullscreen" />}
           </div>
         </DialogContent>
       </Dialog>
+      <LogoutConfirmDialog isOpen={logoutConfirm.isOpen} onConfirm={logoutConfirm.onConfirm} onCancel={logoutConfirm.onCancel} isLoading={logoutConfirm.isLoading} />
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 }

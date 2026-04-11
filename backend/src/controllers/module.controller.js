@@ -5,6 +5,7 @@
 
 import prisma from '../prisma.js';
 import { HTTP_STATUS, ERROR_MESSAGES } from '../constants/errors.js';
+import { logAuditAction } from '../services/audit-log.service.js';
 
 /**
  * Get all modules (college-scoped)
@@ -246,6 +247,18 @@ export const createModule = async (req, res) => {
             }
         });
 
+        // Log audit action
+        await logAuditAction({
+            userId: req.user.id,
+            collegeId: req.user.collegeId,
+            actionType: 'CREATE',
+            entityType: 'MODULE',
+            entityId: module.id,
+            entityName: module.name,
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
+        });
+
         res.status(HTTP_STATUS.CREATED).json({
             success: true,
             message: 'Module created successfully',
@@ -380,6 +393,22 @@ export const updateModule = async (req, res) => {
             }
         });
 
+        // Log audit action
+        await logAuditAction({
+            userId: req.user.id,
+            collegeId: req.user.collegeId,
+            actionType: 'UPDATE',
+            entityType: 'MODULE',
+            entityId: updatedModule.id,
+            entityName: updatedModule.name,
+            changes: {
+                before: existingModule,
+                after: updatedModule
+            },
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
+        });
+
         res.status(HTTP_STATUS.OK).json({
             success: true,
             message: 'Module updated successfully',
@@ -442,6 +471,18 @@ export const deleteModule = async (req, res) => {
         // Delete the module
         await prisma.module.delete({
             where: { id: parsedId }
+        });
+
+        // Log audit action
+        await logAuditAction({
+            userId: req.user.id,
+            collegeId: existingModule.collegeId,
+            actionType: 'DELETE',
+            entityType: 'MODULE',
+            entityId: existingModule.id,
+            entityName: existingModule.name,
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
         });
 
         res.status(HTTP_STATUS.OK).json({

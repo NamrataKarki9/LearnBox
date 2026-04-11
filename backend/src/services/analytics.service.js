@@ -215,6 +215,7 @@ export function analyzeQuizPerformance(attempts, score) {
 export async function getStudyRecommendations(studentId, quizAnalysis = null) {
   try {
     const weakPoints = await getWeakPoints(studentId, 65);
+    return buildGapAnalysisRecommendations(weakPoints, quizAnalysis);
     const recommendations = [];
     let focusSections = [];
     
@@ -622,6 +623,206 @@ function generateDetailedStudyPlan(topic, isCritical, isVeryWeak) {
     steps,
     specificAreas,
     quickWins,
+    resources
+  };
+}
+
+function buildGapAnalysisRecommendations(weakPoints, quizAnalysis) {
+  const recommendations = [];
+  let focusSections = [];
+
+  if (quizAnalysis) {
+    const { weakTopics, moderateTopics, strongTopics, overallScore, difficultyPerformance, topicAnalysis } = quizAnalysis;
+    const prioritizedTopics = weakTopics.length > 0 ? weakTopics : moderateTopics;
+    focusSections = prioritizedTopics.slice(0, 3);
+
+    recommendations.push(buildStrengthRecommendation(strongTopics, moderateTopics, overallScore));
+
+    if (focusSections.length > 0) {
+      recommendations.push(buildWeakAreasRecommendation(focusSections));
+      recommendations.push(buildPriorityRecommendation(focusSections, topicAnalysis));
+    }
+
+    recommendations.push(buildTimeManagementRecommendation(difficultyPerformance, overallScore));
+  } else if (weakPoints.length > 0) {
+    const historicalFocus = weakPoints.slice(0, 3).map((area) => ({
+      topic: area.topic,
+      accuracy: area.accuracy,
+      total: area.attempts,
+      correct: Math.round((area.accuracy / 100) * area.attempts),
+      difficulty: area.difficulty
+    }));
+
+    focusSections = historicalFocus;
+
+    recommendations.push({
+      priority: 'MEDIUM',
+      type: 'STRENGTHS',
+      message: 'Your recent practice history shows that you are staying engaged.',
+      action: 'Keep one stronger topic active each week while you repair the weaker ones.',
+      estimatedTime: '10-15 minutes',
+      resources: [
+        'Retain your better topics with one short revision session each week.',
+        'Use a stronger topic first if you need a quick confidence reset before harder revision.'
+      ]
+    });
+    recommendations.push(buildWeakAreasRecommendation(historicalFocus));
+    recommendations.push(buildPriorityRecommendation(historicalFocus, historicalFocus));
+    recommendations.push({
+      priority: 'MEDIUM',
+      type: 'TIME_MANAGEMENT',
+      message: 'Your history suggests you need a steady revision rhythm.',
+      action: 'Use short and repeated sessions instead of one long review block.',
+      estimatedTime: '20-25 minutes',
+      resources: [
+        'Spend 15 minutes reviewing concepts and 10 minutes answering practice questions.',
+        'Revisit the same weak topic within 24 hours to improve recall.'
+      ]
+    });
+  } else {
+    return {
+      status: 'STRONG',
+      message: 'You are performing well overall. Maintain regular practice and push into harder questions.',
+      focusSections: [],
+      recommendations: [
+        {
+          priority: 'SUCCESS',
+          type: 'STRENGTHS',
+          message: 'You are showing balanced performance across the assessed topics.',
+          action: 'Maintain your level with short revision and gradually increase difficulty.',
+          estimatedTime: '10-15 minutes',
+          resources: [
+            'Review one completed quiz before attempting the next one.',
+            'Add a few medium and hard questions to keep improving.'
+          ]
+        }
+      ]
+    };
+  }
+
+  const critical = weakPoints.filter((point) => point.severity === 'CRITICAL');
+  const status = critical.length > 0 || (quizAnalysis && quizAnalysis.overallScore < 60)
+    ? 'NEEDS_ATTENTION'
+    : quizAnalysis && quizAnalysis.overallScore >= 80
+      ? 'STRONG'
+      : 'IMPROVING';
+
+  return {
+    status,
+    message: generateStatusMessage(status, quizAnalysis),
+    totalWeakAreas: quizAnalysis ? quizAnalysis.weakTopics.length : weakPoints.length,
+    focusSections: focusSections.map((topic) => ({
+      topic: topic.topic,
+      accuracy: parseFloat(topic.accuracy),
+      attempts: topic.total,
+      priority: parseFloat(topic.accuracy) < 40 ? 'CRITICAL' : parseFloat(topic.accuracy) < 60 ? 'HIGH' : 'MEDIUM',
+      estimatedTime: getEstimatedRevisionTime(parseFloat(topic.accuracy))
+    })),
+    recommendations: recommendations.filter(Boolean).slice(0, 4)
+  };
+}
+
+function getEstimatedRevisionTime(accuracy) {
+  if (accuracy < 40) return '25-30 minutes';
+  if (accuracy < 60) return '20-25 minutes';
+  return '15-20 minutes';
+}
+
+function buildStrengthRecommendation(strongTopics, moderateTopics, overallScore) {
+  const strongestTopics = strongTopics.slice(0, 3).map((topic) => topic.topic);
+  const fallbackTopics = moderateTopics.slice(0, 2).map((topic) => topic.topic);
+  const topicsToMention = strongestTopics.length > 0 ? strongestTopics : fallbackTopics;
+
+  return {
+    priority: overallScore >= 80 ? 'SUCCESS' : 'MEDIUM',
+    type: 'STRENGTHS',
+    message: topicsToMention.length > 0
+      ? `Your strengths in this attempt were ${topicsToMention.join(', ')}.`
+      : 'You are starting to build a working understanding of this set.',
+    action: overallScore >= 80
+      ? 'Maintain these areas with a short mixed review while you focus on weaker topics.'
+      : 'Use your stronger topics to keep confidence high while you repair weaker areas.',
+    estimatedTime: '10-15 minutes',
+    resources: [
+      'Reattempt one or two correct questions to confirm why your reasoning worked.',
+      'Do not spend most of your revision time here; maintain, then move to weaker topics.'
+    ]
+  };
+}
+
+function buildWeakAreasRecommendation(focusSections) {
+  return {
+    priority: focusSections.some((topic) => parseFloat(topic.accuracy) < 40) ? 'CRITICAL' : 'HIGH',
+    type: 'WEAK_AREAS',
+    message: 'These topics are causing the main score loss right now.',
+    action: 'Fix these first before moving to new content.',
+    estimatedTime: getEstimatedRevisionTime(parseFloat(focusSections[0]?.accuracy || 60)),
+    resources: focusSections.map((topic) => {
+      const accuracy = parseFloat(topic.accuracy);
+      const base = `${topic.topic}: ${accuracy.toFixed(1)}% accuracy`;
+
+      if (accuracy < 40) {
+        return `${base}. Relearn the core concept, then solve 4-5 basic questions on it.`;
+      }
+
+      return `${base}. Review the mistakes and practice similar questions until the method feels clear.`;
+    })
+  };
+}
+
+function buildPriorityRecommendation(focusSections, topicAnalysis) {
+  const strongerTopics = topicAnalysis
+    .filter((topic) => parseFloat(topic.accuracy) >= 60)
+    .slice(0, 2)
+    .map((topic) => topic.topic);
+
+  return {
+    priority: 'HIGH',
+    type: 'STUDY_PRIORITY',
+    message: 'Use this revision order to recover marks faster.',
+    action: 'Move to the next topic only after you can answer a similar question correctly without guessing.',
+    estimatedTime: '30-40 minutes',
+    resources: [
+      ...focusSections.map((topic, index) => `${index + 1}. ${topic.topic} for ${getEstimatedRevisionTime(parseFloat(topic.accuracy))}.`),
+      strongerTopics.length > 0
+        ? `After that, briefly maintain ${strongerTopics.join(' and ')} so you do not lose accuracy there.`
+        : 'End with a short mixed review set to check whether the improvement holds.'
+    ]
+  };
+}
+
+function buildTimeManagementRecommendation(difficultyPerformance, overallScore) {
+  const easyAcc = difficultyPerformance.EASY.total > 0
+    ? (difficultyPerformance.EASY.correct / difficultyPerformance.EASY.total) * 100
+    : null;
+  const mediumAcc = difficultyPerformance.MEDIUM.total > 0
+    ? (difficultyPerformance.MEDIUM.correct / difficultyPerformance.MEDIUM.total) * 100
+    : null;
+  const hardAcc = difficultyPerformance.HARD.total > 0
+    ? (difficultyPerformance.HARD.correct / difficultyPerformance.HARD.total) * 100
+    : null;
+
+  const resources = [
+    'Use a two-pass approach: secure the quick marks first, then return to the harder questions.',
+    'If a question is taking too long, eliminate weak options and move on instead of getting stuck early.'
+  ];
+
+  if (easyAcc !== null && easyAcc < 70) {
+    resources.push('Because easy-question accuracy is low, slow down slightly and read the stem carefully before choosing an answer.');
+  } else if (mediumAcc !== null && mediumAcc < 60) {
+    resources.push('Spend more of your revision time on application questions where selecting the right method is the issue.');
+  } else if (hardAcc !== null && hardAcc < 50) {
+    resources.push('Treat hard questions as second-pass questions. Secure easy and medium marks first.');
+  } else if (overallScore >= 80) {
+    resources.push('Your base accuracy is stable, so you can now allocate a little more time to the harder questions.');
+  }
+
+  return {
+    priority: 'MEDIUM',
+    type: 'TIME_MANAGEMENT',
+    message: 'Your next score can improve with better timing as well as topic review.',
+    action: 'Keep revision sessions short, focused, and timed.',
+    estimatedTime: '15-20 minutes',
     resources
   };
 }

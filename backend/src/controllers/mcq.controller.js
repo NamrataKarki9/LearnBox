@@ -10,6 +10,7 @@ import { generateMCQsFromPDF, generateAdaptiveQuestions } from '../services/mcq-
 import { getWeakPoints } from '../services/analytics.service.js';
 import { extractTextFromLocalPDF } from '../services/pdf.service.js';
 import { extractMCQsFromText } from '../services/llm.service.js';
+import { logAuditAction } from '../services/audit-log.service.js';
 
 /**
  * Get MCQs (college-scoped)
@@ -86,6 +87,18 @@ export const createMCQ = async (req, res) => {
                 collegeId: req.user.collegeId,
                 createdBy: req.user.id
             }
+        });
+
+        // Log audit action
+        await logAuditAction({
+            userId: req.user.id,
+            collegeId: req.user.collegeId,
+            actionType: 'CREATE',
+            entityType: 'MCQ',
+            entityId: mcq.id,
+            entityName: mcq.question.substring(0, 100),
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
         });
 
         res.status(HTTP_STATUS.CREATED).json({
@@ -571,6 +584,23 @@ export const getMCQSetById = async (req, res) => {
     try {
         const { id } = req.params;
 
+        // For admins, include correctAnswer; for students, exclude it
+        const mcqSelect = req.user.role === ROLES.COLLEGE_ADMIN ? {
+            id: true,
+            question: true,
+            options: true,
+            correctAnswer: true,
+            difficulty: true,
+            topic: true,
+            explanation: true
+        } : {
+            id: true,
+            question: true,
+            options: true,
+            difficulty: true,
+            topic: true
+        };
+
         const set = await prisma.mCQSet.findUnique({
             where: { id: parseInt(id) },
             include: {
@@ -583,13 +613,7 @@ export const getMCQSetById = async (req, res) => {
                 mcqs: {
                     include: {
                         mcq: {
-                            select: {
-                                id: true,
-                                question: true,
-                                options: true,
-                                difficulty: true,
-                                topic: true
-                            }
+                            select: mcqSelect
                         }
                     },
                     orderBy: { order: 'asc' }

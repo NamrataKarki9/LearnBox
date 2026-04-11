@@ -1,27 +1,48 @@
-/**
- * Admin Modules Management Page
- * Create, Edit, Delete, and view modules grouped by Faculty and Year
- */
-
 import { useState, useEffect } from 'react';
 import { moduleAPI, facultyAPI, Faculty, Module as APIModule } from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
-import { Button } from '../components/ui/button';
-import { Card, CardContent } from '../components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, ChevronDown, ChevronRight, Search, BookOpen } from 'lucide-react';
+import { Plus, Edit, Trash2, ChevronDown, ChevronRight, Search, BookOpen, X } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
-// Use API Module type directly
+import { P, adminSelectStyle } from '../../constants/theme';
+
 type Module = APIModule;
-
 interface GroupedModules {
-  [facultyId: string]: {
-    faculty: Faculty;
-    years: {
-      [year: string]: Module[];
-    };
-  };
+  [fid: string]: { faculty: Faculty; years: { [y: string]: Module[] } };
+}
+
+function AdminPageModal({ open, title, topColor, onClose, onConfirm, confirmLabel, children, softActionButtonStyle }: any) {
+  if (!open) return null;
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,18,8,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
+      <div style={{ background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}, 0 18px 40px rgba(28,18,8,0.12)`, borderTop: `3px solid ${topColor}`, padding: '28px 32px', maxWidth: 460, width: '90%' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: P.ink, margin: 0 }}>{title}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: P.inkMuted }}><X size={18} /></button>
+        </div>
+        {children}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20, paddingTop: 16, borderTop: `1px solid ${P.sand}` }}>
+          <button onClick={onClose} style={{ ...softActionButtonStyle, fontWeight: 600, color: P.inkMuted }}>Cancel</button>
+          {onConfirm && (
+            <button 
+              onClick={onConfirm} 
+              style={{ ...softActionButtonStyle, background: P.vermillion, color: '#fff', boxShadow: 'none' }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = '#A93226';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background = P.vermillion;
+              }}
+            >
+              {confirmLabel}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function AdminModulesPage() {
@@ -30,631 +51,308 @@ export default function AdminModulesPage() {
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Grouping state
   const [expandedFaculties, setExpandedFaculties] = useState<Set<number>>(new Set());
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
-  
-  // Dialog states
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingModule, setEditingModule] = useState<Module | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteConfirmModuleId, setDeleteConfirmModuleId] = useState<number | null>(null);
-  const [deletingModuleName, setDeletingModuleName] = useState<string>('');
+  const [deletingModuleName, setDeletingModuleName] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
-  
-  // Form state
-  const [formData, setFormData] = useState({
-    name: '',
-    code: '',
-    description: '',
-    year: 1,
-    facultyId: 0
-  });
+  const [formData, setFormData] = useState({ name: '', code: '', description: '', year: 1, facultyId: 0 });
 
-  useEffect(() => {
-    fetchData();
-  }, []);
+  useEffect(() => { fetchData(); }, []);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // Only fetch data if user has a collegeId
-      if (!user?.collegeId) {
-        toast.error('Unable to load modules: No college assigned');
-        setLoading(false);
-        return;
-      }
-
-      console.log('🔄 Fetching modules and faculties for college:', user.collegeId);
-      
-      const [modulesRes, facultiesRes] = await Promise.all([
-        moduleAPI.getAll({ collegeId: user.collegeId }),
-        facultyAPI.getAll({ collegeId: user.collegeId })
-      ]);
-      
-      console.log('✅ Modules fetched:', modulesRes.data.data?.length || 0);
-      console.log('✅ Faculties fetched:', facultiesRes.data.data?.length || 0);
-      
-      setModules(modulesRes.data.data || []);
-      setFaculties(facultiesRes.data.data || []);
-      
-      // Expand all faculties by default
-      setExpandedFaculties(new Set((facultiesRes.data.data || []).map((f: Faculty) => f.id)));
-    } catch (error) {
-      console.error('❌ Error fetching data:', error);
-      toast.error('Failed to load modules');
-    } finally {
-      setLoading(false);
-    }
+      if (!user?.collegeId) { toast.error('No college assigned'); setLoading(false); return; }
+      const [mR, fR] = await Promise.all([moduleAPI.getAll({ collegeId: user.collegeId }), facultyAPI.getAll({ collegeId: user.collegeId })]);
+      setModules(mR.data.data || []);
+      setFaculties(fR.data.data || []);
+      setExpandedFaculties(new Set((fR.data.data || []).map((f: Faculty) => f.id)));
+    } catch { toast.error('Failed to load modules'); }
+    finally { setLoading(false); }
   };
 
-  const groupModulesByFacultyAndYear = (): GroupedModules => {
+  const groupModules = (): GroupedModules => {
+    const q = searchQuery.toLowerCase();
+    const filtered = modules.filter(m => !q || m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q) || m.description?.toLowerCase().includes(q));
     const grouped: GroupedModules = {};
-    
-    const filteredModules = modules.filter(module => {
-      if (!searchQuery) return true;
-      const query = searchQuery.toLowerCase();
-      return (
-        module.name.toLowerCase().includes(query) ||
-        module.code.toLowerCase().includes(query) ||
-        module.description?.toLowerCase().includes(query)
-      );
+    filtered.forEach(m => {
+      const fid = m.facultyId.toString(), yr = m.year.toString();
+      if (!grouped[fid]) { const f = faculties.find(f => f.id === m.facultyId); grouped[fid] = { faculty: f || { id: m.facultyId, name: 'Unknown', code: 'UNK', collegeId: 0 }, years: {} }; }
+      if (!grouped[fid].years[yr]) grouped[fid].years[yr] = [];
+      grouped[fid].years[yr].push(m);
     });
-    
-    filteredModules.forEach(module => {
-      const facultyId = module.facultyId.toString();
-      const year = module.year.toString();
-      
-      if (!grouped[facultyId]) {
-        const faculty = faculties.find(f => f.id === module.facultyId);
-        grouped[facultyId] = {
-          faculty: faculty || { id: module.facultyId, name: 'Unknown Faculty', code: 'UNK', collegeId: 0 },
-          years: {}
-        };
-      }
-      
-      if (!grouped[facultyId].years[year]) {
-        grouped[facultyId].years[year] = [];
-      }
-      
-      grouped[facultyId].years[year].push(module);
-    });
-    
     return grouped;
   };
 
-  const toggleFaculty = (facultyId: number) => {
-    const newExpanded = new Set(expandedFaculties);
-    if (newExpanded.has(facultyId)) {
-      newExpanded.delete(facultyId);
-    } else {
-      newExpanded.add(facultyId);
-    }
-    setExpandedFaculties(newExpanded);
+  const toggleFaculty = (id: number) => { const s = new Set(expandedFaculties); s.has(id) ? s.delete(id) : s.add(id); setExpandedFaculties(s); };
+  const toggleYear = (fid: number, yr: string) => { const k = `${fid}-${yr}`, s = new Set(expandedYears); s.has(k) ? s.delete(k) : s.add(k); setExpandedYears(s); };
+  const resetForm = () => setFormData({ name: '', code: '', description: '', year: 1, facultyId: 0 });
+
+  const handleCreate = async () => {
+    if (!formData.name || !formData.code || !formData.facultyId) { toast.error('Fill in all required fields'); return; }
+    try { await moduleAPI.create(formData); toast.success('Module created'); setCreateDialogOpen(false); resetForm(); fetchData(); }
+    catch (e: any) { toast.error(e?.response?.data?.error || 'Failed'); }
   };
 
-  const toggleYear = (facultyId: number, year: string) => {
-    const key = `${facultyId}-${year}`;
-    const newExpanded = new Set(expandedYears);
-    if (newExpanded.has(key)) {
-      newExpanded.delete(key);
-    } else {
-      newExpanded.add(key);
-    }
-    setExpandedYears(newExpanded);
-  };
+  const handleEdit = (m: Module) => { setEditingModule(m); setFormData({ name: m.name, code: m.code, description: m.description || '', year: m.year, facultyId: m.facultyId }); setEditDialogOpen(true); };
 
-  const handleCreateModule = async () => {
-    if (!formData.name || !formData.code || !formData.facultyId) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-
-    try {
-      await moduleAPI.create({
-        name: formData.name,
-        code: formData.code,
-        description: formData.description,
-        year: formData.year,
-        facultyId: formData.facultyId
-      });
-
-      toast.success('Module created successfully');
-      setCreateDialogOpen(false);
-      resetForm();
-      fetchData();
-    } catch (error: any) {
-      console.error('Error creating module:', error);
-      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to create module';
-      toast.error(errorMessage);
-    }
-  };
-
-  const handleEditModule = (module: Module) => {
-    setEditingModule(module);
-    setFormData({
-      name: module.name,
-      code: module.code,
-      description: module.description || '',
-      year: module.year,
-      facultyId: module.facultyId
-    });
-    setEditDialogOpen(true);
-  };
-
-  const handleUpdateModule = async () => {
+  const handleUpdate = async () => {
     if (!editingModule) return;
-
-    try {
-      await moduleAPI.update(editingModule.id, {
-        name: formData.name,
-        code: formData.code,
-        description: formData.description,
-        year: formData.year,
-        facultyId: formData.facultyId
-      });
-
-      toast.success('Module updated successfully');
-      setEditDialogOpen(false);
-      setEditingModule(null);
-      resetForm();
-      fetchData();
-    } catch (error: any) {
-      console.error('Error updating module:', error);
-      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to update module';
-      toast.error(errorMessage);
-    }
+    try { await moduleAPI.update(editingModule.id, formData); toast.success('Module updated'); setEditDialogOpen(false); setEditingModule(null); resetForm(); fetchData(); }
+    catch (e: any) { toast.error(e?.response?.data?.error || 'Failed'); }
   };
 
-  const handleDeleteModule = async (module: Module) => {
-    setDeleteConfirmModuleId(module.id);
-    setDeletingModuleName(module.name);
-    setDeleteConfirmOpen(true);
-  };
+  const handleDelete = (m: Module) => { setDeleteConfirmModuleId(m.id); setDeletingModuleName(m.name); setDeleteConfirmOpen(true); };
 
-  const confirmDeleteModule = async () => {
+  const confirmDelete = async () => {
     if (!deleteConfirmModuleId) return;
     setIsDeleting(true);
-    try {
-      await moduleAPI.delete(deleteConfirmModuleId);
-      toast.success('Module deleted successfully');
-      fetchData();
-    } catch (error: any) {
-      console.error('Error deleting module:', error);
-      const errorMessage = error?.response?.data?.error || error?.message || 'Failed to delete module';
-      toast.error(errorMessage);
-    } finally {
-      setIsDeleting(false);
-      setDeleteConfirmOpen(false);
-      setDeleteConfirmModuleId(null);
-      setDeletingModuleName('');
-    }
+    try { await moduleAPI.delete(deleteConfirmModuleId); toast.success('Module Deleted Successfully'); fetchData(); }
+    catch (e: any) { toast.error(e?.response?.data?.error || 'Failed'); }
+    finally { setIsDeleting(false); setDeleteConfirmOpen(false); setDeleteConfirmModuleId(null); setDeletingModuleName(''); }
   };
 
-  const resetForm = () => {
-    setFormData({
-      name: '',
-      code: '',
-      description: '',
-      year: 1,
-      facultyId: 0
-    });
+  const grouped = groupModules();
+  const iS: React.CSSProperties = { width: '100%', padding: '9px 12px', fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, color: P.ink, background: P.parchment, border: `1px solid ${P.sand}`, outline: 'none', boxSizing: 'border-box' };
+  const selectS: React.CSSProperties = { ...iS, ...adminSelectStyle };
+  const iL: React.CSSProperties = { fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: P.inkSecondary, display: 'block', marginBottom: 6 };
+  const softPanel: React.CSSProperties = { background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}, 0 10px 24px rgba(28,18,8,0.04)` };
+  const softActionButtonStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    padding: '10px 18px',
+    background: P.parchmentDark,
+    color: P.inkSecondary,
+    border: 'none',
+    boxShadow: `inset 0 0 0 1px ${P.sandLight}`,
+    fontFamily: "'Barlow Semi Condensed', sans-serif",
+    fontWeight: 700,
+    fontSize: 12,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    cursor: 'pointer',
+    transition: 'background 0.15s, box-shadow 0.15s, color 0.15s'
+  };
+  const smallSoftButtonStyle: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 5,
+    padding: '6px 12px',
+    background: P.parchmentLight,
+    border: 'none',
+    boxShadow: `inset 0 0 0 1px ${P.sandLight}`,
+    color: P.inkSecondary,
+    fontFamily: "'Barlow Semi Condensed', sans-serif",
+    fontWeight: 700,
+    fontSize: 11,
+    letterSpacing: '0.06em',
+    textTransform: 'uppercase',
+    cursor: 'pointer'
   };
 
-  const groupedModules = groupModulesByFacultyAndYear();
+  const FormFields = () => (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div><label style={iL}>Module Name <span style={{ color: P.vermillion }}>*</span></label><input style={iS} value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g., Data Structures" /></div>
+      <div><label style={iL}>Module Code <span style={{ color: P.vermillion }}>*</span></label><input style={iS} value={formData.code} onChange={e => setFormData({ ...formData, code: e.target.value })} placeholder="e.g., CS201" /></div>
+      <div><label style={iL}>Description</label><textarea style={{ ...iS, resize: 'vertical' }} rows={3} value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Brief description" /></div>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <div><label style={iL}>Faculty <span style={{ color: P.vermillion }}>*</span></label>
+          <Select value={formData.facultyId === 0 ? "" : formData.facultyId.toString()} onValueChange={v => setFormData({ ...formData, facultyId: parseInt(v) })}>
+            <SelectTrigger style={{ height: 40, background: P.parchmentLight, border: `1px solid ${P.sand}`, borderRadius: 0, fontFamily: "'Lora', Georgia, serif", fontSize: 13.5 }}>
+              <SelectValue placeholder="Select Faculty" />
+            </SelectTrigger>
+            <SelectContent>
+              {faculties.map(f => <SelectItem key={f.id} value={f.id.toString()}>{f.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div><label style={iL}>Year <span style={{ color: P.vermillion }}>*</span></label>
+          <Select value={formData.year === 0 ? "" : formData.year.toString()} onValueChange={v => setFormData({ ...formData, year: parseInt(v) })}>
+            <SelectTrigger style={{ height: 40, background: P.parchmentLight, border: `1px solid ${P.sand}`, borderRadius: 0, fontFamily: "'Lora', Georgia, serif", fontSize: 13.5 }}>
+              <SelectValue placeholder="Select Year" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">Year 1</SelectItem>
+              <SelectItem value="2">Year 2</SelectItem>
+              <SelectItem value="3">Year 3</SelectItem>
+              <SelectItem value="4">Year 4</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </div>
+  );
+
+  const Modal = ({ open, title, topColor, onClose, onConfirm, confirmLabel, children }: any) => !open ? null : (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,18,8,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
+      <div style={{ background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}, 0 18px 40px rgba(28,18,8,0.12)`, borderTop: `3px solid ${topColor}`, padding: '28px 32px', maxWidth: 460, width: '90%' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: P.ink, margin: 0 }}>{title}</h2>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: P.inkMuted }}><X size={18} /></button>
+        </div>
+        {children}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20, paddingTop: 16, borderTop: `1px solid ${P.sand}` }}>
+          <button onClick={onClose} style={{ ...softActionButtonStyle, fontWeight: 600, color: P.inkMuted }}>Cancel</button>
+          {onConfirm && (
+            <button 
+              onClick={onConfirm} 
+              style={{ ...softActionButtonStyle, background: P.vermillion, color: '#fff', boxShadow: 'none' }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.background = '#A93226';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.background = P.vermillion;
+              }}
+            >
+              {confirmLabel}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 
   return (
-    <div className="p-8">
-      {/* Page Header */}
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Module Management</h1>
-        <p className="text-gray-600">Create, edit, and organize academic modules</p>
+    <div style={{ padding: '32px 40px', maxWidth: 1200, margin: '0 auto', minHeight: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Header */}
+      <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${P.sand}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: P.vermillion, marginBottom: 6 }}>Curriculum</div>
+          <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 800, color: P.ink, margin: 0 }}>Module Management</h1>
+          <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13, color: P.inkMuted, marginTop: 4 }}>Create, edit and organise academic modules</p>
+        </div>
+        <button onClick={() => setCreateDialogOpen(true)}
+          style={{ ...softActionButtonStyle, background: P.vermillion, color: '#fff', boxShadow: 'none' }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.background = '#A93226';
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.background = P.vermillion;
+          }}>
+          <Plus size={13} /> Create Module
+        </button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Modules</p>
-                <p className="text-2xl font-bold text-gray-900">{modules.length}</p>
-              </div>
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <BookOpen className="h-5 w-5 text-blue-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Faculties</p>
-                <p className="text-2xl font-bold text-purple-600">{faculties.length}</p>
-              </div>
-              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                <BookOpen className="h-5 w-5 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Years Covered</p>
-                <p className="text-2xl font-bold text-green-600">{new Set(modules.map(m => m.year)).size}</p>
-              </div>
-              <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                <BookOpen className="h-5 w-5 text-green-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Action Bar */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex-1 max-w-md">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search modules by name, code, or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-            />
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', ...softPanel, marginBottom: 20 }}>
+        {[['Total Modules', modules.length, P.ink], ['Faculties', faculties.length, P.moss], ['Years Covered', new Set(modules.map(m => m.year)).size, P.vermillion]].map(([l, v, c], i) => (
+          <div key={l as string} style={{ background: P.parchmentLight, padding: '16px 20px', borderRight: i < 2 ? `1px solid ${P.sand}` : 'none' }}>
+            <p style={{ fontFamily: "var(--font-numeric)", fontSize: 26, fontWeight: 800, color: c as string, margin: '0 0 2px' }}>{v as number}</p>
+            <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, margin: 0, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{l as string}</p>
           </div>
-        </div>
-        
-        <Button
-          onClick={() => setCreateDialogOpen(true)}
-          className="bg-primary hover:bg-primary/90 text-white"
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Create Module
-        </Button>
+        ))}
       </div>
 
-      {/* Modules Grouped by Faculty and Year */}
+      {/* Search */}
+      <div style={{ marginBottom: 20, position: 'relative' }}>
+        <Search size={14} color={P.inkMuted} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }} />
+        <input type="text" placeholder="Search modules…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
+          style={{ width: '100%', padding: '10px 12px 10px 36px', fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, color: P.ink, background: P.parchmentLight, border: 'none', boxShadow: `inset 0 0 0 1px ${P.sandLight}`, outline: 'none', boxSizing: 'border-box' }} />
+      </div>
+
+      {/* Content */}
       {loading ? (
-        <div className="text-center py-12">
-          <p className="text-gray-600">Loading modules...</p>
+        <div style={{ ...softPanel, padding: '56px', textAlign: 'center', fontFamily: "'Lora', Georgia, serif", color: P.inkMuted }}>Loading…</div>
+      ) : Object.keys(grouped).length === 0 ? (
+        <div style={{ ...softPanel, padding: '56px', textAlign: 'center' }}>
+          <BookOpen size={40} color={P.sand} strokeWidth={1} style={{ display: 'block', margin: '0 auto 16px' }} />
+          <p style={{ fontFamily: "'Lora', Georgia, serif", color: P.inkMuted, fontSize: 14, marginBottom: 16 }}>No modules found</p>
+          <button
+            onClick={() => setCreateDialogOpen(true)}
+            style={{ ...softActionButtonStyle, padding: '10px 24px', margin: '0 auto', background: P.vermillion, color: '#fff', boxShadow: 'none' }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLElement).style.background = '#A93226';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLElement).style.background = P.vermillion;
+            }}>
+            Create First Module
+          </button>
         </div>
-      ) : Object.keys(groupedModules).length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <p className="text-gray-600 mb-4">No modules found</p>
-            <Button onClick={() => setCreateDialogOpen(true)} className="bg-primary hover:bg-primary/90 text-white">
-              <Plus className="h-4 w-4 mr-2" />
-              Create Your First Module
-            </Button>
-          </CardContent>
-        </Card>
       ) : (
-        <div className="space-y-4">
-          {Object.entries(groupedModules).map(([facultyId, { faculty, years }]) => (
-            <Card key={facultyId}>
-              <CardContent className="p-0">
-                {/* Faculty Header */}
-                <div
-                  onClick={() => toggleFaculty(faculty.id)}
-                  className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 border-b"
-                >
-                  <div className="flex items-center gap-3">
-                    {expandedFaculties.has(faculty.id) ? (
-                      <ChevronDown className="h-5 w-5 text-gray-500" />
-                    ) : (
-                      <ChevronRight className="h-5 w-5 text-gray-500" />
-                    )}
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">{faculty.name}</h3>
-                      <p className="text-sm text-gray-500">Code: {faculty.code}</p>
-                    </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {Object.entries(grouped).map(([fid, { faculty, years }]) => (
+            <div key={fid} style={softPanel}>
+              <div onClick={() => toggleFaculty(faculty.id)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', cursor: 'pointer', borderBottom: expandedFaculties.has(faculty.id) ? `1px solid ${P.sand}` : 'none', transition: 'background 0.12s' }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = P.parchmentDark}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  {expandedFaculties.has(faculty.id) ? <ChevronDown size={16} color={P.inkMuted} /> : <ChevronRight size={16} color={P.inkMuted} />}
+                  <div>
+                    <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700, color: P.ink, margin: 0 }}>{faculty.name}</h3>
+                    <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, margin: 0, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Code: {faculty.code}</p>
                   </div>
-                  <span className="text-sm text-gray-600 bg-blue-50 px-3 py-1 rounded-full">
-                    {Object.values(years).flat().length} modules
-                  </span>
                 </div>
-
-                {/* Years and Modules */}
-                {expandedFaculties.has(faculty.id) && (
-                  <div className="p-4 space-y-4">
-                    {Object.entries(years)
-                      .sort(([a], [b]) => parseInt(a) - parseInt(b))
-                      .map(([year, yearModules]) => (
-                        <div key={`${facultyId}-${year}`} className="border rounded-lg">
-                          {/* Year Header */}
-                          <div
-                            onClick={() => toggleYear(faculty.id, year)}
-                            className="flex items-center justify-between p-3 bg-gray-50 cursor-pointer hover:bg-gray-100 rounded-t-lg"
-                          >
-                            <div className="flex items-center gap-2">
-                              {expandedYears.has(`${faculty.id}-${year}`) ? (
-                                <ChevronDown className="h-4 w-4 text-gray-500" />
-                              ) : (
-                                <ChevronRight className="h-4 w-4 text-gray-500" />
-                              )}
-                              <h4 className="font-medium text-gray-900">Year {year}</h4>
-                            </div>
-                            <span className="text-xs text-gray-600 bg-gray-100 px-2 py-1 rounded">
-                              {yearModules.length} modules
-                            </span>
-                          </div>
-
-                          {/* Modules List */}
-                          {expandedYears.has(`${faculty.id}-${year}`) && (
-                            <div className="divide-y">
-                              {yearModules.map((module) => (
-                                <div key={module.id} className="p-4 hover:bg-gray-50">
-                                  <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                      <h5 className="font-medium text-gray-900 mb-1">{module.name}</h5>
-                                      <p className="text-sm text-gray-600 mb-1">Code: {module.code}</p>
-                                      {module.description && (
-                                        <p className="text-sm text-gray-500">{module.description}</p>
-                                      )}
-                                    </div>
-                                    
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleEditModule(module)}
-                                        className="text-blue-600 hover:text-blue-700"
-                                      >
-                                        <Edit className="h-4 w-4" />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleDeleteModule(module)}
-                                        className="text-red-600 hover:text-red-700"
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                <span style={{ background: P.parchmentDark, color: P.inkSecondary, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '3px 10px', border: `1px solid ${P.sand}` }}>{Object.values(years).flat().length} modules</span>
+              </div>
+              {expandedFaculties.has(faculty.id) && (
+                <div style={{ padding: '14px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {Object.entries(years).sort(([a], [b]) => parseInt(a) - parseInt(b)).map(([yr, mods]) => (
+                    <div key={yr} style={{ boxShadow: `inset 0 0 0 1px ${P.sandLight}` }}>
+                      <div onClick={() => toggleYear(faculty.id, yr)}
+                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', background: P.parchmentDark, cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {expandedYears.has(`${faculty.id}-${yr}`) ? <ChevronDown size={13} color={P.inkMuted} /> : <ChevronRight size={13} color={P.inkMuted} />}
+                          <h4 style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, color: P.inkSecondary, margin: 0, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Year {yr}</h4>
                         </div>
-                      ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                        <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, color: P.inkMuted }}>{(mods as Module[]).length} modules</span>
+                      </div>
+                      {expandedYears.has(`${faculty.id}-${yr}`) && (
+                        <div>
+                          {(mods as Module[]).map((m, mi) => (
+                            <div key={m.id}
+                              style={{ padding: '12px 16px', borderTop: `1px solid ${P.sandLight}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, transition: 'background 0.12s' }}
+                              onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#FDFAF5'}
+                              onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = 'transparent'}>
+                              <div style={{ flex: 1 }}>
+                                <h5 style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, fontWeight: 700, color: P.ink, margin: '0 0 3px' }}>{m.name}</h5>
+                                <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, margin: 0, letterSpacing: '0.04em', textTransform: 'uppercase' }}>Code: {m.code}</p>
+                                {m.description && <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 12.5, color: P.inkMuted, marginTop: 4 }}>{m.description}</p>}
+                              </div>
+                              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                                <button onClick={() => handleEdit(m)}
+                                  style={smallSoftButtonStyle}>
+                                  <Edit size={11} /> Edit
+                                </button>
+                                <button onClick={() => handleDelete(m)}
+                                  style={{ ...smallSoftButtonStyle, background: P.vermillionBg, boxShadow: 'inset 0 0 0 1px #E7C4BF', color: P.vermillion }}>
+                                  <Trash2 size={11} /> Delete
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
 
-      {/* Create Module Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Create New Module</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Module Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-                placeholder="e.g., Data Structures & Algorithms"
-              />
-            </div>
+      {/* Dialogs */}
+      <AdminPageModal open={createDialogOpen} title="Create New Module" topColor={P.moss} onClose={() => { setCreateDialogOpen(false); resetForm(); }} onConfirm={handleCreate} confirmLabel="Create Module" softActionButtonStyle={softActionButtonStyle}>
+        {FormFields()}
+      </AdminPageModal>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Module Code <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-                placeholder="e.g., CS201"
-              />
-            </div>
+      <AdminPageModal open={editDialogOpen} title="Edit Module" topColor={P.moss} onClose={() => { setEditDialogOpen(false); setEditingModule(null); resetForm(); }} onConfirm={handleUpdate} confirmLabel="Update Module" softActionButtonStyle={softActionButtonStyle}>
+        {FormFields()}
+      </AdminPageModal>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-                rows={3}
-                placeholder="Brief description of the module"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Faculty <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.facultyId}
-                  onChange={(e) => setFormData({ ...formData, facultyId: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-                >
-                  <option value={0}>Select Faculty</option>
-                  {faculties.map((faculty) => (
-                    <option key={faculty.id} value={faculty.id}>
-                      {faculty.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Year <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.year}
-                  onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-                >
-                  <option value={1}>Year 1</option>
-                  <option value={2}>Year 2</option>
-                  <option value={3}>Year 3</option>
-                  <option value={4}>Year 4</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setCreateDialogOpen(false);
-                  resetForm();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleCreateModule}
-                className="bg-primary hover:bg-primary/90 text-white"
-              >
-                Create Module
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Delete Module</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-gray-600">
-              Are you sure you want to delete <span className="font-semibold">"{deletingModuleName}"</span>? This action cannot be undone.
-            </p>
-          </div>
-          <div className="flex gap-3 justify-end">
-            <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} disabled={isDeleting}>
-              Cancel
-            </Button>
-            <Button onClick={confirmDeleteModule} disabled={isDeleting} className="bg-red-600 hover:bg-red-700 text-white">
-              {isDeleting ? 'Deleting...' : 'Delete'}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Module Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Module</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Module Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Module Code <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-                rows={3}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Faculty <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.facultyId}
-                  onChange={(e) => setFormData({ ...formData, facultyId: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-                >
-                  {faculties.map((faculty) => (
-                    <option key={faculty.id} value={faculty.id}>
-                      {faculty.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Year <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.year}
-                  onChange={(e) => setFormData({ ...formData, year: parseInt(e.target.value) })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#A8C5B5]"
-                >
-                  <option value={1}>Year 1</option>
-                  <option value={2}>Year 2</option>
-                  <option value={3}>Year 3</option>
-                  <option value={4}>Year 4</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-4">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setEditDialogOpen(false);
-                  setEditingModule(null);
-                  resetForm();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleUpdateModule}
-                className="bg-primary hover:bg-primary/90 text-white"
-              >
-                Update Module
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AdminPageModal open={deleteConfirmOpen} title="Delete Module" topColor={P.vermillion} onClose={() => setDeleteConfirmOpen(false)} onConfirm={confirmDelete} confirmLabel={isDeleting ? 'Deleting…' : 'Delete'} softActionButtonStyle={softActionButtonStyle}>
+        <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, color: P.inkMuted, lineHeight: 1.6 }}>
+          Are you sure you want to delete <strong style={{ color: P.ink }}>"{deletingModuleName}"</strong>? This cannot be undone.
+        </p>
+      </AdminPageModal>
     </div>
   );
 }

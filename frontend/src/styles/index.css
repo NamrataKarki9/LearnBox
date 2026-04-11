@@ -1,3 +1,71 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+/* Force Red Theme for ALL Dropdowns */
+:root {
+  --color-vermillion: #C0392B;
+}
+
+/* 1. Radix UI Select Component styling */
+[data-slot="select-item"] {
+  transition: none !important;
+  outline: none !important;
+}
+
+[data-slot="select-item"]:hover,
+[data-slot="select-item"]:focus,
+[data-slot="select-item"][data-highlighted] {
+  background-color: #C0392B !important;
+  color: #FFFFFF !important;
+}
+
+[data-slot="select-item"][data-state="checked"] {
+  background-color: #A93226 !important;
+  color: #FFFFFF !important;
+}
+
+[data-slot="select-content"] {
+  background-color: #FAF7F0 !important;
+  color: #1C1208 !important;
+  border: 1px solid #D4C5A9 !important;
+  border-radius: 0 !important;
+}
+
+/* 2. Global Native <select> and <option> styling (CRITICAL FIX) */
+select {
+  cursor: pointer;
+}
+
+/* Base styles for native options where supported */
+select option {
+  background-color: #FAF7F0;
+  color: #1C1208;
+  padding: 8px;
+}
+
+/* Focus state for the select trigger itself */
+select:focus {
+  border-color: #C0392B !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(192, 57, 43, 0.2) !important;
+}
+
+/* The "Blue Highlight" fix for native options */
+/* Note: Browsers like Chrome/Safari use system colors for native <option> hover. 
+   The only way to ensure Red is to use the custom Select component or advanced CSS hacks. */
+
+select option:checked,
+select option:hover,
+select option:focus {
+  background-color: #C0392B !important;
+  color: #FFFFFF !important;
+}
+
+/* Hack to remove default system blue in some browsers */
+select::-ms-expand {
+  display: none;
+}
+
+
+

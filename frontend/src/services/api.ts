@@ -428,6 +428,9 @@ export interface College {
   code: string;
   location?: string;
   description?: string;
+  address?: string;
+  email?: string;
+  contactNumber?: string;
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
@@ -1054,6 +1057,25 @@ export const llmConfigAPI = {
   // Activate configuration
   activate: (id: number) =>
     api.post<{ success: boolean; message: string; data: LLMConfig }>(`/llm-config/${id}/activate`),
+};
+
+export const auditLogAPI = {
+  // Get audit logs with filtering and pagination
+  get: (query: string = '') =>
+    api.get<{ success: boolean; message: string; data: any[]; total: number; skip: number; take: number }>(`/audit-logs${query}`),
+  
+  // Get audit statistics
+  getStats: (collegeId: number, startDate?: string, endDate?: string) => {
+    const params = new URLSearchParams();
+    if (collegeId) params.append('collegeId', String(collegeId));
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    return api.get<{ success: boolean; message: string; data: any }>(`/audit-logs/stats?${params}`);
+  },
+  
+  // Get recent activity count
+  getRecentActivity: (collegeId: number, days: number = 7) =>
+    api.get<{ success: boolean; message: string; data: { count: number; days: number } }>(`/audit-logs/recent?collegeId=${collegeId}&days=${days}`)
 };
 
 export default api;

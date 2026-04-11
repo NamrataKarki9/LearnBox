@@ -6,6 +6,7 @@
 import prisma from '../prisma.js';
 import { HTTP_STATUS, ERROR_MESSAGES } from '../constants/errors.js';
 import { ROLES } from '../constants/roles.js';
+import { logAuditAction } from '../services/audit-log.service.js';
 
 const getLearningSiteDelegate = () => {
     if (!prisma.learningSite) {
@@ -231,6 +232,18 @@ export const createLearningSite = async (req, res) => {
             }
         });
 
+        // Log audit action
+        await logAuditAction({
+            userId: req.user.id,
+            collegeId,
+            actionType: 'CREATE',
+            entityType: 'LEARNING_SITE',
+            entityId: learningSite.id,
+            entityName: learningSite.title,
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
+        });
+
         return res.status(HTTP_STATUS.CREATED).json({
             success: true,
             message: 'Learning site added successfully',
@@ -280,6 +293,18 @@ export const deleteLearningSite = async (req, res) => {
 
         await learningSiteDelegate.delete({
             where: { id: siteId }
+        });
+
+        // Log audit action
+        await logAuditAction({
+            userId: req.user.id,
+            collegeId: existingSite.collegeId,
+            actionType: 'DELETE',
+            entityType: 'LEARNING_SITE',
+            entityId: existingSite.id,
+            entityName: existingSite.title,
+            ipAddress: req.ip,
+            userAgent: req.get('user-agent')
         });
 
         return res.status(HTTP_STATUS.OK).json({
