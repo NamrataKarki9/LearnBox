@@ -3,8 +3,9 @@
  */
 
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { User, Building2, BookOpen, Bell, Palette, Camera, Save, Eye, EyeOff, AlertCircle, Sun, Moon } from 'lucide-react';
+import { User, Building2, BookOpen, Bell, Palette, Camera, Save, Eye, EyeOff, AlertCircle, Sun, Moon, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { authAPI } from '../../services/api';
 import { validateFirstName, validateLastName, validateEmail, validateUsername, validatePhone, validatePassword, validatePasswordMatch, sanitizeFirstName, sanitizeLastName, sanitizePhone, sanitizeUsername } from '../../utils/validators';
@@ -14,6 +15,7 @@ import { P } from '../../constants/theme';
 
 export default function AdminSettingsPage() {
   const { user, updateUser } = useAuth();
+  const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState('profile');
   const [hasChanges, setHasChanges] = useState(false);
@@ -67,8 +69,8 @@ export default function AdminSettingsPage() {
       if (profile.username) u.username = profile.username; if (profile.email) u.email = profile.email; if (profile.phone) u.phone = profile.phone;
       if (profile.avatar?.startsWith('data:')) u.avatar = profile.avatar; else if (profile.avatar === '') u.avatar = null;
 
-      const r = await authAPI.updateProfile(u); const uu = r.data.user; updateUser(uu);
-      setProfile(p => ({ ...p, firstName: uu.first_name||'', lastName: uu.last_name||'', username: uu.username||'', email: uu.email||'', phone: uu.phone||'', avatar: profile.avatar?.startsWith('data:')?profile.avatar:uu.avatar }));
+      const r = await authAPI.updateProfile(u); const uu = r.data.user as any; updateUser(uu);
+      setProfile(p => ({ ...p, firstName: uu.first_name||'', lastName: uu.last_name||'', username: uu.username||'', email: uu.email||'', phone: uu.phone||'', avatar: uu.avatar||'', currentPassword: '', newPassword: '', confirmPassword: '' }));
       setHasChanges(false); toast.success('Profile updated');
     } catch { toast.error('Update failed'); } finally { setIsSaving(false); }
   };
@@ -138,7 +140,7 @@ export default function AdminSettingsPage() {
           <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: P.vermillion, marginBottom: 6 }}>Configuration</div>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, fontWeight: 800, color: P.ink, margin: 0 }}>Admin Settings</h1>
         </div>
-        <div>{hasChanges && <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, color: P.vermillion, textTransform: 'uppercase', letterSpacing: '0.06em', border: `1px solid ${P.vermillion}`, padding: '4px 8px', marginRight: 16 }}>Unsaved Changes</span>}</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>{hasChanges && <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, color: P.vermillion, textTransform: 'uppercase', letterSpacing: '0.06em', border: `1px solid ${P.vermillion}`, padding: '4px 8px' }}>Unsaved Changes</span>}<button onClick={() => navigate('/admin/dashboard')} style={{ padding: '8px 12px', background: 'transparent', border: `1px solid ${P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, color: P.ink, transition: 'all 0.1s' }} onMouseEnter={(e) => { e.currentTarget.style.boxShadow = `inset 0 0 0 1px ${P.ink}`; }} onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}><ArrowLeft size={14}/> Dashboard</button></div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) 4fr', gap: 40, flex: 1 }}>

@@ -71,10 +71,9 @@ export default function AdminLearningSitesPage() {
   }, [editFormData.facultyId, editFormData.year, editDialogOpen]);
 
   const fetchInitialData = async () => {
-    if (!user?.collegeId) { toast.error('No college assigned'); setLoading(false); return; }
     setLoading(true);
     try {
-      const [sR, fR, mR] = await Promise.allSettled([learningSiteAPI.getAll({ collegeId: user.collegeId }), facultyAPI.getAll({ collegeId: user.collegeId }), moduleAPI.getAll({ collegeId: user.collegeId })]);
+      const [sR, fR, mR] = await Promise.allSettled([learningSiteAPI.getAll(), facultyAPI.getAll(), moduleAPI.getAll()]);
       if (sR.status === 'fulfilled') setSites(sR.value.data.data||[]); else setSites([]);
       if (fR.status === 'fulfilled') setFaculties(fR.value.data.data||[]); else setFaculties([]);
       if (mR.status === 'fulfilled') setModules(mR.value.data.data||[]); else setModules([]);

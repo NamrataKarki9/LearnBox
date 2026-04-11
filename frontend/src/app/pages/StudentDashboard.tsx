@@ -435,7 +435,7 @@ export default function StudentDashboard() {
                 {[
                   { label: 'Faculty', width: 220, value: filters.facultyId, onChange: handleFacultyChange, options: [{ value: 'all', label: 'All Faculties' }, ...faculties.map(f => ({ value: f.id.toString(), label: f.name }))] },
                   { label: 'Year', width: 150, value: filters.year, onChange: handleYearChange, options: [{ value: 'all', label: 'All Years' }, ...availableYears.map(y => ({ value: y.toString(), label: `Year ${y}` }))], disabled: filters.facultyId === 'all' },
-                  { label: 'Module', width: 220, value: filters.moduleId, onChange: filters.setModuleId, options: [{ value: 'all', label: 'All Modules' }, ...filteredModules.map(m => ({ value: m.id.toString(), label: m.name }))], disabled: !filteredModules.length },
+                  { label: 'Module', width: 220, value: filters.moduleId, onChange: filters.setModuleId, options: [{ value: 'all', label: 'All Modules' }, ...filteredModules.map(m => ({ value: m.id.toString(), label: m.name }))], disabled: filters.year === 'all' },
                 ].map(({ label, width, value, onChange, options, disabled }) => (
                   <div key={label} style={{ width }}>
                     <Select value={value} onValueChange={onChange} disabled={disabled}>

@@ -36,9 +36,9 @@ export default function SuperAdminSettingsPage() {
     const loadSettings = async () => {
       try {
         const [meRes, settingsRes] = await Promise.all([authAPI.getMe(), authAPI.getSettings()]);
-        const mU = meRes.data.user || meRes.data;
+        const mU = ((meRes as any)?.data?.user || (meRes as any)?.data) as any;
         setProfile(p => ({ ...p, first_name: mU?.first_name||'', last_name: mU?.last_name||'', username: mU?.username||'', email: mU?.email||'', phone: mU?.phone||'', bio: mU?.bio||'', avatar: mU?.avatar||'' }));
-        const s = settingsRes.data?.data;
+        const s = (settingsRes as any)?.data?.data as any;
         if (s?.preferences) setPreferences(s.preferences);
       } catch (error: any) { toast.error(error.response?.data?.error || 'Failed to load settings'); }
     };

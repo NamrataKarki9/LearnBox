@@ -113,9 +113,9 @@ export default function SuperAdminDashboard() {
       // Track if any failed
       const allSucceeded = results.every(r => r.status === 'fulfilled');
 
-      const cd = cR?.data?.data || cR?.data || [];
-      const ud = uR?.data?.data || uR?.data || [];
-      const ld = lR?.data?.data || lR?.data || [];
+      const cd = (cR as any)?.data?.data || (cR as any)?.data || [];
+      const ud = (uR as any)?.data?.data || (uR as any)?.data || [];
+      const ld = (lR as any)?.data?.data || (lR as any)?.data || [];
 
       setColleges(cd);
       setUsers(ud);
@@ -689,14 +689,14 @@ export default function SuperAdminDashboard() {
           </div>
           <div>
             <label style={iL}>Role</label>
-            <Select value={userForm.roles[0] || 'STUDENT'} onValueChange={role=>setUserForm({...userForm,roles:[role]})} disabled={editingUser?.roles.includes('SUPER_ADMIN')}>
+            <Select value={userForm.roles[0] || 'STUDENT'} onValueChange={role=>setUserForm({...userForm,roles:[role]})} disabled={(editingUser as any)?.roles?.includes('SUPER_ADMIN')}>
               <SelectTrigger style={iS}>
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="STUDENT">Student</SelectItem>
                 <SelectItem value="COLLEGE_ADMIN">College Admin</SelectItem>
-                {user?.roles?.includes('SUPER_ADMIN') && <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>}
+                {(user as any)?.roles?.includes('SUPER_ADMIN') && <SelectItem value="SUPER_ADMIN">Super Admin</SelectItem>}
               </SelectContent>
             </Select>
           </div>
@@ -722,9 +722,15 @@ export default function SuperAdminDashboard() {
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr)', gap: 12 }}>
             <div><label style={iL}>Config Name <span style={{ color: P.vermillion }}>*</span></label><input style={iS} value={llmForm.name} onChange={e=>setLlmForm({...llmForm,name:e.target.value})} placeholder="e.g. Local Fast Model" /></div>
             <div><label style={iL}>Provider <span style={{ color: P.vermillion }}>*</span></label>
-              <select style={iS} value={llmForm.provider} onChange={e=>setLlmForm({...llmForm,provider:e.target.value as any})} disabled={!!editingLLM}>
-                <option value="OLLAMA">Ollama (Local)</option><option value="GROQ">Groq (Cloud)</option>
-              </select>
+              <Select value={llmForm.provider} onValueChange={v=>setLlmForm({...llmForm,provider:v as any})} disabled={!!editingLLM}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="OLLAMA">Ollama (Local)</SelectItem>
+                  <SelectItem value="GROQ">Groq (Cloud)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
           
@@ -759,7 +765,9 @@ export default function SuperAdminDashboard() {
 
       {/* Modals from external components */}
       <LogoutConfirmDialog isOpen={logoutConfirm.isOpen} onConfirm={logoutConfirm.onConfirm} onCancel={logoutConfirm.onCancel} isLoading={logoutConfirm.isLoading} />
-      {showInviteModal && <InviteCollegeAdminModal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} colleges={colleges} onInviteSuccess={fetchAllData} />}
+      {showInviteModal && <InviteCollegeAdminModal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} colleges={colleges as any} onInvitationSent={function (invitation: any): void {
+        throw new Error('Function not implemented.');
+      } } />}
     </div>
   );
 }

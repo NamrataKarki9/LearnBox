@@ -222,8 +222,8 @@ export default function AdminResourcesPage() {
   const paginatedResources = filteredResources.slice(startIndex, endIndex);
   
   const fileTypes = [...new Set(resources.map(r => r.fileType))];
-  const allYears = [...new Set(resources.map(r => r.year).filter(Boolean))].sort();
-  const years = Array.from(new Set([1, 2, 3, ...allYears])).sort();
+  const allYears = [...new Set(resources.map(r => r.year).filter((y): y is number => Boolean(y)))].sort((a, b) => a - b);
+  const years = Array.from(new Set([1, 2, 3, ...allYears])).sort((a, b) => a - b);
 
   const Th = ({ l, f }: { l: string, f?: 'title' | 'createdAt' | 'fileType' }) => (
     <th onClick={() => f && handleSort(f)} style={{ padding: '12px 16px', background: P.parchmentDark, borderBottom: `1px solid ${P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.inkSecondary, textAlign: 'left', cursor: f ? 'pointer' : 'default', whiteSpace: 'nowrap' }}>

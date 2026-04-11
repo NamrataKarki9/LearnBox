@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { Brain, BookOpen, Upload, Zap, Clock, LayoutDashboard, FileText, HelpCircle, AlignLeft, Link2, Settings, LogOut, ChevronRight, Target } from 'lucide-react';
 import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
 import { useLogoutConfirm } from '../../hooks/useLogoutConfirm';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 
 import { P } from '../../constants/theme';
 
@@ -286,14 +287,16 @@ export default function MCQPracticeSelectionPage() {
                 </div>
                 <div>
                   <label style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: P.inkSecondary, display: 'block', marginBottom: 6 }}>Difficulty</label>
-                  <select value={generateOptions.difficulty}
-                    onChange={e => setGenerateOptions(p => ({ ...p, difficulty: e.target.value }))}
-                    disabled={isGenerating}
-                    style={{ width: '100%', padding: '9px 12px', fontFamily: "'Lora', Georgia, serif", fontSize: 14, color: P.ink, background: P.parchment, border: `1px solid ${P.sand}`, outline: 'none' }}>
-                    <option value="EASY">Easy</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HARD">Hard</option>
-                  </select>
+                  <Select value={generateOptions.difficulty} onValueChange={v => setGenerateOptions(p => ({ ...p, difficulty: v }))} disabled={isGenerating}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="EASY">Easy</SelectItem>
+                      <SelectItem value="MEDIUM">Medium</SelectItem>
+                      <SelectItem value="HARD">Hard</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
