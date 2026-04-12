@@ -127,8 +127,8 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
       return 'Invalid file type. Only PDF, DOC, DOCX, PPT, and PPTX are allowed.';
     }
     
-    if (selectedFile.size > 10 * 1024 * 1024) {
-      return 'File size must be less than 10MB.';
+    if (selectedFile.size > 20 * 1024 * 1024) {
+      return 'File size must be less than 20MB.';
     }
     
     return '';
@@ -222,8 +222,8 @@ export default function UploadResourceDialog({ open, onClose, onSuccess }: Uploa
     setLoading(true);
     
     // Show info message for large files
-    if (file && file.size > 5 * 1024 * 1024) { // > 5MB
-      console.log('⏳ Uploading large file... This may take several minutes.');
+    if (file && file.size > 20 * 1024 * 1024) { // > 20MB
+      console.log(' Uploading large file... This may take several minutes.');
     }
     
     try {
