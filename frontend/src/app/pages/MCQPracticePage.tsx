@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { mcqAPI, quizAPI, resourceAPI, MCQ, QuizAnswerDetail, QuizResult, Recommendation, FocusSection, Resource } from '../../services/api';
+import { API_BASE } from '../../config';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
 // 🔒 Global in-memory cache for MCQs (survives navigation)
@@ -1209,7 +1210,7 @@ export default function MCQPracticePage() {
                           {resources.map(r => (
                             <a
                               key={r.id}
-                              href={`http://localhost:5000/api/resources/${r.id}/download`}
+                              href={`${API_BASE}/resources/${r.id}/download`}
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex items-center justify-between gap-3 px-3 py-2 bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-colors"

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { API_BASE } from '../../config';
 import { Link, useNavigate } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { useAuth } from "../../context/AuthContext";
@@ -63,7 +64,7 @@ export function RegisterPage() {
 
   const fetchColleges = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/colleges/public");
+      const res = await fetch(`${API_BASE}/colleges/public`);
       if (!res.ok) { setError("Failed to load colleges."); return; }
       const data = await res.json();
       if (data.success && data.data) setColleges(data.data);

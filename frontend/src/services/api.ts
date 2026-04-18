@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { API_BASE } from '../config';
 
 // Create axios instance with base configuration
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api',
+  baseURL: API_BASE,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -40,7 +41,7 @@ api.interceptors.response.use(
       if (refreshToken) {
         try {
           const response = await axios.post(
-            'http://localhost:5000/api/auth/token/refresh',
+            `${API_BASE}/auth/token/refresh`,
             { refresh: refreshToken }
           );
           
@@ -355,7 +356,7 @@ export const resourceAPI = {
   // Upload resource with file
   upload: (formData: FormData) => {
     return axios.create({
-      baseURL: 'http://localhost:5000/api',
+      baseURL: API_BASE,
       headers: {
         'Content-Type': 'multipart/form-data',
         'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`,
@@ -372,7 +373,7 @@ export const resourceAPI = {
   delete: (id: number) =>
     api.delete<{ success: boolean; message: string }>(`/resources/${id}`),
 
-  getDownloadUrl: (id: number) => `http://localhost:5000/api/resources/${id}/download`
+  getDownloadUrl: (id: number) => `${API_BASE}/resources/${id}/download`
 };
 
 export const learningSiteAPI = {
@@ -736,7 +737,7 @@ export const mcqAPI = {
   // Parse MCQs from PDF/Word document
   parseFromDocument: (formData: FormData) =>
     axios.create({
-      baseURL: 'http://localhost:5000/api',
+      baseURL: API_BASE,
       headers: {
         'Content-Type': 'multipart/form-data',
         'Authorization': `Bearer ${sessionStorage.getItem('access_token')}`,

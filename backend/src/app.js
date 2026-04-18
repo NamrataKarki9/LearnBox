@@ -22,7 +22,10 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: process.env.FRONTEND_URL || '*',
+  credentials: true
+}));
 app.use(morgan('dev'));
 // Increase JSON body size limit to 50MB for avatar uploads
 app.use(express.json({ limit: '50mb' }));

@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useFilters } from '../../context/FilterContext';
 import { mcqAPI, facultyAPI, MCQSet, Faculty } from '../../services/api';
+import { API_BASE } from '../../config';
 import { toast } from 'sonner';
 import { Brain, BookOpen, Upload, Zap, Clock, LayoutDashboard, FileText, HelpCircle, AlignLeft, Link2, Settings, LogOut, ChevronRight, Target } from 'lucide-react';
 import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
@@ -113,7 +114,7 @@ export default function MCQPracticeSelectionPage() {
       formData.append('createSet', 'false');
       const controller = new AbortController();
       const tid = setTimeout(() => controller.abort(), 600000);
-      const response = await fetch('http://localhost:5000/api/mcqs/upload-and-generate', {
+      const response = await fetch(`${API_BASE}/mcqs/upload-and-generate`, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${sessionStorage.getItem('access_token')}` },
         body: formData, signal: controller.signal,

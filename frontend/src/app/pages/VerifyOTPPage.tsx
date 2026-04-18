@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE } from '../../config';
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { BookOpen } from "lucide-react";
 
@@ -21,7 +22,7 @@ export function VerifyOTPPage() {
     if (!otp || otp.length !== 6) { setError("Please enter a valid 6-digit OTP"); return; }
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/verify-registration-otp", {
+      const res = await fetch(`${API_BASE}/auth/verify-registration-otp`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, otp }),
       });
       const data = await res.json();
@@ -39,7 +40,7 @@ export function VerifyOTPPage() {
   const handleResend = async () => {
     setResending(true); setError(""); setSuccess("");
     try {
-      const res = await fetch("http://localhost:5000/api/auth/resend-otp", {
+      const res = await fetch(`${API_BASE}/auth/resend-otp`, {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, purpose }),
       });
       const data = await res.json();
