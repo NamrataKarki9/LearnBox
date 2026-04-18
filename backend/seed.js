@@ -27,9 +27,7 @@ async function seed() {
         // Check if super admin already exists
         const existingAdmin = await prisma.user.findFirst({
             where: {
-                roles: {
-                    has: 'SUPER_ADMIN',
-                },
+                role: 'SUPER_ADMIN',
             },
         });
 
@@ -49,7 +47,7 @@ async function seed() {
                 password: hashedPassword,
                 first_name: 'Super',
                 last_name: 'Admin',
-                roles: ['SUPER_ADMIN'],
+                role: 'SUPER_ADMIN',
                 collegeId: platformCollege.id,
             },
         });
