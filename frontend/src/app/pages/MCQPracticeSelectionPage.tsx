@@ -14,6 +14,35 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 
 import { P } from '../../constants/theme';
 
+// 🔧 Multi-tier MCQ storage for robustness
+const saveMCQsMultiTier = (data: any[]) => {
+  try {
+    // Tier 1: localStorage
+    localStorage.setItem('generated_mcqs', JSON.stringify(data));
+    // Tier 2: sessionStorage
+    sessionStorage.setItem('generated_mcqs', JSON.stringify(data));
+    // Tier 3: IndexedDB
+    try {
+      const request = indexedDB.open('learnbox_db', 1);
+      request.onupgradeneeded = () => {
+        const db = request.result;
+        if (!db.objectStoreNames.contains('mcqs')) {
+          db.createObjectStore('mcqs', { keyPath: 'id' });
+        }
+      };
+      request.onsuccess = () => {
+        const db = request.result;
+        const store = db.transaction('mcqs', 'readwrite').objectStore('mcqs');
+        store.put({ id: 'generated_mcqs', data });
+      };
+    } catch (e) {
+      console.warn('IndexedDB save failed:', e);
+    }
+  } catch (err) {
+    console.error('Failed to save MCQs:', err);
+  }
+};
+
 const NAV = [
   { label: 'Dashboard',      icon: LayoutDashboard, path: '/student/dashboard' },
   { label: 'Resources',      icon: FileText,         path: '/student/resources' },
@@ -93,7 +122,7 @@ export default function MCQPracticeSelectionPage() {
       const data = await response.json();
       if (response.ok && data.success && data.data.mcqs.length > 0) {
         toast.success(`Generated ${data.data.mcqs.length} questions!`);
-        sessionStorage.setItem('generated_mcqs', JSON.stringify(data.data.mcqs));
+        saveMCQsMultiTier(data.data.mcqs);
         navigate('/student/practice?generated=true');
       } else { toast.error(data.error || 'Failed to generate MCQs'); }
     } catch { toast.error('Failed. Ensure Ollama is running.'); }

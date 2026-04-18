@@ -345,17 +345,37 @@ function validateMCQ(mcq, index, defaultDifficulty, defaultTopic) {
       return null;
     }
 
-    // Ensure correct answer is in options
-    if (!options.includes(mcq.correctAnswer)) {
-      console.warn(`⚠️ Invalid MCQ at index ${index}: correct answer not in options`);
-      // Try to fix by using first option
-      mcq.correctAnswer = options[0];
+    // Trim and clean all options
+    const cleanedOptions = options.map(opt => String(opt).trim());
+    let cleanedCorrectAnswer = String(mcq.correctAnswer).trim();
+
+    // Try to find the correct answer in options
+    let foundAnswer = cleanedOptions.find(opt => 
+      opt.toLowerCase() === cleanedCorrectAnswer.toLowerCase()
+    );
+
+    // If not found, try mapping letter-based answers (A, B, C, D, etc.)
+    if (!foundAnswer) {
+      const letterMatch = cleanedCorrectAnswer.match(/^[a-d]$/i);
+      if (letterMatch) {
+        const answerIndex = letterMatch[0].toUpperCase().charCodeAt(0) - 65; // A=0, B=1, C=2, D=3
+        if (answerIndex >= 0 && answerIndex < cleanedOptions.length) {
+          foundAnswer = cleanedOptions[answerIndex];
+          console.log(`✅ MCQ at index ${index}: Mapped letter "${cleanedCorrectAnswer}" to option "${foundAnswer}"`);
+        }
+      }
+    }
+
+    // If still not found, reject this MCQ (don't use wrong answer)
+    if (!foundAnswer) {
+      console.warn(`⚠️ Invalid MCQ at index ${index}: correct answer "${cleanedCorrectAnswer}" not found in options: ${cleanedOptions.join(', ')}`);
+      return null;
     }
 
     return {
       question: mcq.question.trim(),
-      options: options.map(opt => String(opt).trim()),
-      correctAnswer: mcq.correctAnswer.trim(),
+      options: cleanedOptions,
+      correctAnswer: foundAnswer,
       explanation: mcq.explanation?.trim() || null,
       difficulty: mcq.difficulty || defaultDifficulty,
       topic: mcq.topic?.trim() || defaultTopic || null

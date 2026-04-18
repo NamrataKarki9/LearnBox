@@ -3,6 +3,14 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { mcqAPI, quizAPI, resourceAPI, MCQ, QuizAnswerDetail, QuizResult, Recommendation, FocusSection, Resource } from '../../services/api';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
+// 🔒 Global in-memory cache for MCQs (survives navigation)
+let GLOBAL_MCQ_CACHE: any[] | null = null;
+const setGlobalMCQCache = (data: any[] | null) => {
+  GLOBAL_MCQ_CACHE = data;
+  console.log('💾 Global MCQ cache updated:', GLOBAL_MCQ_CACHE?.length, 'questions');
+};
+const getGlobalMCQCache = () => GLOBAL_MCQ_CACHE;
+
 interface QuizState {
   sessionId: number | null;
   questions: (MCQ & { questionNumber: number })[];
@@ -20,6 +28,122 @@ interface QuizState {
     studyPath?: string;
   } | null;
 }
+
+// 🔧 Multi-tier storage utility - tries multiple methods
+const MultiTierStorage = {
+  setMCQs: (data: any[]) => {
+    try {
+      // Tier 1: Global memory cache (always works)
+      setGlobalMCQCache(data);
+      
+      // Tier 2: Try localStorage
+      try {
+        localStorage.setItem('generated_mcqs', JSON.stringify(data));
+        console.log('✅ Data saved to localStorage');
+      } catch (e) {
+        console.warn('⚠️ localStorage failed:', (e as any).message);
+      }
+      
+      // Tier 3: Try sessionStorage
+      try {
+        sessionStorage.setItem('generated_mcqs', JSON.stringify(data));
+        console.log('✅ Data saved to sessionStorage');
+      } catch (e) {
+        console.warn('⚠️ sessionStorage failed:', (e as any).message);
+      }
+      
+      // Tier 4: Try IndexedDB
+      try {
+        const request = indexedDB.open('learnbox_db', 1);
+        request.onupgradeneeded = () => {
+          const db = request.result;
+          if (!db.objectStoreNames.contains('mcqs')) {
+            db.createObjectStore('mcqs', { keyPath: 'id' });
+          }
+        };
+        request.onsuccess = () => {
+          const db = request.result;
+          const store = db.transaction('mcqs', 'readwrite').objectStore('mcqs');
+          store.put({ id: 'generated_mcqs', data });
+          console.log('✅ Data saved to IndexedDB');
+        };
+      } catch (e) {
+        console.warn('⚠️ IndexedDB failed:', (e as any).message);
+      }
+    } catch (err) {
+      console.error('❌ All storage methods failed:', err);
+    }
+  },
+
+  getMCQs: async () => {
+    // Tier 1: Check global memory cache first (fastest)
+    const cached = getGlobalMCQCache();
+    if (cached) {
+      console.log('✅ MCQs loaded from memory cache');
+      return cached;
+    }
+
+    // Tier 2: Try localStorage
+    try {
+      const data = localStorage.getItem('generated_mcqs');
+      if (data) {
+        const parsed = JSON.parse(data);
+        setGlobalMCQCache(parsed);
+        console.log('✅ MCQs loaded from localStorage');
+        return parsed;
+      }
+    } catch (e) {
+      console.warn('⚠️ localStorage read failed:', (e as any).message);
+    }
+
+    // Tier 3: Try sessionStorage
+    try {
+      const data = sessionStorage.getItem('generated_mcqs');
+      if (data) {
+        const parsed = JSON.parse(data);
+        setGlobalMCQCache(parsed);
+        localStorage.setItem('generated_mcqs', data); // Back up to localStorage
+        console.log('✅ MCQs loaded from sessionStorage');
+        return parsed;
+      }
+    } catch (e) {
+      console.warn('⚠️ sessionStorage read failed:', (e as any).message);
+    }
+
+    // Tier 4: Try IndexedDB
+    return new Promise((resolve) => {
+      try {
+        const request = indexedDB.open('learnbox_db', 1);
+        request.onsuccess = () => {
+          const db = request.result;
+          const store = db.transaction('mcqs', 'readonly').objectStore('mcqs');
+          const getRequest = store.get('generated_mcqs');
+          
+          getRequest.onsuccess = () => {
+            const result = getRequest.result;
+            if (result?.data) {
+              setGlobalMCQCache(result.data);
+              console.log('✅ MCQs loaded from IndexedDB');
+              resolve(result.data);
+            } else {
+              console.warn('⚠️ No data in IndexedDB');
+              resolve(null);
+            }
+          };
+        };
+      } catch (e) {
+        console.warn('⚠️ IndexedDB read failed:', (e as any).message);
+        resolve(null);
+      }
+    });
+  },
+
+  clearMCQs: () => {
+    setGlobalMCQCache(null);
+    localStorage.removeItem('generated_mcqs');
+    sessionStorage.removeItem('generated_mcqs');
+  }
+};
 
 export default function MCQPracticePage() {
   const [searchParams] = useSearchParams();
@@ -65,6 +189,23 @@ export default function MCQPracticePage() {
   useEffect(() => {
     startQuiz();
   }, []);
+
+  // Auto-retry mechanism for recovered MCQs
+  useEffect(() => {
+    if (error && error.includes('MCQs session expired')) {
+      const retryTimer = setInterval(() => {
+        const mcqsStr = localStorage.getItem('generated_mcqs') || sessionStorage.getItem('generated_mcqs');
+        if (mcqsStr) {
+          console.log('✅ MCQs recovered! Reloading...');
+          setError(null);
+          clearInterval(retryTimer);
+          window.location.reload();
+        }
+      }, 1000); // Retry every 1 second
+
+      return () => clearInterval(retryTimer);
+    }
+  }, [error]);
 
   // Fetch study resources whenever quiz answers are set (after submission)
   useEffect(() => {
@@ -129,39 +270,82 @@ export default function MCQPracticePage() {
       let response;
 
       if (generated === 'true') {
-        // Handle generated MCQs from sessionStorage
-        const generatedMCQsStr = sessionStorage.getItem('generated_mcqs');
-        if (!generatedMCQsStr) {
-          setError('No generated MCQs found. Please generate MCQs again.');
-          setLoading(false);
-          return;
+        // Handle generated MCQs from multi-tier storage (localStorage → sessionStorage → Memory → IndexedDB)
+        let generatedMCQs = null;
+        const attemptCount = parseInt(sessionStorage.getItem('mcq_load_attempts') || '0');
+
+        // Try to retrieve MCQs from multi-tier storage
+        generatedMCQs = await MultiTierStorage.getMCQs();
+
+        if (!generatedMCQs || generatedMCQs.length === 0) {
+          if (attemptCount < 5) {
+            // Haven't tried enough times yet
+            sessionStorage.setItem('mcq_load_attempts', String(attemptCount + 1));
+            console.log(`Attempt ${attemptCount + 1}/5: MCQs not found, retrying in 1000ms...`);
+            
+            setTimeout(() => {
+              startQuiz();
+            }, 1000);
+            
+            setLoading(true);
+            setError(null);
+            return;
+          } else {
+            // All retry attempts exhausted
+            sessionStorage.removeItem('mcq_load_attempts');
+            setError('MCQs could not be recovered. Please generate new MCQs to continue.');
+            setLoading(false);
+            return;
+          }
         }
 
-        const generatedMCQs = JSON.parse(generatedMCQsStr);
-        
-        // Check if MCQs have IDs (saved to database) or need to be saved
-        if (generatedMCQs.length > 0 && generatedMCQs[0].id) {
-          // MCQs are already in database, start quiz with them
-          response = await quizAPI.start({
-            customMCQIds: generatedMCQs.map((q: any) => q.id)
-          });
-        } else {
-          // MCQs were not saved to database, display them directly without backend session
-          setQuiz(prev => ({
-            ...prev,
-            sessionId: null, // No backend session for unsaved MCQs
-            questions: generatedMCQs.map((mcq: any, index: number) => ({
-              ...mcq,
-              questionNumber: index + 1
-            })),
-            startTime: Date.now()
-          }));
-          sessionStorage.removeItem('generated_mcqs'); // Clear after loading
+        // Success! Clear retry counter
+        sessionStorage.removeItem('mcq_load_attempts');
+
+        try {
+          // Validate MCQs data
+          if (!Array.isArray(generatedMCQs) || generatedMCQs.length === 0) {
+            throw new Error('Invalid MCQs data format');
+          }
+          
+          // Check if MCQs have IDs (saved to database) or need to be saved
+          if (generatedMCQs[0].id) {
+            // MCQs are already in database, start quiz with them
+            try {
+              response = await quizAPI.start({
+                customMCQIds: generatedMCQs.map((q: any) => q.id)
+              });
+              // Only clear after successful backend start
+              MultiTierStorage.clearMCQs();
+            } catch (err) {
+              // If backend quiz creation fails, keep data for retry and show error
+              console.error('Failed to start quiz session:', err);
+              setError('Failed to start quiz session. Retrying...');
+              setLoading(false);
+              setTimeout(() => startQuiz(), 2000);
+              return;
+            }
+          } else {
+            // MCQs were not saved to database, display them directly without backend session
+            setQuiz(prev => ({
+              ...prev,
+              sessionId: null,
+              questions: generatedMCQs.map((mcq: any, index: number) => ({
+                ...mcq,
+                questionNumber: index + 1
+              })),
+              startTime: Date.now()
+            }));
+            setLoading(false);
+            return;
+          }
+        } catch (parseErr) {
+          console.error('Failed to parse MCQs:', parseErr);
+          MultiTierStorage.clearMCQs();
+          setError('Failed to load MCQs. Please generate new MCQs.');
           setLoading(false);
           return;
         }
-        
-        sessionStorage.removeItem('generated_mcqs'); // Clear after using
       } else if (adaptive === 'true') {
         // Get adaptive questions
         const adaptiveRes = await mcqAPI.getAdaptive({ count: 10 });
@@ -184,6 +368,13 @@ export default function MCQPracticePage() {
         return;
       }
 
+      // Ensure response is set before using it
+      if (!response) {
+        setError('Failed to initialize quiz');
+        setLoading(false);
+        return;
+      }
+
       setQuiz(prev => ({
         ...prev,
         sessionId: response.data.session.id,
@@ -191,6 +382,7 @@ export default function MCQPracticePage() {
         startTime: Date.now()
       }));
     } catch (err: any) {
+      console.error('Quiz start error:', err);
       setError(err.response?.data?.error || 'Failed to start quiz');
     } finally {
       setLoading(false);
@@ -754,6 +946,9 @@ export default function MCQPracticePage() {
           isSubmitting: false
         }));
 
+        // Clear generated MCQs from all storage tiers after submission
+        MultiTierStorage.clearMCQs();
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
@@ -776,6 +971,9 @@ export default function MCQPracticePage() {
         answerDetails: response.data.answers,
         isSubmitting: false
       }));
+
+      // Clear generated MCQs from all storage tiers after submission
+      MultiTierStorage.clearMCQs();
 
       // Scroll to top to see results
       window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -811,12 +1009,20 @@ export default function MCQPracticePage() {
         <div className="bg-red-50 border border-red-200 p-6 max-w-md">
           <h2 className="text-red-800 text-xl font-semibold mb-2">Error</h2>
           <p className="text-red-600 mb-4">{error}</p>
-          <button
-            onClick={() => navigate('/student/dashboard')}
-            className="bg-red-600 text-white px-4 py-2 hover:bg-red-700"
-          >
-            Back to Dashboard
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => window.history.back()}
+              className="flex-1 bg-gray-600 text-white px-4 py-2 hover:bg-gray-700"
+            >
+              ← Back
+            </button>
+            <button
+              onClick={() => navigate('/student/dashboard')}
+              className="flex-1 bg-red-600 text-white px-4 py-2 hover:bg-red-700"
+            >
+              Dashboard
+            </button>
+          </div>
         </div>
       </div>
     );
