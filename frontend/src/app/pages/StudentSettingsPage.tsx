@@ -939,7 +939,10 @@ export default function StudentSettingsPage() {
                           <div className="relative">
                             <Input
                               id="current_password"
-                              type={showPasswords.currentPassword ? "text" : "password"}
+                              autoComplete="off"
+                              name={`data_${Math.random().toString(36).substring(7)}`}
+                              type="text"
+                              style={{ WebkitTextSecurity: showPasswords.currentPassword ? "none" : "disc" }}
                               value={passwordForm.currentPassword}
                               onChange={(e) =>
                                 handlePasswordFieldChange('currentPassword', e.target.value)
@@ -974,7 +977,10 @@ export default function StudentSettingsPage() {
                           <div className="relative">
                             <Input
                               id="new_password"
-                              type={showPasswords.newPassword ? "text" : "password"}
+                              autoComplete="off"
+                              name={`data_${Math.random().toString(36).substring(7)}`}
+                              type="text"
+                              style={{ WebkitTextSecurity: showPasswords.newPassword ? "none" : "disc" }}
                               value={passwordForm.newPassword}
                               onChange={(e) =>
                                 handlePasswordFieldChange('newPassword', e.target.value)
@@ -1009,7 +1015,10 @@ export default function StudentSettingsPage() {
                           <div className="relative">
                             <Input
                               id="confirm_password"
-                              type={showPasswords.confirmPassword ? "text" : "password"}
+                              autoComplete="off"
+                              name={`data_${Math.random().toString(36).substring(7)}`}
+                              type="text"
+                              style={{ WebkitTextSecurity: showPasswords.confirmPassword ? "none" : "disc" }}
                               value={passwordForm.confirmPassword}
                               onChange={(e) =>
                                 handlePasswordFieldChange('confirmPassword', e.target.value)

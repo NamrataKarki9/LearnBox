@@ -97,8 +97,8 @@ export function ResetPasswordPage() {
                 <div>
                   <label style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: P.inkSecondary, display: "block", marginBottom: 8 }}>New Password</label>
                   <div style={{ position: "relative" }}>
-                    <input type={showPw.newPassword ? "text" : "password"} placeholder="••••••••" value={formData.newPassword} onChange={e => setFormData(p => ({ ...p, newPassword: e.target.value }))} required
-                      style={{ ...inkInput, paddingRight: 44 }} onFocus={e => (e.target.style.borderBottomColor = P.ink)} onBlur={e => (e.target.style.borderBottomColor = P.sand)} />
+                    <input type="text" name={`data_${Math.random().toString(36).substring(7)}`} autoComplete="off" placeholder="••••••••" value={formData.newPassword} onChange={e => setFormData(p => ({ ...p, newPassword: e.target.value }))} required
+                      style={{ ...inkInput, paddingRight: 44, WebkitTextSecurity: showPw.newPassword ? "none" : "disc" }} onFocus={e => (e.target.style.borderBottomColor = P.ink)} onBlur={e => (e.target.style.borderBottomColor = P.sand)} />
                     <button type="button" onClick={() => setShowPw(p => ({ ...p, newPassword: !p.newPassword }))} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: P.inkMuted, display: "flex" }}>
                       {showPw.newPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -109,8 +109,8 @@ export function ResetPasswordPage() {
                 <div>
                   <label style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: P.inkSecondary, display: "block", marginBottom: 8 }}>Confirm Password</label>
                   <div style={{ position: "relative" }}>
-                    <input type={showPw.confirmPassword ? "text" : "password"} placeholder="••••••••" value={formData.confirmPassword} onChange={e => setFormData(p => ({ ...p, confirmPassword: e.target.value }))} required
-                      style={{ ...inkInput, paddingRight: 44 }} onFocus={e => (e.target.style.borderBottomColor = P.ink)} onBlur={e => (e.target.style.borderBottomColor = P.sand)} />
+                    <input type="text" name={`data_${Math.random().toString(36).substring(7)}`} autoComplete="off" placeholder="••••••••" value={formData.confirmPassword} onChange={e => setFormData(p => ({ ...p, confirmPassword: e.target.value }))} required
+                      style={{ ...inkInput, paddingRight: 44, WebkitTextSecurity: showPw.confirmPassword ? "none" : "disc" }} onFocus={e => (e.target.style.borderBottomColor = P.ink)} onBlur={e => (e.target.style.borderBottomColor = P.sand)} />
                     <button type="button" onClick={() => setShowPw(p => ({ ...p, confirmPassword: !p.confirmPassword }))} style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: P.inkMuted, display: "flex" }}>
                       {showPw.confirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>

@@ -38,7 +38,7 @@ export default function AdminDashboard() {
     <div style={{ display: 'flex', minHeight: '100vh', background: P.parchment, fontFamily: "'Lora', Georgia, serif" }}>
 
       {/* Sidebar */}
-      <aside style={{ width: 240, background: P.parchmentLight, borderRight: `1px solid ${P.sand}`, display: 'flex', flexDirection: 'column', position: 'fixed', height: '100vh', zIndex: 20 }}>
+      <aside style={{ width: 240, background: P.parchmentLight, borderRight: `1px solid ${P.sand}`, display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', zIndex: 20, flexShrink: 0 }}>
         <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${P.sand}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <BookOpen size={18} color={P.vermillion} strokeWidth={2} />
@@ -83,9 +83,9 @@ export default function AdminDashboard() {
       </aside>
 
       {/* Main */}
-      <main style={{ flex: 1, marginLeft: 240, minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
         {/* Topbar */}
-        <header style={{ background: P.parchmentLight, borderBottom: `1px solid ${P.sand}`, padding: '0 40px', height: 60, display: 'flex', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10 }}>
+        <header style={{ background: P.parchmentLight, borderBottom: `1px solid ${P.sand}`, padding: '0 40px', height: 60, display: 'flex', alignItems: 'center', position: 'sticky', top: 0, zIndex: 10, flexShrink: 0 }}>
           <div>
             <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: P.vermillion }}>Admin Portal</span>
             <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: P.ink, margin: 0 }}>{currentLabel}</h2>

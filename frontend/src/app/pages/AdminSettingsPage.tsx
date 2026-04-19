@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { authAPI } from '../../services/api';
 import { validateFirstName, validateLastName, validateEmail, validateUsername, validatePhone, validatePassword, validatePasswordMatch, sanitizeFirstName, sanitizeLastName, sanitizePhone, sanitizeUsername } from '../../utils/validators';
 import { applyAdminTheme, getStoredAdminTheme, saveAdminTheme, type AdminTheme } from '../../utils/theme';
+import { useEffect } from 'react';
 
 import { P } from '../../constants/theme';
 
@@ -26,6 +27,11 @@ export default function AdminSettingsPage() {
   const [profile, setProfile] = useState({ firstName: user?.first_name || '', lastName: user?.last_name || '', username: user?.username || '', email: user?.email || '', phone: user?.phone || '', avatar: user?.avatar || '', currentPassword: '', newPassword: '', confirmPassword: '' });
   const [profileErrors, setProfileErrors] = useState({ firstName: '', lastName: '', username: '', email: '', phone: '' });
   const [passwordErrors, setPasswordErrors] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+
+  // Clear password fields on mount to prevent auto-fill
+  useEffect(() => {
+    setProfile(prev => ({ ...prev, currentPassword: '', newPassword: '', confirmPassword: '' }));
+  }, []);
 
   const getInitials = () => { if (profile.firstName && profile.lastName) return `${profile.firstName[0]}${profile.lastName[0]}`.toUpperCase(); return (profile.username || profile.email || 'AD').substring(0, 2).toUpperCase(); };
 
@@ -60,7 +66,12 @@ export default function AdminSettingsPage() {
     if (!profile.email) n.email = 'Required'; else n.email = validateEmail(profile.email).error || '';
     if (profile.phone) n.phone = validatePhone(profile.phone).error || '';
     setProfileErrors(n);
-    if (Object.values(n).some(e => e)) { toast.error('Fix errors'); return; }
+    if (Object.values(n).some(e => e)) { 
+      const errors = Object.entries(n).filter(([_, err]) => err).map(([_, err]) => err);
+      const firstError = errors[0] || 'Please check your information';
+      toast.error(firstError); 
+      return; 
+    }
 
     setIsSaving(true);
     try {
@@ -72,7 +83,10 @@ export default function AdminSettingsPage() {
       const r = await authAPI.updateProfile(u); const uu = r.data.user as any; updateUser(uu);
       setProfile(p => ({ ...p, firstName: uu.first_name||'', lastName: uu.last_name||'', username: uu.username||'', email: uu.email||'', phone: uu.phone||'', avatar: uu.avatar||'', currentPassword: '', newPassword: '', confirmPassword: '' }));
       setHasChanges(false); toast.success('Profile updated');
-    } catch { toast.error('Update failed'); } finally { setIsSaving(false); }
+    } catch (err: any) { 
+      const errorMsg = err.response?.data?.error || 'Unable to update profile'; 
+      toast.error(errorMsg); 
+    } finally { setIsSaving(false); }
   };
 
   const handlePasswordChange = async () => {
@@ -81,14 +95,35 @@ export default function AdminSettingsPage() {
     if (!profile.newPassword) n.newPassword = 'Required'; else n.newPassword = validatePassword(profile.newPassword).errors[0] || '';
     if (!profile.confirmPassword) n.confirmPassword = 'Required'; else n.confirmPassword = validatePasswordMatch(profile.newPassword, profile.confirmPassword).error || '';
     setPasswordErrors(n);
-    if (Object.values(n).some(e => e)) { toast.error('Fix errors'); return; }
+    if (Object.values(n).some(e => e)) { 
+      const errors = Object.entries(n).filter(([_, err]) => err).map(([_, err]) => err);
+      const firstError = errors[0] || 'Please check your password';
+      toast.error(firstError); 
+      return; 
+    }
 
     setIsSaving(true);
     try {
+      // First verify the current password is correct
+      try {
+        await authAPI.verifyPassword({ currentPassword: profile.currentPassword });
+      } catch (error: any) {
+        // Current password is invalid
+        setPasswordErrors({ ...n, currentPassword: 'Incorrect password' });
+        toast.error('Incorrect password');
+        setIsSaving(false);
+        return;
+      }
+
+      // If current password is valid, proceed with password change
       await authAPI.changePassword({ currentPassword: profile.currentPassword, newPassword: profile.newPassword });
-      toast.success('Password changed');
-      setProfile({ ...profile, currentPassword: '', newPassword: '', confirmPassword: '' }); setPasswordErrors({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch { toast.error('Failed to change password'); } finally { setIsSaving(false); }
+      toast.success('Password updated');
+      setProfile({ ...profile, currentPassword: '', newPassword: '', confirmPassword: '' }); 
+      setPasswordErrors({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (err: any) { 
+      const errorMsg = err.response?.data?.error || 'Unable to update password'; 
+      toast.error(errorMsg); 
+    } finally { setIsSaving(false); }
   };
 
   const college = useMemo(() => ({ name: user?.college?.name || 'College', code: user?.college?.code || 'N/A' }), [user?.college]);
@@ -100,8 +135,9 @@ export default function AdminSettingsPage() {
       applyAdminTheme(themeMode);
       setHasChanges(false);
       toast.success('Preferences saved');
-    } catch {
-      toast.error('Failed to save preferences');
+    } catch (err: any) {
+      const errorMsg = err.message || 'Unable to save preferences';
+      toast.error(errorMsg);
     } finally {
       setIsSaving(false);
     }
@@ -200,8 +236,15 @@ export default function AdminSettingsPage() {
                   {['currentPassword','newPassword','confirmPassword'].map((pf, i) => (
                     <div key={pf} style={{ position: 'relative' }}>
                       <label style={iL}>{pf.replace(/([A-Z])/g, ' $1').trim()}</label>
-                      <input type={(showPasswordFields as any)[pf] ? 'text' : 'password'} style={{...iS, borderBottomColor: (passwordErrors as any)[pf]?P.vermillion:P.ink, paddingRight: 32}} value={(profile as any)[pf]} onChange={e=>setProfile({...profile, [pf]: e.target.value})} />
-                      <button onClick={()=>setShowPasswordFields({...showPasswordFields, [pf]: !(showPasswordFields as any)[pf]})} style={{ position: 'absolute', right: 0, bottom: 8, background: 'none', border: 'none', cursor: 'pointer', color: P.inkMuted }}>
+                      <input 
+                        type="text" 
+                        autoComplete="off"
+                        name={`data_${Math.random().toString(36).substring(7)}`}
+                        style={{...iS, WebkitTextSecurity: (showPasswordFields as any)[pf] ? 'none' : 'disc', borderBottomColor: (passwordErrors as any)[pf]?P.vermillion:P.ink, paddingRight: 32}} 
+                        value={(profile as any)[pf]} 
+                        onChange={e=>setProfile({...profile, [pf]: e.target.value})} 
+                      />
+                      <button type="button" onClick={()=>setShowPasswordFields({...showPasswordFields, [pf]: !(showPasswordFields as any)[pf]})} style={{ position: 'absolute', right: 0, bottom: 8, background: 'none', border: 'none', cursor: 'pointer', color: P.inkMuted }}>
                         {(showPasswordFields as any)[pf] ? <EyeOff size={14}/> : <Eye size={14}/>}
                       </button>
                       {(passwordErrors as any)[pf] && errorMsg((passwordErrors as any)[pf])}

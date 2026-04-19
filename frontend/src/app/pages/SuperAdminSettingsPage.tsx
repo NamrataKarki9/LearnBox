@@ -22,7 +22,16 @@ export default function SuperAdminSettingsPage() {
   const [showPasswordFields, setShowPasswordFields] = useState({ currentPassword: false, newPassword: false, confirmPassword: false });
   const [themeMode, setThemeMode] = useState<AdminTheme>(() => getStoredAdminTheme());
 
-  const [profile, setProfile] = useState({ first_name: (user as any)?.first_name || '', last_name: (user as any)?.last_name || '', username: user?.username || '', email: user?.email || '', phone: (user as any)?.phone || '', bio: (user as any)?.bio || '', avatar: (user as any)?.avatar || '' });
+  const [profile, setProfile] = useState({ 
+    first_name: (user as any)?.first_name || '', 
+    last_name: (user as any)?.last_name || '', 
+    username: user?.username || '', 
+    email: user?.email || '', 
+    phone: (user as any)?.phone || '', 
+    bio: (user as any)?.bio || '', 
+    avatar: (user as any)?.avatar || '' 
+  });
+  const [isLoading, setIsLoading] = useState(true);
   const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
   const [preferences, setPreferences] = useState({ theme: 'system', language: 'en' });
 
@@ -34,13 +43,80 @@ export default function SuperAdminSettingsPage() {
 
   useEffect(() => {
     const loadSettings = async () => {
+      setIsLoading(true);
       try {
-        const [meRes, settingsRes] = await Promise.all([authAPI.getMe(), authAPI.getSettings()]);
-        const mU = ((meRes as any)?.data?.user || (meRes as any)?.data) as any;
-        setProfile(p => ({ ...p, first_name: mU?.first_name||'', last_name: mU?.last_name||'', username: mU?.username||'', email: mU?.email||'', phone: mU?.phone||'', bio: mU?.bio||'', avatar: mU?.avatar||'' }));
-        const s = (settingsRes as any)?.data?.data as any;
-        if (s?.preferences) setPreferences(s.preferences);
-      } catch (error: any) { toast.error(error.response?.data?.error || 'Failed to load settings'); }
+        // Fetch current user data from API to ensure we have latest info
+        try {
+          console.log('Fetching user from /auth/me...');
+          const meRes = await authAPI.getMe();
+          console.log('API Response:', meRes.data);
+          
+          let currentUser = null;
+          
+          // Try different response formats
+          if (meRes.data?.data) {
+            // Format: { success: true, data: { user: {...} } }
+            currentUser = meRes.data.data;
+          } else if (meRes.data?.user) {
+            // Format: { user: {...} }
+            currentUser = meRes.data.user;
+          } else if (meRes.data && typeof meRes.data === 'object' && 'username' in meRes.data) {
+            // Format: direct user object
+            currentUser = meRes.data;
+          }
+          
+          console.log('Extracted user:', currentUser);
+          
+          if (currentUser && currentUser.username) {
+            const profileData = {
+              first_name: (currentUser as any)?.first_name || '',
+              last_name: (currentUser as any)?.last_name || '',
+              username: currentUser?.username || '',
+              email: currentUser?.email || '',
+              phone: (currentUser as any)?.phone || '',
+              bio: (currentUser as any)?.bio || '',
+              avatar: (currentUser as any)?.avatar || ''
+            };
+            console.log('Setting profile:', profileData);
+            setProfile(profileData);
+          } else {
+            console.warn('No valid user data in response');
+          }
+        } catch (meError: any) {
+          console.error('Error fetching from /auth/me:', meError);
+          // If API fails, use context user data
+          if (user) {
+            console.log('Using context user data as fallback');
+            setProfile({
+              first_name: (user as any)?.first_name || '',
+              last_name: (user as any)?.last_name || '',
+              username: user?.username || '',
+              email: user?.email || '',
+              phone: (user as any)?.phone || '',
+              bio: (user as any)?.bio || '',
+              avatar: (user as any)?.avatar || ''
+            });
+          }
+        }
+        
+        // Fetch settings preferences
+        try {
+          const settingsRes = await authAPI.getSettings();
+          const settingsData = settingsRes?.data?.data || settingsRes?.data;
+          if (settingsData?.preferences) {
+            setPreferences(prev => ({ ...prev, ...settingsData.preferences }));
+            setThemeMode(settingsData.preferences.theme || getStoredAdminTheme());
+          }
+        } catch (settingsError) {
+          console.warn('Settings fetch skipped', settingsError);
+          setThemeMode(getStoredAdminTheme());
+        }
+      } catch (error: any) { 
+        console.error('Error loading settings:', error);
+        setThemeMode(getStoredAdminTheme());
+      } finally {
+        setIsLoading(false);
+      }
     };
     loadSettings();
   }, []);
@@ -76,13 +152,32 @@ export default function SuperAdminSettingsPage() {
   };
 
   const handlePasswordChange = async () => {
+    if (!passwordForm.currentPassword) { toast.error('Current password is required'); return; }
+    if (!passwordForm.newPassword) { toast.error('New password is required'); return; }
+    if (!passwordForm.confirmPassword) { toast.error('Please confirm your new password'); return; }
     if (passwordForm.newPassword !== passwordForm.confirmPassword) { toast.error('Passwords do not match'); return; }
     if (passwordForm.newPassword.length < 6) { toast.error('Min 6 chars'); return; }
+    
     setIsSaving(true);
     try {
+      // First verify the current password is correct
+      try {
+        await authAPI.verifyPassword({ currentPassword: passwordForm.currentPassword });
+      } catch (error: any) {
+        toast.error('Incorrect current password');
+        setIsSaving(false);
+        return;
+      }
+      
+      // If current password is valid, proceed with password change
       await authAPI.changePassword({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword });
-      toast.success('Password changed'); setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    } catch (e: any) { toast.error(e.response?.data?.error || 'Change failed'); } finally { setIsSaving(false); }
+      toast.success('Password changed'); 
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    } catch (e: any) { 
+      toast.error(e.response?.data?.error || 'Change failed'); 
+    } finally { 
+      setIsSaving(false); 
+    }
   };
 
   const handlePreferencesUpdate = async () => {
@@ -166,14 +261,14 @@ export default function SuperAdminSettingsPage() {
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 20 }}>
-                  <div><label style={iL}>First Name</label><input style={iS} value={profile.first_name} onChange={e=>{setProfile({...profile,first_name:e.target.value});setHasChanges(true);}} /></div>
-                  <div><label style={iL}>Last Name</label><input style={iS} value={profile.last_name} onChange={e=>{setProfile({...profile,last_name:e.target.value});setHasChanges(true);}} /></div>
+                  <div><label style={iL}>First Name</label><input autoComplete="off" style={iS} value={profile.first_name} onChange={e=>{setProfile({...profile,first_name:e.target.value});setHasChanges(true);}} /></div>
+                  <div><label style={iL}>Last Name</label><input autoComplete="off" style={iS} value={profile.last_name} onChange={e=>{setProfile({...profile,last_name:e.target.value});setHasChanges(true);}} /></div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 24 }}>
-                  <div><label style={iL}>Username <span style={{ color: P.vermillion }}>*</span></label><input style={iS} value={profile.username} onChange={e=>{setProfile({...profile,username:e.target.value});setHasChanges(true);}} /></div>
-                  <div><label style={iL}>Email <span style={{ color: P.vermillion }}>*</span></label><input type="email" style={iS} value={profile.email} onChange={e=>{setProfile({...profile,email:e.target.value});setHasChanges(true);}} /></div>
-                  <div><label style={iL}>Phone</label><input type="tel" style={iS} value={profile.phone} onChange={e=>{setProfile({...profile,phone:e.target.value});setHasChanges(true);}} /></div>
-                  <div><label style={iL}>Administrative Bio</label><textarea style={{...iS, resize:'vertical'}} rows={2} value={profile.bio} onChange={e=>{setProfile({...profile,bio:e.target.value});setHasChanges(true);}} /></div>
+                  <div><label style={iL}>Username <span style={{ color: P.vermillion }}>*</span></label><input autoComplete="off" style={iS} value={profile.username} onChange={e=>{setProfile({...profile,username:e.target.value});setHasChanges(true);}} /></div>
+                  <div><label style={iL}>Email <span style={{ color: P.vermillion }}>*</span></label><input type="email" autoComplete="off" style={iS} value={profile.email} onChange={e=>{setProfile({...profile,email:e.target.value});setHasChanges(true);}} /></div>
+                  <div><label style={iL}>Phone</label><input type="tel" autoComplete="off" style={iS} value={profile.phone} onChange={e=>{setProfile({...profile,phone:e.target.value});setHasChanges(true);}} /></div>
+                  <div><label style={iL}>Administrative Bio</label><textarea autoComplete="off" style={{...iS, resize:'vertical'}} rows={2} value={profile.bio} onChange={e=>{setProfile({...profile,bio:e.target.value});setHasChanges(true);}} /></div>
                 </div>
 
                 <button onClick={handleProfileUpdate} disabled={isSaving} style={{ padding: '10px 20px', background: P.inkMuted, color: '#fff', border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', cursor: isSaving?'default':'pointer', display: 'flex', alignItems: 'center', gap: 8 }}><Save size={14}/> {isSaving?'Saving...':'Save '}</button>
@@ -192,8 +287,15 @@ export default function SuperAdminSettingsPage() {
                   {['currentPassword','newPassword','confirmPassword'].map((pf) => (
                     <div key={pf} style={{ position: 'relative' }}>
                       <label style={iL}>{pf.replace(/([A-Z])/g, ' $1').trim()}</label>
-                      <input type={(showPasswordFields as any)[pf] ? 'text' : 'password'} style={{...iS, paddingRight: 32}} value={(passwordForm as any)[pf]} onChange={e=>setPasswordForm({...passwordForm, [pf]: e.target.value})} />
-                      <button onClick={()=>setShowPasswordFields({...showPasswordFields, [pf]: !(showPasswordFields as any)[pf]})} style={{ position: 'absolute', right: 0, bottom: 8, background: 'none', border: 'none', cursor: 'pointer', color: P.inkMuted }}>
+                      <input 
+                        type="text" 
+                        autoComplete="off"
+                        name={`data_${Math.random().toString(36).substring(7)}`}
+                        style={{...iS, WebkitTextSecurity: (showPasswordFields as any)[pf] ? 'none' : 'disc', paddingRight: 32}} 
+                        value={(passwordForm as any)[pf]} 
+                        onChange={e=>setPasswordForm({...passwordForm, [pf]: e.target.value})} 
+                      />
+                      <button type="button" onClick={()=>setShowPasswordFields({...showPasswordFields, [pf]: !(showPasswordFields as any)[pf]})} style={{ position: 'absolute', right: 0, bottom: 8, background: 'none', border: 'none', cursor: 'pointer', color: P.inkMuted }}>
                         {(showPasswordFields as any)[pf] ? <EyeOff size={14}/> : <Eye size={14}/>}
                       </button>
                     </div>

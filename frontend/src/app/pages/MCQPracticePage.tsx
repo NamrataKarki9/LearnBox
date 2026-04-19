@@ -1317,6 +1317,14 @@ export default function MCQPracticePage() {
   return (
     <div className="max-w-4xl mx-auto p-6">
       <div className="bg-parchment p-8 mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <button
+            onClick={() => navigate(-1)}
+            className="px-4 py-2 text-ink-secondary border border-ink-muted hover:bg-parchment-light transition-colors"
+          >
+            ← Go Back
+          </button>
+        </div>
         <h1 className="text-3xl font-bold mb-2">MCQ Practice</h1>
         <p className="text-ink-secondary mb-4">Answer all questions and submit to see your results</p>
         
@@ -1404,7 +1412,7 @@ export default function MCQPracticePage() {
                   "Are you sure you want to abandon this quiz?",
                   () => {
                     closeConfirmDialog();
-                    navigate('/student/dashboard');
+                    navigate('/student/mcq-practice');
                   },
                   "Abandon",
                   "Cancel",

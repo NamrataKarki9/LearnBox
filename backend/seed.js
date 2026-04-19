@@ -56,7 +56,7 @@ async function seed() {
         console.log('📧 Email:', superAdmin.email);
         console.log('🔑 Password: SuperAdmin@123');
         console.log('⚠️  IMPORTANT: Change this password immediately after first login!');
-        
+
     } catch (error) {
         console.error('❌ Seed failed:', error);
         throw error;
