@@ -125,8 +125,8 @@ export function RegisterPage() {
   };
 
   const fields = [
-    { id: "username", label: "Username", placeholder: "john_doe", type: "text" },
-    { id: "fullName", label: "Full Name", placeholder: "Jane Smith", type: "text" },
+    { id: "username", label: "Username", placeholder: "Ram", type: "text" },
+    { id: "fullName", label: "Full Name", placeholder: "Ramu", type: "text" },
     { id: "email", label: "Email Address", placeholder: "your.email@example.com", type: "email" },
     { id: "password", label: "Password", placeholder: "••••••••", type: "password" },
     { id: "confirmPassword", label: "Confirm Password", placeholder: "••••••••", type: "password" },
