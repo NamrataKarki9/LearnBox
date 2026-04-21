@@ -5,6 +5,7 @@ dotenv.config();
 
 const ACCESS_TOKEN_SECRET = process.env.ACCESS_TOKEN_SECRET || 'your-access-token-secret-placeholder';
 const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || 'your-refresh-token-secret-placeholder';
+const REGISTRATION_TOKEN_SECRET = process.env.REGISTRATION_TOKEN_SECRET || ACCESS_TOKEN_SECRET;
 
 export const generateAccessToken = (user) => {
     return jwt.sign(
@@ -28,4 +29,19 @@ export const verifyAccessToken = (token) => {
 
 export const verifyRefreshToken = (token) => {
     return jwt.verify(token, REFRESH_TOKEN_SECRET);
+};
+
+export const generatePendingRegistrationToken = (registrationData) => {
+    return jwt.sign(
+        {
+            type: 'pending-registration',
+            ...registrationData
+        },
+        REGISTRATION_TOKEN_SECRET,
+        { expiresIn: '15m' }
+    );
+};
+
+export const verifyPendingRegistrationToken = (token) => {
+    return jwt.verify(token, REGISTRATION_TOKEN_SECRET);
 };

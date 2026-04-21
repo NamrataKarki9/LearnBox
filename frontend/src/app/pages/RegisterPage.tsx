@@ -92,7 +92,15 @@ export function RegisterPage() {
     const parts = formData.fullName.trim().split(" ");
     const result = await register({ username: formData.username.trim(), email: formData.email.trim(), password: formData.password, first_name: parts[0] || "", last_name: parts.slice(1).join(" ") || "", collegeId: parseInt(formData.collegeId) });
     setLoading(false);
-    if (result.success) navigate("/verify-otp", { state: { email: formData.email, purpose: "REGISTER" } });
+    if (result.success) {
+      navigate("/verify-otp", {
+        state: {
+          email: result.email || formData.email.trim(),
+          purpose: "REGISTER",
+          registrationToken: result.registrationToken
+        }
+      });
+    }
     else {
       const message = result.error || "Registration failed";
       setError(message);

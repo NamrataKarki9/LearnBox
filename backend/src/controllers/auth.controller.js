@@ -1,10 +1,44 @@
 import bcrypt from 'bcryptjs';
 import prisma from '../prisma.js';
-import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../utils/token.utils.js';
+import { generateAccessToken, generatePendingRegistrationToken, generateRefreshToken, verifyPendingRegistrationToken, verifyRefreshToken } from '../utils/token.utils.js';
 import { ROLES } from '../constants/roles.js';
-import { HTTP_STATUS, ERROR_MESSAGES } from '../constants/errors.js';
-import { createOTP, verifyOTP, deleteOTP } from '../services/otp.service.js';
+import { HTTP_STATUS } from '../constants/errors.js';
+import { createOTP, verifyOTP } from '../services/otp.service.js';
 import { sendRegistrationOTP, sendPasswordResetOTP } from '../services/email.service.js';
+
+const getUserSelect = () => ({
+    id: true,
+    username: true,
+    email: true,
+    first_name: true,
+    last_name: true,
+    role: true,
+    is_verified: true,
+    collegeId: true,
+    college: {
+        select: {
+            id: true,
+            name: true,
+            code: true
+        }
+    }
+});
+
+const decodePendingRegistrationToken = (token) => {
+    if (!token || !token.trim()) {
+        return null;
+    }
+
+    try {
+        const decoded = verifyPendingRegistrationToken(token.trim());
+        if (decoded?.type !== 'pending-registration') {
+            return null;
+        }
+        return decoded;
+    } catch (error) {
+        return null;
+    }
+};
 
 /**
  * Public registration - STUDENT role only (Modified: Now sends OTP instead of creating user immediately)
@@ -130,43 +164,21 @@ export const register = async (req, res) => {
                 });
             }
 
-            // Hash password
+            // Hash password but do not persist the user until OTP verification succeeds
             const hashedPassword = await bcrypt.hash(password, 10);
-
-            // Create user with STUDENT role and is_verified = false
-            const user = await prisma.user.create({
-                data: {
-                    username: normalizedUsername,
-                    email: normalizedEmail,
-                    password: hashedPassword,
-                    first_name: (first_name || '').trim(),
-                    last_name: (last_name || '').trim(),
-                    role: ROLES.STUDENT,
-                    is_verified: false,
-                    collegeId: collegeId_int,
-                },
-                select: {
-                    id: true,
-                    username: true,
-                    email: true,
-                    first_name: true,
-                    last_name: true,
-                    role: true,
-                    is_verified: true,
-                    collegeId: true,
-                    college: {
-                        select: {
-                            id: true,
-                            name: true,
-                            code: true
-                        }
-                    }
-                }
+            const pendingRegistrationToken = generatePendingRegistrationToken({
+                username: normalizedUsername,
+                email: normalizedEmail,
+                password: hashedPassword,
+                first_name: (first_name || '').trim(),
+                last_name: (last_name || '').trim(),
+                role: ROLES.STUDENT,
+                collegeId: collegeId_int
             });
 
             // Generate and send OTP
-            const otp = await createOTP(user.email, 'REGISTER');
-            const emailResult = await sendRegistrationOTP(user.email, otp, user.username);
+            const otp = await createOTP(normalizedEmail, 'REGISTER');
+            const emailResult = await sendRegistrationOTP(normalizedEmail, otp, normalizedUsername);
 
             if (!emailResult.success) {
                 console.warn('Registration successful but OTP email failed:', emailResult.error);
@@ -174,16 +186,10 @@ export const register = async (req, res) => {
 
             res.status(HTTP_STATUS.CREATED).json({
                 success: true,
-                message: 'Registration successful. Please check your email for verification code.',
+                message: 'Registration started. Please verify your email to complete account creation.',
                 requiresVerification: true,
-                email: user.email,
-                user: {
-                    id: user.id,
-                    username: user.username,
-                    email: user.email,
-                    collegeId: user.collegeId,
-                    is_verified: user.is_verified
-                }
+                email: normalizedEmail,
+                registrationToken: pendingRegistrationToken
             });
         } catch (dbError) {
             console.error('Registration database error:', dbError);
@@ -214,7 +220,7 @@ export const register = async (req, res) => {
  */
 export const verifyRegistrationOTP = async (req, res) => {
     try {
-        const { email, otp } = req.body;
+        const { email, otp, registrationToken } = req.body;
 
         // === Input Validation ===
         if (!email || !email.trim()) {
@@ -243,6 +249,15 @@ export const verifyRegistrationOTP = async (req, res) => {
         }
 
         const normalizedEmail = email.toLowerCase().trim();
+        const pendingRegistration = decodePendingRegistrationToken(registrationToken);
+
+        if (pendingRegistration && pendingRegistration.email !== normalizedEmail) {
+            return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                success: false,
+                error: 'Verification session does not match this email. Please register again.',
+                field: 'email'
+            });
+        }
 
         try {
             // Verify OTP
@@ -255,28 +270,61 @@ export const verifyRegistrationOTP = async (req, res) => {
                 });
             }
 
-            // Update user as verified
-            const user = await prisma.user.update({
-                where: { email: normalizedEmail },
-                data: { is_verified: true },
-                select: {
-                    id: true,
-                    username: true,
-                    email: true,
-                    first_name: true,
-                    last_name: true,
-                    role: true,
-                    is_verified: true,
-                    collegeId: true,
-                    college: {
-                        select: {
-                            id: true,
-                            name: true,
-                            code: true
-                        }
+            let user;
+
+            if (pendingRegistration) {
+                const existingConflict = await prisma.user.findFirst({
+                    where: {
+                        OR: [
+                            { email: normalizedEmail },
+                            { username: pendingRegistration.username }
+                        ]
                     }
+                });
+
+                if (existingConflict) {
+                    return res.status(HTTP_STATUS.CONFLICT).json({
+                        success: false,
+                        error: existingConflict.email === normalizedEmail
+                            ? 'This email address is already registered. Please log in or register again with a different email.'
+                            : 'This username is no longer available. Please register again with a different username.',
+                        field: existingConflict.email === normalizedEmail ? 'email' : 'username'
+                    });
                 }
-            });
+
+                const college = await prisma.college.findUnique({
+                    where: { id: Number(pendingRegistration.collegeId) }
+                });
+
+                if (!college || !college.isActive) {
+                    return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                        success: false,
+                        error: 'The selected college is no longer available. Please register again.',
+                        field: 'collegeId'
+                    });
+                }
+
+                user = await prisma.user.create({
+                    data: {
+                        username: pendingRegistration.username,
+                        email: pendingRegistration.email,
+                        password: pendingRegistration.password,
+                        first_name: pendingRegistration.first_name || '',
+                        last_name: pendingRegistration.last_name || '',
+                        role: ROLES.STUDENT,
+                        is_verified: true,
+                        collegeId: Number(pendingRegistration.collegeId),
+                    },
+                    select: getUserSelect()
+                });
+            } else {
+                // Backward compatibility for registrations created before this fix shipped
+                user = await prisma.user.update({
+                    where: { email: normalizedEmail },
+                    data: { is_verified: true },
+                    select: getUserSelect()
+                });
+            }
 
             // Generate tokens for auto-login
             const accessToken = generateAccessToken(user);
@@ -964,7 +1012,7 @@ export const resetPassword = async (req, res) => {
  */
 export const resendOTP = async (req, res) => {
     try {
-        const { email, purpose } = req.body;
+        const { email, purpose, registrationToken } = req.body;
 
         // === Input Validation ===
         if (!email || !email.trim()) {
@@ -992,36 +1040,66 @@ export const resendOTP = async (req, res) => {
         }
 
         const normalizedEmail = email.toLowerCase().trim();
+        const pendingRegistration = decodePendingRegistrationToken(registrationToken);
 
         try {
-            // Check if user exists
-            const user = await prisma.user.findUnique({
-                where: { email: normalizedEmail }
-            });
+            let emailForOtp = normalizedEmail;
+            let usernameForEmail = normalizedEmail;
 
-            if (!user) {
-                return res.status(HTTP_STATUS.NOT_FOUND).json({
-                    success: false,
-                    error: 'User not found. Please check your email and try again.'
-                });
-            }
+            if (purpose.toUpperCase() === 'REGISTER') {
+                if (pendingRegistration) {
+                    if (pendingRegistration.email !== normalizedEmail) {
+                        return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                            success: false,
+                            error: 'Verification session does not match this email. Please register again.',
+                            field: 'email'
+                        });
+                    }
+                    usernameForEmail = pendingRegistration.username;
+                } else {
+                    const user = await prisma.user.findUnique({
+                        where: { email: normalizedEmail }
+                    });
 
-            // For registration, check if already verified
-            if (purpose.toUpperCase() === 'REGISTER' && user.is_verified) {
-                return res.status(HTTP_STATUS.BAD_REQUEST).json({
-                    success: false,
-                    error: 'This email is already verified. You can log in directly.'
+                    if (!user) {
+                        return res.status(HTTP_STATUS.NOT_FOUND).json({
+                            success: false,
+                            error: 'Registration session expired. Please register again.'
+                        });
+                    }
+
+                    if (user.is_verified) {
+                        return res.status(HTTP_STATUS.BAD_REQUEST).json({
+                            success: false,
+                            error: 'This email is already verified. You can log in directly.'
+                        });
+                    }
+
+                    usernameForEmail = user.username;
+                }
+            } else {
+                const user = await prisma.user.findUnique({
+                    where: { email: normalizedEmail }
                 });
+
+                if (!user) {
+                    return res.status(HTTP_STATUS.NOT_FOUND).json({
+                        success: false,
+                        error: 'User not found. Please check your email and try again.'
+                    });
+                }
+
+                usernameForEmail = user.username;
             }
 
             // Generate and send new OTP
-            const otp = await createOTP(user.email, purpose.toUpperCase());
+            const otp = await createOTP(emailForOtp, purpose.toUpperCase());
             
             let emailResult;
             if (purpose.toUpperCase() === 'REGISTER') {
-                emailResult = await sendRegistrationOTP(user.email, otp, user.username);
+                emailResult = await sendRegistrationOTP(emailForOtp, otp, usernameForEmail);
             } else {
-                emailResult = await sendPasswordResetOTP(user.email, otp, user.username);
+                emailResult = await sendPasswordResetOTP(emailForOtp, otp, usernameForEmail);
             }
 
             if (!emailResult.success) {
@@ -1035,7 +1113,7 @@ export const resendOTP = async (req, res) => {
             res.status(HTTP_STATUS.OK).json({
                 success: true,
                 message: 'Verification code has been sent to your email. Please check your inbox.',
-                email: user.email
+                email: emailForOtp
             });
         } catch (dbError) {
             console.error('Resend OTP database error:', dbError);

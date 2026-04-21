@@ -348,17 +348,9 @@ export default function MCQPracticePage() {
           return;
         }
       } else if (adaptive === 'true') {
-        // Get adaptive questions
-        const adaptiveRes = await mcqAPI.getAdaptive({ count: 10 });
-        if (adaptiveRes.data.data.length === 0) {
-          setError('No adaptive questions available. Complete more quizzes to get personalized recommendations!');
-          setLoading(false);
-          return;
-        }
-        // Start quiz with adaptive questions
-        response = await quizAPI.start({
-          customMCQIds: adaptiveRes.data.data.map((q: any) => q.id)
-        });
+        setError('Adaptive practice is under progress.');
+        setLoading(false);
+        return;
       } else if (setId) {
         response = await quizAPI.start({ setId: parseInt(setId) });
       } else if (moduleId) {
@@ -1005,21 +997,29 @@ export default function MCQPracticePage() {
   }
 
   if (error) {
+    const isAdaptiveUnavailable = error.toLowerCase().includes('adaptive practice is not ready');
     return (
       <div className="flex items-center justify-center min-h-screen p-6">
-        <div className="bg-red-50 border border-red-200 p-6 max-w-md">
-          <h2 className="text-red-800 text-xl font-semibold mb-2">Error</h2>
-          <p className="text-red-600 mb-4">{error}</p>
+        <div className={`${isAdaptiveUnavailable ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200'} border p-6 max-w-lg`}>
+          <h2 className={`${isAdaptiveUnavailable ? 'text-amber-900' : 'text-red-800'} text-xl font-semibold mb-2`}>
+            {isAdaptiveUnavailable ? 'Adaptive Practice Not Ready Yet' : 'Error'}
+          </h2>
+          <p className={`${isAdaptiveUnavailable ? 'text-amber-800' : 'text-red-600'} mb-4`}>{error}</p>
+          {isAdaptiveUnavailable && (
+            <div className="mb-4 text-sm text-amber-900 bg-amber-100 border border-amber-200 p-3 leading-6">
+              Adaptive practice uses your previous quiz results to target weak topics. Once you complete a few normal MCQ practice sets, this section can generate personalized questions for you.
+            </div>
+          )}
           <div className="flex gap-2">
             <button
-              onClick={() => window.history.back()}
-              className="flex-1 bg-gray-600 text-white px-4 py-2 hover:bg-gray-700"
+              onClick={() => navigate('/student/mcq-practice')}
+              className={`flex-1 text-white px-4 py-2 ${isAdaptiveUnavailable ? 'bg-ink-muted hover:bg-ink-muted/90' : 'bg-gray-600 hover:bg-gray-700'}`}
             >
-              ← Back
+              {isAdaptiveUnavailable ? 'Practice Sets' : 'Back'}
             </button>
             <button
               onClick={() => navigate('/student/dashboard')}
-              className="flex-1 bg-red-600 text-white px-4 py-2 hover:bg-red-700"
+              className={`flex-1 text-white px-4 py-2 ${isAdaptiveUnavailable ? 'bg-amber-700 hover:bg-amber-800' : 'bg-red-600 hover:bg-red-700'}`}
             >
               Dashboard
             </button>
@@ -1099,7 +1099,7 @@ export default function MCQPracticePage() {
           </div>
           {/* Stats + actions */}
           <div className="px-6 py-5">
-            <div className="grid grid-cols-3 gap-3 mb-5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
               <div className="text-center py-3 bg-parchment-light">
                 <div className="text-2xl font-bold text-gray-800">{quiz.results.totalQuestions}</div>
                 <div className="text-xs text-ink-muted mt-0.5">Questions</div>
@@ -1315,8 +1315,8 @@ export default function MCQPracticePage() {
 
   // Quiz interface
   return (
-    <div className="max-w-4xl mx-auto p-6">
-      <div className="bg-parchment p-8 mb-6">
+    <div className="max-w-4xl mx-auto p-4 md:p-6">
+      <div className="bg-parchment p-5 sm:p-6 md:p-8 mb-6">
         <div className="flex items-center gap-3 mb-4">
           <button
             onClick={() => navigate(-1)}
@@ -1325,10 +1325,10 @@ export default function MCQPracticePage() {
             ← Go Back
           </button>
         </div>
-        <h1 className="text-3xl font-bold mb-2">MCQ Practice</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">MCQ Practice</h1>
         <p className="text-ink-secondary mb-4">Answer all questions and submit to see your results</p>
         
-        <div className="flex justify-between items-center text-sm text-ink-secondary mb-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm text-ink-secondary mb-6">
           <span>Questions: {quiz.questions.length}</span>
           <span>Answered: {Object.keys(quiz.answers).length} / {quiz.questions.length}</span>
         </div>
@@ -1346,13 +1346,13 @@ export default function MCQPracticePage() {
         {quiz.questions.map((question) => {
           const options = parseOptions(question.options);
           return (
-            <div key={question.id} className="bg-parchment p-6">
-              <div className="flex justify-between items-start mb-4">
+            <div key={question.id} className="bg-parchment p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-3 mb-4">
                 <h3 className="font-semibold text-lg flex-1">
                   Q{question.questionNumber}. {question.question}
                 </h3>
                 {question.difficulty && (
-                  <span className={`px-3 py-1  text-sm ml-3 ${
+                  <span className={`px-3 py-1 text-sm sm:ml-3 ${
                     question.difficulty === 'EASY' ? 'bg-green-100 text-green-800' :
                     question.difficulty === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-red-100 text-red-800'
@@ -1366,7 +1366,7 @@ export default function MCQPracticePage() {
                 {options.map((option, idx) => (
                   <label
                     key={idx}
-                    className={`flex items-center p-4  border-2 cursor-pointer transition-all ${
+                    className={`flex items-start sm:items-center p-4 border-2 cursor-pointer transition-all ${
                       quiz.answers[question.id] === option
                         ? 'border-primary bg-ink-muted/10'
                         : 'border-sand hover:border-primary/50 hover:bg-parchment-light'
@@ -1400,11 +1400,11 @@ export default function MCQPracticePage() {
 
       {/* Submit Button */}
       <div className="sticky bottom-0 bg-parchment border-t p-4 mt-6">
-        <div className="max-w-4xl mx-auto flex justify-between items-center">
+        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3">
           <div className="text-sm text-ink-secondary">
             Answered: {Object.keys(quiz.answers).length} / {quiz.questions.length}
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
             <button
               onClick={() => {
                 openConfirmDialog(
@@ -1419,14 +1419,14 @@ export default function MCQPracticePage() {
                   true
                 );
               }}
-              className="px-6 py-2 border border-ink-muted bg-parchment text-ink-secondary hover:bg-parchment-light transition-colors"
+              className="px-6 py-2 border border-ink-muted bg-parchment text-ink-secondary hover:bg-parchment-light transition-colors w-full sm:w-auto"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={quiz.isSubmitting}
-              className="bg-ink-muted text-white px-8 py-2 hover:bg-ink-muted/90 disabled:bg-sand disabled:cursor-not-allowed"
+              className="bg-ink-muted text-white px-8 py-2 hover:bg-ink-muted/90 disabled:bg-sand disabled:cursor-not-allowed w-full sm:w-auto"
             >
               {quiz.isSubmitting ? 'Submitting...' : 'Submit Quiz'}
             </button>

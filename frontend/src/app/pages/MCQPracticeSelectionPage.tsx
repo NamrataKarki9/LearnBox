@@ -58,14 +58,23 @@ export default function MCQPracticeSelectionPage() {
   const navigate = useNavigate();
   const filters = useFilters();
   const logoutConfirm = useLogoutConfirm();
+  const [viewportWidth, setViewportWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1280);
 
   const [mcqSets, setMcqSets] = useState<MCQSet[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [adaptiveNotice, setAdaptiveNotice] = useState('');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateOptions, setGenerateOptions] = useState({ count: 10, difficulty: 'MEDIUM', topic: '', saveToDatabase: true });
+  const isMobile = viewportWidth < 768;
+
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => { fetchFaculties(); fetchMCQSets(); }, [filters.facultyId, filters.year, filters.moduleId]);
 
@@ -88,7 +97,11 @@ export default function MCQPracticeSelectionPage() {
   };
 
   const handleStartQuiz = (setId: number) => navigate(`/student/practice?setId=${setId}`);
-  const handleStartAdaptive = () => navigate(`/student/practice?adaptive=true`);
+  const handleStartAdaptive = () => {
+    const message = 'Adaptive practice is under progress.';
+    setAdaptiveNotice(message);
+    toast.info(message);
+  };
 
   const handlePDFSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -137,10 +150,10 @@ export default function MCQPracticeSelectionPage() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: P.parchment, fontFamily: "'Lora', Georgia, serif" }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', minHeight: '100vh', background: P.parchment, fontFamily: "'Lora', Georgia, serif" }}>
 
       {/* ── Sidebar ─────────────────────────────────── */}
-      <aside style={{ width: 232, background: P.parchmentLight, borderRight: `1px solid ${P.sand}`, display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', flexShrink: 0 }}>
+      <aside style={{ width: isMobile ? '100%' : 232, background: P.parchmentLight, borderRight: isMobile ? 'none' : `1px solid ${P.sand}`, borderBottom: isMobile ? `1px solid ${P.sand}` : 'none', display: 'flex', flexDirection: 'column', position: isMobile ? 'relative' : 'sticky', top: 0, height: isMobile ? 'auto' : '100vh', flexShrink: 0 }}>
         <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${P.sand}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <BookOpen size={18} color={P.vermillion} strokeWidth={2} />
@@ -149,12 +162,12 @@ export default function MCQPracticeSelectionPage() {
           <div style={{ marginTop: 6, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: P.inkMuted }}>Student Portal</div>
         </div>
 
-        <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: 8, overflowX: isMobile ? 'auto' : 'visible' }}>
           {NAV.map(({ label, icon: Icon, path }, i) => {
             const active = i === 2;
             return (
               <button key={label} onClick={() => path && navigate(path)}
-                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderLeft: active ? `3px solid ${P.vermillion}` : '3px solid transparent', background: active ? P.parchmentDark : 'transparent', color: active ? P.ink : P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: active ? 700 : 500, fontSize: 13.5, textAlign: 'left', cursor: path ? 'pointer' : 'default', width: '100%', transition: 'all 0.12s' }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderLeft: !isMobile && active ? `3px solid ${P.vermillion}` : '3px solid transparent', borderBottom: isMobile && active ? `2px solid ${P.vermillion}` : '2px solid transparent', background: active ? P.parchmentDark : 'transparent', color: active ? P.ink : P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: active ? 700 : 500, fontSize: 13.5, textAlign: 'left', cursor: path ? 'pointer' : 'default', width: isMobile ? 'auto' : '100%', whiteSpace: 'nowrap', transition: 'all 0.12s' }}
                 onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = P.parchmentDark; (e.currentTarget as HTMLElement).style.color = P.ink; } }}
                 onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = P.inkMuted; } }}
               >
@@ -166,7 +179,7 @@ export default function MCQPracticeSelectionPage() {
           })}
         </nav>
 
-        <div style={{ borderTop: `1px solid ${P.sand}`, padding: '14px 10px' }}>
+        <div style={{ borderTop: `1px solid ${P.sand}`, padding: '14px 10px', display: isMobile ? 'none' : 'block' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 12px', marginBottom: 4 }}>
             <div style={{ width: 30, height: 30, background: P.inkMuted, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 800, fontSize: 13, color: P.parchment }}>{(user?.first_name || user?.username || 'S').charAt(0).toUpperCase()}</span>
@@ -186,10 +199,10 @@ export default function MCQPracticeSelectionPage() {
       </aside>
 
       {/* ── Main ───────────────────────────────────── */}
-      <main style={{ flex: 1, padding: '32px', overflow: 'auto' }}>
+      <main style={{ flex: 1, padding: isMobile ? '16px' : '32px', overflow: 'auto', minWidth: 0 }}>
 
         {/* Page header */}
-        <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${P.sand}`, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div style={{ marginBottom: 24, paddingBottom: 20, borderBottom: `1px solid ${P.sand}`, display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'flex-end', gap: 12 }}>
           <div>
             <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: P.vermillion, marginBottom: 6 }}>Practice & Assessment</div>
             <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 800, color: P.ink, margin: 0 }}>MCQ Practice</h1>
@@ -204,24 +217,30 @@ export default function MCQPracticeSelectionPage() {
 
         {/* Adaptive banner */}
         <div onClick={handleStartAdaptive}
-          style={{ background: P.inkMuted, borderLeft: `4px solid ${P.vermillion}`, padding: '20px 24px', marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', transition: 'opacity 0.15s' }}
+          style={{ background: P.inkMuted, borderLeft: `4px solid ${P.vermillion}`, padding: '20px 24px', marginBottom: 28, display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: 16, cursor: 'pointer', transition: 'opacity 0.15s' }}
           onMouseEnter={e => (e.currentTarget as HTMLElement).style.opacity = '0.9'}
           onMouseLeave={e => (e.currentTarget as HTMLElement).style.opacity = '1'}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
             <Target size={22} color={P.vermillion} strokeWidth={2} />
             <div>
               <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 16, fontWeight: 800, color: P.parchmentLight, margin: 0 }}>Adaptive Practice</h3>
-              <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13, color: P.inkMuted, margin: '3px 0 0', lineHeight: 1.55 }}>AI targets your weak areas based on past performance</p>
+              <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 13, color: P.inkMuted, margin: '3px 0 0', lineHeight: 1.55 }}>Feature under progress. Regular practice sets remain available for your submission.</p>
             </div>
           </div>
           <button onClick={e => { e.stopPropagation(); handleStartAdaptive(); }}
-            style={{ padding: '10px 20px', background: P.vermillion, color: '#fff', border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', flexShrink: 0 }}>
-            Start
+            style={{ padding: '10px 20px', background: P.sand, color: P.inkSecondary, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer', flexShrink: 0 }}>
+            Under Progress
           </button>
         </div>
 
+        {adaptiveNotice && (
+          <div style={{ background: '#FFF7E8', borderLeft: `3px solid ${P.inkMuted}`, padding: '12px 14px', marginTop: -12, marginBottom: 24, fontFamily: "'Lora', Georgia, serif", fontSize: 13, color: P.inkSecondary, lineHeight: 1.6 }}>
+            {adaptiveNotice}
+          </div>
+        )}
+
         {/* Two-column grid */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 32 }}>
 
           {/* ── College Practice Sets ── */}
           <div>
@@ -307,7 +326,7 @@ export default function MCQPracticeSelectionPage() {
               </div>
 
               {/* Options */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14, marginBottom: 16 }}>
                 <div>
                   <label style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: P.inkSecondary, display: 'block', marginBottom: 6 }}>Questions</label>
                   <input type="number" min="5" max="50" value={generateOptions.count}

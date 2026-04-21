@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Brain, ChevronDown, Database, Layers, MessageCircle, Search, Shield, Target } from "lucide-react";
+import { BookOpen, Brain, ChevronDown, Database, Layers, MessageCircle, Search, Shield, Sparkles, Target } from "lucide-react";
 
 import { P } from "../../constants/theme";
 
@@ -36,7 +36,7 @@ export function HelpPage() {
       ],
     },
     {
-      title: "Search & Discovery",
+      title: "Search and Discovery",
       icon: Search,
       articles: [
         { id: 4, title: "How semantic search works", description: "Search by meaning, not just exact words.", answer: "Semantic search helps you discover related concepts across lectures, notes, and resources even when you don’t remember the precise wording used in the source material." },
@@ -44,7 +44,7 @@ export function HelpPage() {
       ],
     },
     {
-      title: "Practice & AI Tools",
+      title: "Practice and AI Tools",
       icon: Brain,
       articles: [
         { id: 7, title: "Generating MCQs", description: "Turn documents into practice questions.", answer: "Upload study material or choose an existing source, then create an MCQ set with your preferred level of difficulty. LearnBox organizes the output for revision and self-testing." },
@@ -59,14 +59,14 @@ export function HelpPage() {
       ],
     },
     {
-      title: "Summaries & Notes",
+      title: "Summaries and Notes",
       icon: Layers,
       articles: [
         { id: 13, title: "Generating summaries", description: "Turn long material into usable revisions.", answer: "Choose a document or lecture source, request a summary, and use the generated digest to review key ideas more efficiently." },
       ],
     },
     {
-      title: "Privacy & Control",
+      title: "Privacy and Control",
       icon: Shield,
       articles: [
         { id: 17, title: "Managing your data", description: "Control how your information is handled.", answer: "You can review what you upload, manage access to your materials, and use available settings to control how data is stored and used." },
@@ -94,14 +94,16 @@ export function HelpPage() {
         .help-nav-link:hover{color:${P.vermillion}}
         .help-nav-link:hover::after{transform:scaleX(1)}
         .help-shell{overflow-x:hidden}
-        .help-footer-grid{display:grid;grid-template-columns:minmax(220px,1.6fr) repeat(4,minmax(120px,1fr));gap:28px}
+        .help-hero-grid,.help-footer-grid{display:grid}
+        .help-hero-grid{grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:32px;align-items:end}
+        .help-footer-grid{grid-template-columns:minmax(220px,1.6fr) repeat(4,minmax(120px,1fr));gap:28px}
         .help-card{transition:transform 220ms ease,box-shadow 220ms ease}
         .help-card:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(28,18,8,.12)}
         .cta-button{border-radius:16px;text-decoration:none;transition:transform 180ms ease,box-shadow 180ms ease,background 180ms ease,color 180ms ease}
         .cta-button:hover{transform:translateY(-2px)}
         .primary-cta:hover{box-shadow:0 16px 30px rgba(192,57,43,.22)}
         .secondary-cta:hover{box-shadow:0 14px 28px rgba(28,18,8,.16)}
-        @media (max-width:980px){.help-footer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media (max-width:980px){.help-hero-grid,.help-footer-grid{grid-template-columns:1fr}.help-footer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
         @media (max-width:720px){.help-footer-grid{grid-template-columns:1fr}}
       `}</style>
 
@@ -136,16 +138,32 @@ export function HelpPage() {
         <section style={{ position: "relative", overflow: "hidden", background: `linear-gradient(135deg, ${P.inkMuted} 0%, ${P.inkSecondary} 100%)`, color: P.parchmentLight, borderBottom: `1px solid ${P.sand}` }}>
           <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 18% 20%, rgba(245, 230, 228, 0.08), transparent 28%), radial-gradient(circle at 82% 18%, rgba(192, 57, 43, 0.14), transparent 22%)", pointerEvents: "none" }} />
           <div style={{ width: "100%", maxWidth: 1280, margin: "0 auto", padding: "78px 20px 88px", position: "relative" }}>
-            <div style={{ maxWidth: 820 }}>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 20, padding: "8px 14px", borderRadius: 999, background: "rgba(250, 247, 240, 0.08)", boxShadow: `inset 0 0 0 1px rgba(232, 223, 208, 0.22)` }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: P.vermillion, display: "inline-block" }} />
-                <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.parchmentLight }}>Help & Guidance</span>
+            <div className="help-hero-grid">
+              <div style={{ maxWidth: 820 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 20, padding: "8px 14px", borderRadius: 999, background: "rgba(250, 247, 240, 0.08)", boxShadow: `inset 0 0 0 1px rgba(232, 223, 208, 0.22)` }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: P.vermillion, display: "inline-block" }} />
+                  <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.parchmentLight }}>Help and Guidance</span>
+                </div>
+                <h1 style={{ margin: "0 0 18px", fontFamily: "'Playfair Display', serif", fontSize: "clamp(2.8rem, 6vw, 5rem)", lineHeight: 0.98, letterSpacing: "-0.05em", color: P.parchmentLight, maxWidth: 760 }}>Find answers fast without leaving the flow of study.</h1>
+                <p style={{ margin: "0 0 28px", maxWidth: 680, fontSize: 18, lineHeight: 1.8, color: "#E7D9C6" }}>This help page now follows the same premium visual rhythm as the landing page, with cleaner spacing, clearer hierarchy, and a more useful search-first layout.</p>
+                <div style={{ position: "relative", maxWidth: 620 }}>
+                  <Search size={18} color="#E7D9C6" style={{ position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)" }} />
+                  <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search help topics, answers, and workflows..." style={{ width: "100%", padding: "16px 18px 16px 50px", borderRadius: 20, border: "none", boxShadow: `inset 0 0 0 1px rgba(232, 223, 208, 0.24)`, background: "rgba(250, 247, 240, 0.08)", color: P.parchmentLight, fontFamily: "'Lora', Georgia, serif", fontSize: 16, boxSizing: "border-box" }} />
+                </div>
               </div>
-              <h1 style={{ margin: "0 0 18px", fontFamily: "'Playfair Display', serif", fontSize: "clamp(2.8rem, 6vw, 5rem)", lineHeight: 0.98, letterSpacing: "-0.05em", color: P.parchmentLight, maxWidth: 760 }}>Find answers fast without leaving the flow of study.</h1>
-              <p style={{ margin: "0 0 28px", maxWidth: 680, fontSize: 18, lineHeight: 1.8, color: "#E7D9C6" }}>This help page now follows the same premium visual rhythm as the landing page, with cleaner spacing, clearer hierarchy, and a more useful search-first layout.</p>
-              <div style={{ position: "relative", maxWidth: 620 }}>
-                <Search size={18} color="#E7D9C6" style={{ position: "absolute", left: 18, top: "50%", transform: "translateY(-50%)" }} />
-                <input value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Search help topics, answers, and workflows..." style={{ width: "100%", padding: "16px 18px 16px 50px", borderRadius: 20, border: "none", boxShadow: `inset 0 0 0 1px rgba(232, 223, 208, 0.24)`, background: "rgba(250, 247, 240, 0.08)", color: P.parchmentLight, fontFamily: "'Lora', Georgia, serif", fontSize: 16, boxSizing: "border-box" }} />
+              <div style={{ minHeight: 320, display: "grid", gap: 16 }}>
+                <div style={{ borderRadius: 30, minHeight: 190, background: "linear-gradient(145deg, rgba(250,247,240,0.12), rgba(250,247,240,0.04))", boxShadow: "inset 0 0 0 1px rgba(232,223,208,0.16)", padding: "24px", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", left: -24, bottom: -28, width: 140, height: 140, borderRadius: "50%", background: "rgba(192,57,43,0.15)" }} />
+                  <Sparkles size={26} color={P.vermillion} />
+                  <div style={{ marginTop: 38, fontFamily: "'Playfair Display', serif", fontSize: 28, lineHeight: 1.08, color: P.parchmentLight }}>Search. Scan. Solve.</div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 16 }}>
+                  {["Guides", "FAQs", "Workflows", "Support"].map((label) => (
+                    <div key={label} style={{ borderRadius: 22, background: "rgba(250,247,240,0.08)", boxShadow: "inset 0 0 0 1px rgba(232,223,208,0.16)", padding: "18px 16px", fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#E7D9C6" }}>
+                      {label}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

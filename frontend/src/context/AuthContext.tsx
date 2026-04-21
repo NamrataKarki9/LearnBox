@@ -34,7 +34,7 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  register: (data: RegisterData) => Promise<{ success: boolean; error?: string }>;
+  register: (data: RegisterData) => Promise<{ success: boolean; error?: string; email?: string; registrationToken?: string }>;
   login: (data: LoginData) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
   updateUser: (userData: Partial<User>) => void;
@@ -82,7 +82,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     try {
       const response = await authAPI.register(data);
       
-      return { success: true };
+      return {
+        success: true,
+        email: response.data.email,
+        registrationToken: response.data.registrationToken
+      };
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.message || 'Registration failed';
       return { success: false, error: errorMessage };

@@ -40,6 +40,7 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
   const filters = useFilters();
   const logoutConfirm = useLogoutConfirm();
+  const [viewportWidth, setViewportWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1280);
 
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [modules, setModules] = useState<Module[]>([]);
@@ -57,6 +58,8 @@ export default function StudentDashboard() {
   const [viewingResource, setViewingResource] = useState<{ url: string; title: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
+  const isMobile = viewportWidth < 768;
+  const isTablet = viewportWidth < 1024;
 
   if (!user) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: P.parchment }}>
@@ -66,6 +69,12 @@ export default function StudentDashboard() {
       </div>
     </div>
   );
+
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     const fetch = async () => {
@@ -229,10 +238,10 @@ export default function StudentDashboard() {
   );
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: P.parchment, fontFamily: "'Lora', Georgia, serif" }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', minHeight: '100vh', background: P.parchment, fontFamily: "'Lora', Georgia, serif" }}>
 
       {/* ──────────── SIDEBAR ──────────── */}
-      <aside style={{ width: 232, background: P.parchmentLight, boxShadow: `inset -1px 0 0 ${P.sandLight}`, display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', flexShrink: 0 }}>
+      <aside style={{ width: isMobile ? '100%' : 232, background: P.parchmentLight, boxShadow: isMobile ? `inset 0 -1px 0 ${P.sandLight}` : `inset -1px 0 0 ${P.sandLight}`, display: 'flex', flexDirection: 'column', position: isMobile ? 'relative' : 'sticky', top: 0, height: isMobile ? 'auto' : '100vh', flexShrink: 0 }}>
         {/* Logo */}
         <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${P.sandLight}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -245,7 +254,7 @@ export default function StudentDashboard() {
         </div>
 
         {/* Nav */}
-        <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: 8, overflowX: isMobile ? 'auto' : 'visible' }}>
           {navItems.map(({ label, icon: Icon, path }, i) => {
             const active = i === 0;
             return (
@@ -254,14 +263,15 @@ export default function StudentDashboard() {
                 onClick={() => path && navigate(path)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px',
-                  border: 'none', borderLeft: active ? `3px solid ${P.vermillion}` : '3px solid transparent',
+                  border: 'none', borderLeft: !isMobile && active ? `3px solid ${P.vermillion}` : '3px solid transparent',
+                  borderBottom: isMobile && active ? `2px solid ${P.vermillion}` : '2px solid transparent',
                   background: active ? P.parchmentDark : 'transparent',
                   color: active ? P.ink : P.inkMuted,
                   fontFamily: "'Barlow Semi Condensed', sans-serif",
                   fontWeight: active ? 700 : 500,
                   fontSize: 13.5,
                   letterSpacing: '0.02em',
-                  textAlign: 'left', cursor: path ? 'pointer' : 'default', width: '100%',
+                  textAlign: 'left', cursor: path ? 'pointer' : 'default', width: isMobile ? 'auto' : '100%', whiteSpace: 'nowrap',
                   transition: 'all 0.12s ease',
                 }}
                 onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = P.parchmentDark; (e.currentTarget as HTMLElement).style.color = P.ink; }}}
@@ -276,7 +286,7 @@ export default function StudentDashboard() {
         </nav>
 
         {/* User info + logout */}
-        <div style={{ borderTop: `1px solid ${P.sandLight}`, padding: '14px 10px' }}>
+        <div style={{ borderTop: `1px solid ${P.sandLight}`, padding: '14px 10px', display: isMobile ? 'none' : 'block' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 12px', marginBottom: 4 }}>
             <div style={{ width: 30, height: 30, background: P.inkMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 800, fontSize: 13, color: P.parchment }}>
@@ -308,12 +318,12 @@ export default function StudentDashboard() {
       </aside>
 
       {/* ──────────── MAIN ──────────── */}
-      <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
+      <main style={{ flex: 1, overflow: 'auto', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
 
         {/* Top bar */}
-        <header style={{ background: P.parchmentLight, borderBottom: `1px solid ${P.sandLight}`, padding: '0 32px', height: 60, display: 'flex', alignItems: 'center', gap: 14, position: 'sticky', top: 0, zIndex: 10, flexShrink: 0 }}>
+        <header style={{ background: P.parchmentLight, borderBottom: `1px solid ${P.sandLight}`, padding: isMobile ? '12px 16px' : '0 32px', minHeight: 60, display: 'flex', alignItems: 'center', gap: 14, position: 'sticky', top: 0, zIndex: 10, flexShrink: 0, flexWrap: isMobile ? 'wrap' : 'nowrap' }}>
           {/* Search */}
-          <div style={{ flex: 1, maxWidth: 400, display: 'flex', gap: 0, background: P.parchment, boxShadow: `inset 0 0 0 1px ${P.sandLight}` }}>
+          <div style={{ flex: isMobile ? '1 1 100%' : 1, maxWidth: isMobile ? '100%' : 400, display: 'flex', gap: 0, background: P.parchment, boxShadow: `inset 0 0 0 1px ${P.sandLight}` }}>
             <div style={{ position: 'relative', flex: 1 }}>
               <Search size={14} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', color: P.inkMuted, pointerEvents: 'none' }} />
               <input
@@ -347,7 +357,7 @@ export default function StudentDashboard() {
         </header>
 
         {/* Content */}
-        <div style={{ padding: '32px', flex: 1 }}>
+        <div style={{ padding: isMobile ? '16px' : '32px', flex: 1 }}>
 
           {/* Search results */}
           {showSearchResults && (
@@ -374,7 +384,7 @@ export default function StudentDashboard() {
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 0, ...softPanel }}>
                   {searchResults.map((res, i) => (
-                    <div key={res.id} style={{ background: P.parchmentLight, padding: '20px 24px', display: 'flex', alignItems: 'flex-start', gap: 20, borderBottom: i < searchResults.length - 1 ? `1px solid ${P.sand}` : 'none', transition: 'background 0.15s' }}
+                    <div key={res.id} style={{ background: P.parchmentLight, padding: '20px 24px', display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: 'flex-start', gap: 20, borderBottom: i < searchResults.length - 1 ? `1px solid ${P.sand}` : 'none', transition: 'background 0.15s' }}
                       onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = P.parchmentDark}
                       onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = P.parchmentLight}
                     >
@@ -399,7 +409,7 @@ export default function StudentDashboard() {
                           </div>
                         )}
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
+                      <div style={{ display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: 8, flexShrink: 0, width: isMobile ? '100%' : 'auto' }}>
                         <button onClick={() => handleView(res)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', border: 'none', boxShadow: `inset 0 0 0 1px ${P.sandLight}`, background: P.parchmentLight, fontFamily: "'Barlow Semi Condensed', sans-serif", color: P.inkSecondary, fontSize: 12, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: 'pointer' }}>
                           <Eye size={13} /> View
                         </button>
@@ -431,13 +441,13 @@ export default function StudentDashboard() {
               </div>
 
               {/* Filters */}
-              <div style={{ display: 'flex', gap: 12, marginBottom: 28 }}>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 28, flexWrap: 'wrap' }}>
                 {[
                   { label: 'Faculty', width: 220, value: filters.facultyId, onChange: handleFacultyChange, options: [{ value: 'all', label: 'All Faculties' }, ...faculties.map(f => ({ value: f.id.toString(), label: f.name }))] },
                   { label: 'Year', width: 150, value: filters.year, onChange: handleYearChange, options: [{ value: 'all', label: 'All Years' }, ...availableYears.map(y => ({ value: y.toString(), label: `Year ${y}` }))], disabled: filters.facultyId === 'all' },
                   { label: 'Module', width: 220, value: filters.moduleId, onChange: filters.setModuleId, options: [{ value: 'all', label: 'All Modules' }, ...filteredModules.map(m => ({ value: m.id.toString(), label: m.name }))], disabled: filters.year === 'all' },
                 ].map(({ label, width, value, onChange, options, disabled }) => (
-                  <div key={label} style={{ width }}>
+                  <div key={label} style={{ width: isMobile ? '100%' : width }}>
                     <Select value={value} onValueChange={onChange} disabled={disabled}>
                       <SelectTrigger style={{ background: P.parchmentLight, border: 'none', boxShadow: `inset 0 0 0 1px ${P.sandLight}`, borderRadius: 0, height: 38, fontFamily: "'Lora', Georgia, serif", fontSize: 13, color: P.ink }}>
                         <SelectValue placeholder={`Select ${label}`} />
@@ -451,9 +461,9 @@ export default function StudentDashboard() {
               </div>
 
               {/* Stat cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 0, ...softPanel, marginBottom: 32 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 0, ...softPanel, marginBottom: 32 }}>
                 {statCards.map(({ label, value, icon: Icon, color, tag }, i) => (
-                  <div key={label} style={{ background: P.parchmentLight, padding: '20px 22px', borderRight: i < 3 ? `1px solid ${P.sand}` : 'none' }}>
+                    <div key={label} style={{ background: P.parchmentLight, padding: '20px 22px', borderRight: !isTablet && i < 3 ? `1px solid ${P.sand}` : 'none', borderBottom: (isMobile || isTablet) && i < statCards.length - 1 ? `1px solid ${P.sand}` : 'none' }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                       <span style={{ background: P.parchmentDark, color: P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', padding: '2px 8px', boxShadow: `inset 0 0 0 1px ${P.sandLight}` }}>{tag}</span>
                       <Icon size={16} color={color} strokeWidth={1.8} />
@@ -485,11 +495,11 @@ export default function StudentDashboard() {
                         <div style={{ flex: 1, height: 1, background: P.sand }} />
                         <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted }}>{modulesByYear[parseInt(year)].length} module{modulesByYear[parseInt(year)].length !== 1 ? 's' : ''}</span>
                       </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 0, ...softPanel }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: 0, ...softPanel }}>
                         {modulesByYear[parseInt(year)].map((mod, mi) => (
                           <div
                             key={mod.id}
-                            style={{ background: P.parchmentLight, padding: '22px 24px', borderRight: mi % 2 === 0 ? `1px solid ${P.sand}` : 'none', borderBottom: mi < modulesByYear[parseInt(year)].length - 2 ? `1px solid ${P.sand}` : 'none', transition: 'background 0.15s' }}
+                            style={{ background: P.parchmentLight, padding: '22px 24px', borderRight: !isMobile && mi % 2 === 0 ? `1px solid ${P.sand}` : 'none', borderBottom: mi < modulesByYear[parseInt(year)].length - (isMobile ? 1 : 2) ? `1px solid ${P.sand}` : 'none', transition: 'background 0.15s' }}
                             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = P.parchmentDark}
                             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = P.parchmentLight}
                           >
@@ -528,7 +538,7 @@ export default function StudentDashboard() {
               </div>
 
               {/* Bottom grid: Recent sessions + Weak areas */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 28 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 20, marginBottom: 28 }}>
 
                 {/* Recent Sessions */}
                 <div>
@@ -647,8 +657,8 @@ export default function StudentDashboard() {
         </div>
 
         {/* Dashboard footer */}
-        <footer style={{ background: P.parchmentDark, borderTop: `1px solid ${P.sandLight}`, padding: '28px 32px' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 32, marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${P.sand}` }}>
+        <footer style={{ background: P.parchmentDark, borderTop: `1px solid ${P.sandLight}`, padding: isMobile ? '20px 16px' : '28px 32px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', gap: 32, marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${P.sand}` }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <BookOpen size={15} color={P.vermillion} strokeWidth={2} />

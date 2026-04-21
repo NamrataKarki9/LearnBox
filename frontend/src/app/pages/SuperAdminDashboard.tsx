@@ -34,14 +34,14 @@ function DashboardModal({ open, title, topColor, onClose, children, actions, wid
   if (!open) return null;
 
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,18,8,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50 }} onClick={onClose}>
-      <div style={{ background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}, 0 24px 60px rgba(28,18,8,0.18)`, borderTop: `3px solid ${topColor}`, padding: '28px 32px', maxWidth: width, width: '90%', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(28,18,8,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }} onClick={onClose}>
+      <div style={{ background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}, 0 24px 60px rgba(28,18,8,0.18)`, borderTop: `3px solid ${topColor}`, padding: '24px 20px', maxWidth: width, width: 'min(100%, 90vw)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, gap: 12 }}>
           <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: 18, fontWeight: 800, color: P.ink, margin: 0 }}>{title}</h2>
           <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: P.inkMuted }}><X size={18} /></button>
         </div>
         {children}
-        {actions && <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20, paddingTop: 16, borderTop: `1px solid ${P.sandLight}` }}>{actions}</div>}
+        {actions && <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 20, paddingTop: 16, borderTop: `1px solid ${P.sandLight}` }}>{actions}</div>}
       </div>
     </div>
   );
@@ -51,6 +51,7 @@ export default function SuperAdminDashboard() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const logoutConfirm = useLogoutConfirm();
+  const [viewportWidth, setViewportWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1280);
   
   const [activeTab, setActiveTab] = useState<'overview'|'colleges'|'users'|'llm-config'|'audit-logs'>('overview');
   const [colleges, setColleges] = useState<College[]>([]);
@@ -86,11 +87,19 @@ export default function SuperAdminDashboard() {
   const [isActivating, setIsActivating] = useState(false);
   const retryCountRef = useRef(0);
   const maxRetriesRef = useRef(3);
+  const isMobile = viewportWidth < 768;
+  const isTablet = viewportWidth < 1024;
 
   // Apply saved admin theme on mount
   useEffect(() => {
     const savedTheme = getStoredAdminTheme();
     applyAdminTheme(savedTheme);
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => { fetchAllData(); }, [user?.id]);
@@ -374,22 +383,22 @@ export default function SuperAdminDashboard() {
   }
 
   return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', background: P.parchmentDark }}>
-      <aside style={{ width: 260, flexShrink: 0, minHeight: '100vh', background: P.parchmentLight, boxShadow: `inset -1px 0 0 ${P.sandLight}`, display: 'flex', flexDirection: 'column' }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', minHeight: '100vh', overflow: 'hidden', background: P.parchmentDark }}>
+      <aside style={{ width: isMobile ? '100%' : 260, flexShrink: 0, minHeight: isMobile ? 'auto' : '100vh', background: P.parchmentLight, boxShadow: isMobile ? `inset 0 -1px 0 ${P.sandLight}` : `inset -1px 0 0 ${P.sandLight}`, display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '32px 24px', borderBottom: `1px solid ${P.sandLight}`, textAlign: 'center' }}>
           <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 28, fontWeight: 900, color: P.ink, letterSpacing: '-0.02em' }}>LearnBox</div>
           <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: P.vermillion, marginTop: 4 }}>System Administration</div>
         </div>
-        <nav style={{ padding: '24px 16px', flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <nav style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: 8, overflowX: isMobile ? 'auto' : 'visible' }}>
           {[{i:'overview', icon:BookOpen, l:'Overview'}, {i:'colleges', icon:Building2, l:'Colleges'}, {i:'users', icon:Users, l:'Users'}, {i:'llm-config', icon:Settings, l:'LLM Configuration'}, {i:'audit-logs', icon:Activity, l:'Audit Log'}].map(t => (
-            <button key={t.i} onClick={() => setActiveTab(t.i as any)} style={{ padding: '12px 16px', background: activeTab===t.i?P.parchmentDark:'transparent', color: activeTab===t.i?P.ink:P.inkMuted, border: 'none', borderLeft: activeTab===t.i?`3px solid ${P.vermillion}`:'3px solid transparent', boxShadow: activeTab===t.i ? `inset 0 0 0 1px ${P.sandLight}` : 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.1s', textAlign: 'left' }}>
+            <button key={t.i} onClick={() => setActiveTab(t.i as any)} style={{ padding: '12px 16px', background: activeTab===t.i?P.parchmentDark:'transparent', color: activeTab===t.i?P.ink:P.inkMuted, border: 'none', borderLeft: !isMobile && activeTab===t.i?`3px solid ${P.vermillion}`:'3px solid transparent', borderBottom: isMobile && activeTab===t.i?`2px solid ${P.vermillion}`:'2px solid transparent', boxShadow: activeTab===t.i ? `inset 0 0 0 1px ${P.sandLight}` : 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'all 0.1s', textAlign: 'left', whiteSpace: 'nowrap' }}>
               <t.icon size={16} /> {t.l}
             </button>
           ))}
-          <div style={{ margin: '16px 0', borderTop: `1px solid ${P.sandLight}` }} />
-          <button onClick={() => navigate('/superadmin/settings')} style={{ padding: '12px 16px', background: 'transparent', color: P.inkMuted, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left' }}><User size={16}/> Settings</button>
+          <div style={{ margin: isMobile ? '0 4px' : '16px 0', borderTop: isMobile ? 'none' : `1px solid ${P.sandLight}` }} />
+          <button onClick={() => navigate('/superadmin/settings')} style={{ padding: '12px 16px', background: 'transparent', color: P.inkMuted, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 13, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, textAlign: 'left', whiteSpace: 'nowrap' }}><User size={16}/> Settings</button>
         </nav>
-        <div style={{ padding: 24, borderTop: `1px solid ${P.sandLight}` }}>
+        <div style={{ padding: 24, borderTop: `1px solid ${P.sandLight}`, display: isMobile ? 'none' : 'block' }}>
           <div style={{ background: P.parchment, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, padding: 12, marginBottom: 12 }}>
             <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, color: P.inkMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Logged in as</p>
             <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 14, fontWeight: 700, color: P.ink }}>{user.username}</p>
@@ -398,7 +407,7 @@ export default function SuperAdminDashboard() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, padding: '32px 48px', overflowY: 'auto' }}>
+      <main style={{ flex: 1, padding: isMobile ? '20px 16px' : '32px 48px', overflowY: 'auto', minWidth: 0 }}>
         <header style={{ marginBottom: 32, paddingBottom: 24, borderBottom: `1px solid ${P.sand}` }}>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 32, fontWeight: 800, color: P.ink, margin: '0 0 8px' }}>
             {activeTab === 'overview' && 'Dashboard Overview'}
@@ -420,14 +429,14 @@ export default function SuperAdminDashboard() {
           <>
             {activeTab === 'overview' && (
               <div style={{ display: 'grid', gap: 32 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', background: P.parchmentLight, boxShadow: softPanel }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(4, 1fr)', background: P.parchmentLight, boxShadow: softPanel }}>
                   {[
                     ['Total Colleges', stats.totalColleges, P.ink, `${stats.activeColleges} Active`],
                     ['Total Users', stats.totalUsers, P.moss, 'System-wide'],
                     ['Students', stats.totalStudents, P.purple, 'Enrolled Learners'],
                     ['Administrators', stats.totalAdmins, P.vermillion, 'College & System']
                   ].map(([l, v, c, s], i) => (
-                    <div key={l as string} style={{ padding: '24px', borderRight: i<3?`1px solid ${P.sandLight}`:'none' }}>
+                    <div key={l as string} style={{ padding: '24px', borderRight: !isTablet && i<3?`1px solid ${P.sandLight}`:'none', borderBottom: (isMobile || isTablet) && i < 3 ? `1px solid ${P.sandLight}` : 'none' }}>
                       <p style={{ fontFamily: "var(--font-numeric)", fontSize: 42, fontWeight: 800, color: c as string, margin: '0 0 4px', lineHeight: 1 }}>{v}</p>
                       <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, color: P.inkSecondary, margin: '0 0 8px', letterSpacing: '0.06em', textTransform: 'uppercase' }}>{l as string}</p>
                       <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 11, color: P.inkMuted, margin: 0 }}>{s as string}</p>
@@ -435,7 +444,7 @@ export default function SuperAdminDashboard() {
                   ))}
                 </div>
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 24 }}>
                   <div style={{ background: P.parchmentLight, boxShadow: softPanel }}>
                     <div style={{ padding: '16px 20px', borderBottom: `1px solid ${P.sandLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <h3 style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: P.ink, margin: 0 }}>Latest Institutions</h3>
@@ -477,8 +486,8 @@ export default function SuperAdminDashboard() {
 
             {activeTab === 'colleges' && (
               <div>
-                <div style={{ background: P.parchmentLight, boxShadow: softPanel, padding: '16px 20px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', gap: 0, boxShadow: softOutline }}>
+                <div style={{ background: P.parchmentLight, boxShadow: softPanel, padding: '16px 20px', marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', gap: 12 }}>
+                  <div style={{ display: 'flex', gap: 0, boxShadow: softOutline, overflowX: 'auto' }}>
                     {['active','inactive','all'].map(v => (
                       <button key={v} onClick={()=>setCollegeView(v as any)} style={{ padding: '6px 16px', background: collegeView===v?P.parchmentDark:'transparent', color: collegeView===v?P.ink:P.ink, border: 'none', boxShadow: v!=='all'?`inset -1px 0 0 ${P.sandLight}`:'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer' }}>{v}</button>
                     ))}
@@ -639,7 +648,7 @@ export default function SuperAdminDashboard() {
             <label style={iL}>Name <span style={{ color: P.vermillion }}>*</span></label>
             <input style={iS} value={collegeForm.name} onChange={e=>setCollegeForm({...collegeForm,name:e.target.value})} placeholder="e.g. Acme University" />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <div>
               <label style={iL}>Code <span style={{ color: P.vermillion }}>*</span></label>
               <input style={iS} value={collegeForm.code} onChange={e=>setCollegeForm({...collegeForm,code:e.target.value.toUpperCase()})} placeholder="e.g. ACME" />
@@ -653,7 +662,7 @@ export default function SuperAdminDashboard() {
             <label style={iL}>Address <span style={{ color: P.vermillion }}>*</span></label>
             <input style={iS} value={collegeForm.address} onChange={e=>setCollegeForm({...collegeForm,address:e.target.value})} placeholder="e.g. 123 Main Street, City" />
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <div>
               <label style={iL}>Email Address <span style={{ color: P.vermillion }}>*</span></label>
               <input type="email" style={iS} value={collegeForm.email} onChange={e=>setCollegeForm({...collegeForm,email:e.target.value})} placeholder="e.g. info@college.edu" />
@@ -673,7 +682,7 @@ export default function SuperAdminDashboard() {
       {/* User Modal */}
       <DashboardModal open={showUserModal} title="Edit User Identity" topColor={P.ink} onClose={()=>setShowUserModal(false)} actions={<><button onClick={()=>setShowUserModal(false)} style={{ padding: '9px 18px', background: 'transparent', border: `1px solid ${P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 600, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.inkMuted, cursor: 'pointer' }}>Cancel</button><button onClick={handleSaveUser} style={{ padding: '9px 18px', background: P.inkMuted, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', cursor: 'pointer' }}>Save Changes</button></>}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <div>
               <label style={iL}>Username <span style={{ color: P.vermillion }}>*</span></label>
               <input style={iS} value={userForm.username} onChange={e=>setUserForm({...userForm,username:e.target.value})} />
@@ -683,7 +692,7 @@ export default function SuperAdminDashboard() {
               <input style={iS} value={userForm.email} onChange={e=>setUserForm({...userForm,email:e.target.value})} />
             </div>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 12 }}>
             <div>
               <label style={iL}>First Name <span style={{ color: P.vermillion }}>*</span></label>
               <input style={iS} value={userForm.first_name} onChange={e=>setUserForm({...userForm,first_name:e.target.value})} />
@@ -725,7 +734,7 @@ export default function SuperAdminDashboard() {
       {/* LLM Modal */}
       <DashboardModal open={showLLMModal} title={editingLLM ? "Edit AI Logic" : "Configure AI Logic"} topColor={P.moss} width={600} onClose={()=>setShowLLMModal(false)} actions={<><button onClick={()=>setShowLLMModal(false)} style={{ padding: '9px 18px', background: 'transparent', border: `1px solid ${P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 600, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.inkMuted, cursor: 'pointer' }}>Cancel</button><button onClick={handleSaveLLM} style={{ padding: '9px 18px', background: P.moss, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: '#fff', cursor: 'pointer' }}>Save Config</button></>}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'minmax(0,2fr) minmax(0,1fr)', gap: 12 }}>
             <div><label style={iL}>Config Name <span style={{ color: P.vermillion }}>*</span></label><input style={iS} value={llmForm.name} onChange={e=>setLlmForm({...llmForm,name:e.target.value})} placeholder="e.g. Local Fast Model" /></div>
             <div><label style={iL}>Provider <span style={{ color: P.vermillion }}>*</span></label>
               <Select value={llmForm.provider} onValueChange={v=>setLlmForm({...llmForm,provider:v as any})} disabled={!!editingLLM}>
@@ -752,7 +761,7 @@ export default function SuperAdminDashboard() {
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: 12 }}>
             <div><label style={iL}>Temperature</label><input type="number" step="0.1" min="0" max="2" style={iS} value={llmForm.temperature} onChange={e=>setLlmForm({...llmForm,temperature:parseFloat(e.target.value)})} /></div>
             <div><label style={iL}>Top P</label><input type="number" step="0.05" min="0" max="1" style={iS} value={llmForm.topP} onChange={e=>setLlmForm({...llmForm,topP:parseFloat(e.target.value)})} /></div>
             <div><label style={iL}>Max Tokens</label><input type="number" step="100" min="100" style={iS} value={llmForm.maxTokens} onChange={e=>setLlmForm({...llmForm,maxTokens:parseInt(e.target.value)})} /></div>

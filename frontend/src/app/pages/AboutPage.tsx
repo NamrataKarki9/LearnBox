@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Award, BookOpen, Heart, Target, Trophy, Users, Zap } from "lucide-react";
+import { Award, BookOpen, Heart, Sparkles, Target, Trophy, UserCircle2, Users, Zap } from "lucide-react";
 
 import { P } from "../../constants/theme";
 
@@ -32,10 +32,7 @@ const milestones = [
 ];
 
 const team = [
-  { name: "Namrata Karki", role: "Founder & CEO", description: "Guides LearnBox with a long-term vision for modern, AI-supported education.", icon: "NK" },
-  { name: "Aayusha Kandel", role: "Product & Design Lead", description: "Shapes the product experience so students can focus on clarity, not friction.", icon: "AK" },
-  { name: "Ashika Kambang", role: "Technology Lead", description: "Builds the technical systems that power LearnBox’s intelligent academic workflows.", icon: "AK" },
-  { name: "Subu", role: "Operations & Growth", description: "Expands partnerships and helps LearnBox reach more students and institutions.", icon: "SU" },
+  { name: "Namrata Karki", role: "Project Lead", description: "Designed and built LearnBox as a focused academic support platform that blends clean workflows with practical AI features for students.", icon: "NK" },
 ];
 
 export function AboutPage() {
@@ -51,10 +48,11 @@ export function AboutPage() {
         .about-nav-link:hover{color:${P.vermillion}}
         .about-nav-link:hover::after{transform:scaleX(1)}
         .about-shell{overflow-x:hidden}
-        .about-value-grid,.about-timeline-grid,.about-team-grid,.about-footer-grid{display:grid}
+        .about-hero-grid,.about-value-grid,.about-timeline-grid,.about-team-grid,.about-footer-grid{display:grid}
+        .about-hero-grid{grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);gap:32px;align-items:end}
         .about-value-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
         .about-timeline-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
-        .about-team-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:20px}
+        .about-team-grid{grid-template-columns:minmax(0,420px);gap:20px}
         .about-footer-grid{grid-template-columns:minmax(220px,1.6fr) repeat(4,minmax(120px,1fr));gap:28px}
         .about-card{transition:transform 220ms ease,box-shadow 220ms ease}
         .about-card:hover{transform:translateY(-4px);box-shadow:0 18px 40px rgba(28,18,8,.12)}
@@ -62,8 +60,8 @@ export function AboutPage() {
         .cta-button:hover{transform:translateY(-2px)}
         .primary-cta:hover{box-shadow:0 16px 30px rgba(192,57,43,.22)}
         .secondary-cta:hover{box-shadow:0 14px 28px rgba(28,18,8,.16)}
-        @media (max-width:1180px){.about-value-grid,.about-timeline-grid,.about-team-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.about-footer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
-        @media (max-width:720px){.about-value-grid,.about-timeline-grid,.about-team-grid,.about-footer-grid{grid-template-columns:1fr}}
+        @media (max-width:1180px){.about-hero-grid,.about-value-grid,.about-timeline-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.about-footer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media (max-width:720px){.about-hero-grid,.about-value-grid,.about-timeline-grid,.about-team-grid,.about-footer-grid{grid-template-columns:1fr}}
       `}</style>
 
       <div className="about-shell">
@@ -95,13 +93,32 @@ export function AboutPage() {
         <section style={{ position: "relative", overflow: "hidden", background: `linear-gradient(135deg, ${P.inkMuted} 0%, ${P.inkSecondary} 100%)`, color: P.parchmentLight, borderBottom: `1px solid ${P.sand}` }}>
           <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 18% 20%, rgba(245, 230, 228, 0.08), transparent 28%), radial-gradient(circle at 82% 18%, rgba(192, 57, 43, 0.14), transparent 22%)", pointerEvents: "none" }} />
           <div style={{ width: "100%", maxWidth: 1280, margin: "0 auto", padding: "78px 20px 88px", position: "relative" }}>
-            <div style={{ maxWidth: 820 }}>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 20, padding: "8px 14px", borderRadius: 999, background: "rgba(250, 247, 240, 0.08)", boxShadow: `inset 0 0 0 1px rgba(232, 223, 208, 0.22)` }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: P.vermillion, display: "inline-block" }} />
-                <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.parchmentLight }}>About LearnBox</span>
+            <div className="about-hero-grid">
+              <div style={{ maxWidth: 820 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 20, padding: "8px 14px", borderRadius: 999, background: "rgba(250, 247, 240, 0.08)", boxShadow: `inset 0 0 0 1px rgba(232, 223, 208, 0.22)` }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: P.vermillion, display: "inline-block" }} />
+                  <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.parchmentLight }}>About LearnBox</span>
+                </div>
+                <h1 style={{ margin: "0 0 18px", fontFamily: "'Playfair Display', serif", fontSize: "clamp(2.8rem, 6vw, 5rem)", lineHeight: 0.98, letterSpacing: "-0.05em", color: P.parchmentLight, maxWidth: 820 }}>We’re building a more thoughtful academic platform for modern learners.</h1>
+                <p style={{ margin: 0, maxWidth: 700, fontSize: 18, lineHeight: 1.8, color: "#E7D9C6" }}>LearnBox exists to help students move from passive content consumption to clearer, more structured academic progress with the support of carefully applied AI.</p>
               </div>
-              <h1 style={{ margin: "0 0 18px", fontFamily: "'Playfair Display', serif", fontSize: "clamp(2.8rem, 6vw, 5rem)", lineHeight: 0.98, letterSpacing: "-0.05em", color: P.parchmentLight, maxWidth: 820 }}>We’re building a more thoughtful academic platform for modern learners.</h1>
-              <p style={{ margin: 0, maxWidth: 700, fontSize: 18, lineHeight: 1.8, color: "#E7D9C6" }}>LearnBox exists to help students move from passive content consumption to clearer, more structured academic progress with the support of carefully applied AI.</p>
+              <div style={{ minHeight: 320, position: "relative", display: "grid", gap: 16 }}>
+                <div style={{ borderRadius: 30, minHeight: 190, background: "linear-gradient(145deg, rgba(250,247,240,0.12), rgba(250,247,240,0.04))", boxShadow: "inset 0 0 0 1px rgba(232,223,208,0.16)", padding: "24px", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", right: -20, top: -24, width: 120, height: 120, borderRadius: "50%", background: "rgba(192,57,43,0.18)" }} />
+                  <Sparkles size={26} color={P.vermillion} />
+                  <div style={{ marginTop: 42, fontFamily: "'Playfair Display', serif", fontSize: 28, lineHeight: 1.06, color: P.parchmentLight }}>Focused design for a calmer study flow.</div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 16 }}>
+                  <div style={{ borderRadius: 24, background: "rgba(250,247,240,0.08)", boxShadow: "inset 0 0 0 1px rgba(232,223,208,0.16)", padding: "20px" }}>
+                    <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#E7D9C6", marginBottom: 8 }}>Built Around</div>
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: P.parchmentLight }}>Clarity</div>
+                  </div>
+                  <div style={{ borderRadius: 24, background: "rgba(250,247,240,0.08)", boxShadow: "inset 0 0 0 1px rgba(232,223,208,0.16)", padding: "20px" }}>
+                    <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "#E7D9C6", marginBottom: 8 }}>Driven By</div>
+                    <div style={{ fontFamily: "'Playfair Display', serif", fontSize: 26, color: P.parchmentLight }}>Progress</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -156,7 +173,10 @@ export function AboutPage() {
               <div className="about-team-grid">
                 {team.map((member) => (
                   <div key={member.name} className="about-card" style={{ borderRadius: 24, background: P.parchmentLight, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, padding: "26px 22px" }}>
-                    <div style={{ width: 72, height: 72, borderRadius: 22, background: P.parchmentDark, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, fontFamily: "'Playfair Display', serif", fontSize: 24, fontWeight: 900, letterSpacing: "-0.03em", color: P.ink }}>{member.icon}</div>
+                    <div style={{ width: 72, height: 72, borderRadius: 22, background: P.parchmentDark, boxShadow: `inset 0 0 0 1px ${P.sandLight}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18, position: "relative", overflow: "hidden" }}>
+                      <UserCircle2 size={28} color={P.vermillion} strokeWidth={1.7} />
+                      <span style={{ position: "absolute", right: 10, bottom: 10, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: P.ink }}>{member.icon}</span>
+                    </div>
                     <h3 style={{ margin: "0 0 4px", fontFamily: "'Playfair Display', serif", fontSize: 22, lineHeight: 1.08, color: P.ink }}>{member.name}</h3>
                     <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: P.vermillion, marginBottom: 12 }}>{member.role}</div>
                     <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.75, color: P.inkMuted }}>{member.description}</p>

@@ -10,6 +10,7 @@ export function VerifyOTPPage() {
   const location = useLocation();
   const email = location.state?.email || "";
   const purpose = location.state?.purpose || "REGISTER";
+  const registrationToken = location.state?.registrationToken || "";
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -23,7 +24,7 @@ export function VerifyOTPPage() {
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/auth/verify-registration-otp`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, otp }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, otp, registrationToken }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -41,7 +42,7 @@ export function VerifyOTPPage() {
     setResending(true); setError(""); setSuccess("");
     try {
       const res = await fetch(`${API_BASE}/auth/resend-otp`, {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, purpose }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, purpose, registrationToken }),
       });
       const data = await res.json();
       if (res.ok) setSuccess("OTP resent to your email.");

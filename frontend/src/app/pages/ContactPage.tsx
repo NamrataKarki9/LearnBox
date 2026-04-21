@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, Mail, MapPin, Phone, Send } from "lucide-react";
+import { BookOpen, Mail, MapPin, Phone, Send, Sparkles } from "lucide-react";
 
 import { P } from "../../constants/theme";
 
@@ -54,7 +54,8 @@ export function ContactPage() {
         .contact-nav-link:hover{color:${P.vermillion}}
         .contact-nav-link:hover::after{transform:scaleX(1)}
         .contact-shell{overflow-x:hidden}
-        .contact-grid,.contact-footer-grid{display:grid}
+        .contact-hero-grid,.contact-grid,.contact-footer-grid{display:grid}
+        .contact-hero-grid{grid-template-columns:minmax(0,1.15fr) minmax(280px,.85fr);gap:32px;align-items:end}
         .contact-grid{grid-template-columns:minmax(0,1.15fr) minmax(320px,.85fr);gap:28px}
         .contact-footer-grid{grid-template-columns:minmax(220px,1.6fr) repeat(4,minmax(120px,1fr));gap:28px}
         .contact-card{transition:transform 220ms ease,box-shadow 220ms ease}
@@ -63,7 +64,7 @@ export function ContactPage() {
         .cta-button:hover{transform:translateY(-2px)}
         .primary-cta:hover{box-shadow:0 16px 30px rgba(192,57,43,.22)}
         .secondary-cta:hover{box-shadow:0 14px 28px rgba(28,18,8,.16)}
-        @media (max-width:980px){.contact-grid{grid-template-columns:1fr}.contact-footer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+        @media (max-width:980px){.contact-hero-grid,.contact-grid{grid-template-columns:1fr}.contact-footer-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
         @media (max-width:720px){.contact-footer-grid{grid-template-columns:1fr}}
       `}</style>
 
@@ -98,13 +99,29 @@ export function ContactPage() {
         <section style={{ position: "relative", overflow: "hidden", background: `linear-gradient(135deg, ${P.inkMuted} 0%, ${P.inkSecondary} 100%)`, color: P.parchmentLight, borderBottom: `1px solid ${P.sand}` }}>
           <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 18% 20%, rgba(245, 230, 228, 0.08), transparent 28%), radial-gradient(circle at 82% 18%, rgba(192, 57, 43, 0.14), transparent 22%)", pointerEvents: "none" }} />
           <div style={{ width: "100%", maxWidth: 1280, margin: "0 auto", padding: "78px 20px 88px", position: "relative" }}>
-            <div style={{ maxWidth: 760 }}>
-              <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 20, padding: "8px 14px", borderRadius: 999, background: "rgba(250, 247, 240, 0.08)", boxShadow: `inset 0 0 0 1px rgba(232, 223, 208, 0.22)` }}>
-                <span style={{ width: 8, height: 8, borderRadius: "50%", background: P.vermillion, display: "inline-block" }} />
-                <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.parchmentLight }}>Contact LearnBox</span>
+            <div className="contact-hero-grid">
+              <div style={{ maxWidth: 760 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 10, marginBottom: 20, padding: "8px 14px", borderRadius: 999, background: "rgba(250, 247, 240, 0.08)", boxShadow: `inset 0 0 0 1px rgba(232, 223, 208, 0.22)` }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: P.vermillion, display: "inline-block" }} />
+                  <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: P.parchmentLight }}>Contact LearnBox</span>
+                </div>
+                <h1 style={{ margin: "0 0 18px", fontFamily: "'Playfair Display', serif", fontSize: "clamp(2.8rem, 6vw, 5rem)", lineHeight: 0.98, letterSpacing: "-0.05em", color: P.parchmentLight, maxWidth: 760 }}>Let’s make support feel clear, calm, and personal.</h1>
+                <p style={{ margin: 0, maxWidth: 650, fontSize: 18, lineHeight: 1.8, color: "#E7D9C6" }}>Reach out for platform guidance, academic collaboration, onboarding questions, or technical help.</p>
               </div>
-              <h1 style={{ margin: "0 0 18px", fontFamily: "'Playfair Display', serif", fontSize: "clamp(2.8rem, 6vw, 5rem)", lineHeight: 0.98, letterSpacing: "-0.05em", color: P.parchmentLight, maxWidth: 760 }}>Let’s make support feel clear, calm, and personal.</h1>
-              <p style={{ margin: 0, maxWidth: 650, fontSize: 18, lineHeight: 1.8, color: "#E7D9C6" }}>Reach out for platform guidance, academic collaboration, onboarding questions, or technical help. We’ve redesigned this page to feel just as polished and focused as the landing page.</p>
+              <div style={{ minHeight: 320, display: "grid", gap: 16 }}>
+                <div style={{ borderRadius: 30, minHeight: 190, background: "linear-gradient(145deg, rgba(250,247,240,0.12), rgba(250,247,240,0.04))", boxShadow: "inset 0 0 0 1px rgba(232,223,208,0.16)", padding: "24px", position: "relative", overflow: "hidden" }}>
+                  <div style={{ position: "absolute", right: -24, bottom: -30, width: 150, height: 150, borderRadius: "50%", background: "rgba(192,57,43,0.16)" }} />
+                  <Sparkles size={26} color={P.vermillion} />
+                  <div style={{ marginTop: 40, fontFamily: "'Playfair Display', serif", fontSize: 28, lineHeight: 1.08, color: P.parchmentLight }}>One clean point of contact.</div>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 16 }}>
+                  {[Mail, Phone, MapPin].map((Icon, index) => (
+                    <div key={index} style={{ borderRadius: 22, background: "rgba(250,247,240,0.08)", boxShadow: "inset 0 0 0 1px rgba(232,223,208,0.16)", minHeight: 86, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <Icon size={22} color={P.parchmentLight} strokeWidth={1.8} />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </section>

@@ -593,12 +593,12 @@ export default function StudentSettingsPage() {
       {/* Header */}
       <div className="bg-card border-b border-border sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-3 sm:py-0 sm:h-16">
             <div className="flex items-center space-x-3">
               <Settings className="h-6 w-6 text-ink" />
-              <h1 className="text-2xl font-bold text-foreground">Settings</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-foreground">Settings</h1>
             </div>
-            <Button variant="outline" onClick={() => navigate('/student-dashboard')}>
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => navigate('/student-dashboard')}>
               Back to Dashboard
             </Button>
           </div>
@@ -682,7 +682,7 @@ export default function StudentSettingsPage() {
             {/* Mobile Tabs */}
             <div className="lg:hidden mb-6">
               <Tabs value={activeTab} onValueChange={setActiveTab}>
-                <TabsList className="w-full grid grid-cols-4">
+                <TabsList className="w-full grid grid-cols-2 sm:grid-cols-4 h-auto gap-2">
                   <TabsTrigger value="profile">
                     <User className="h-4 w-4" />
                   </TabsTrigger>
@@ -714,7 +714,7 @@ export default function StudentSettingsPage() {
                   </CardHeader>
                   <CardContent className="space-y-6">
                     {/* Avatar Section */}
-                    <div className="flex items-center space-x-6">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
                       <Avatar className="h-24 w-24">
                         <AvatarImage src={profile.avatar} />
                         <AvatarFallback className="text-2xl">{getInitials()}</AvatarFallback>
@@ -726,10 +726,11 @@ export default function StudentSettingsPage() {
                         <p className="text-sm text-ink-muted mb-3">
                           JPG, PNG or GIF. Max size 3MB.
                         </p>
-                        <div className="flex items-center space-x-3">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                           <Button
                             variant="outline"
                             size="sm"
+                            className="w-full sm:w-auto"
                             onClick={() => document.getElementById('avatar-upload')?.click()}
                           >
                             <Camera className="h-4 w-4 mr-2" />
@@ -739,6 +740,7 @@ export default function StudentSettingsPage() {
                             <Button
                               variant="ghost"
                               size="sm"
+                              className="w-full sm:w-auto"
                               onClick={() => setProfile({ ...profile, avatar: '' })}
                             >
                               Remove
@@ -812,7 +814,7 @@ export default function StudentSettingsPage() {
 
                     <div className="space-y-2">
                       <Label htmlFor="email">Email Address</Label>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
                         <Mail className="h-4 w-4 text-gray-400" />
                         <Input
                           id="email"
@@ -833,7 +835,7 @@ export default function StudentSettingsPage() {
 
                     <div className="space-y-2">
                       <Label htmlFor="phone">Phone Number (Optional)</Label>
-                      <div className="flex items-center space-x-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
                         <Phone className="h-4 w-4 text-gray-400" />
                         <Input
                           id="phone"
@@ -877,7 +879,7 @@ export default function StudentSettingsPage() {
                         College Information
                       </h3>
                       <div className="bg-parchment-dark p-4 space-y-2">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                           <span className="text-sm text-ink-muted">
                             College
                           </span>
@@ -885,7 +887,7 @@ export default function StudentSettingsPage() {
                             {profile.college?.name || 'Not specified'}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
                           <span className="text-sm text-ink-muted">
                             College Code
                           </span>
@@ -1049,7 +1051,7 @@ export default function StudentSettingsPage() {
                         </div>
                       </div>
                       <div className="flex justify-end">
-                        <Button onClick={handlePasswordChange} disabled={isSaving}>
+                        <Button className="w-full sm:w-auto" onClick={handlePasswordChange} disabled={isSaving}>
                           {isSaving ? 'Updating...' : 'Update Password'}
                         </Button>
                       </div>
@@ -1059,7 +1061,7 @@ export default function StudentSettingsPage() {
 
                     {/* Two-Factor Authentication */}
                     <div className="space-y-4">
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                         <div>
                           <h3 className="text-sm font-medium text-foreground">
                             Two-Factor Authentication
@@ -1080,7 +1082,7 @@ export default function StudentSettingsPage() {
                         Active Sessions
                       </h3>
                       <div className="bg-parchment-dark p-4 space-y-3">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                           <div className="flex items-center space-x-3">
                             <Monitor className="h-5 w-5 text-gray-400" />
                             <div>

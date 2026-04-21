@@ -15,15 +15,24 @@ export default function StudentResourcesPage() {
   const navigate = useNavigate();
   const filters = useFilters();
   const logoutConfirm = useLogoutConfirm();
+  const [viewportWidth, setViewportWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1280);
   const [resources, setResources] = useState<Resource[]>([]);
   const [faculties, setFaculties] = useState<Faculty[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewingResource, setViewingResource] = useState<{ url: string; title: string } | null>(null);
+  const isMobile = viewportWidth < 768;
+  const isTablet = viewportWidth < 1024;
 
   useEffect(() => {
     facultyAPI.getAll().then(r => setFaculties(r.data.data || [])).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
@@ -62,9 +71,9 @@ export default function StudentResourcesPage() {
   ];
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: P.parchment, fontFamily: "'Lora', Georgia, serif" }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', minHeight: '100vh', background: P.parchment, fontFamily: "'Lora', Georgia, serif" }}>
       {/* Sidebar */}
-      <aside style={{ width: 232, background: P.parchmentLight, borderRight: `1px solid ${P.sand}`, display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', flexShrink: 0 }}>
+      <aside style={{ width: isMobile ? '100%' : 232, background: P.parchmentLight, borderRight: isMobile ? 'none' : `1px solid ${P.sand}`, borderBottom: isMobile ? `1px solid ${P.sand}` : 'none', display: 'flex', flexDirection: 'column', position: isMobile ? 'relative' : 'sticky', top: 0, height: isMobile ? 'auto' : '100vh', flexShrink: 0 }}>
         <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${P.sand}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <BookOpen size={18} color={P.vermillion} strokeWidth={2} />
@@ -72,11 +81,11 @@ export default function StudentResourcesPage() {
           </div>
           <div style={{ marginTop: 6, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', color: P.inkMuted }}>Student Portal</div>
         </div>
-        <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: 8, overflowX: isMobile ? 'auto' : 'visible' }}>
           {navItems.map(({ label, icon: Icon, path }, i) => {
             const active = i === 1;
             return (
-              <button key={label} onClick={() => path && navigate(path)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderLeft: active ? `3px solid ${P.vermillion}` : `3px solid transparent`, background: active ? P.parchmentDark : 'transparent', color: active ? P.ink : P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: active ? 700 : 500, fontSize: 13.5, letterSpacing: '0.02em', textAlign: 'left', cursor: path ? 'pointer' : 'default', width: '100%', transition: 'all 0.12s' }}
+              <button key={label} onClick={() => path && navigate(path)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderLeft: !isMobile && active ? `3px solid ${P.vermillion}` : `3px solid transparent`, borderBottom: isMobile && active ? `2px solid ${P.vermillion}` : '2px solid transparent', background: active ? P.parchmentDark : 'transparent', color: active ? P.ink : P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: active ? 700 : 500, fontSize: 13.5, letterSpacing: '0.02em', textAlign: 'left', cursor: path ? 'pointer' : 'default', width: isMobile ? 'auto' : '100%', whiteSpace: 'nowrap', transition: 'all 0.12s' }}
                 onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = P.parchmentDark; (e.currentTarget as HTMLElement).style.color = P.ink; }}}
                 onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = P.inkMuted; }}}
               >
@@ -87,7 +96,7 @@ export default function StudentResourcesPage() {
             );
           })}
         </nav>
-        <div style={{ borderTop: `1px solid ${P.sand}`, padding: '14px 10px' }}>
+        <div style={{ borderTop: `1px solid ${P.sand}`, padding: '14px 10px', display: isMobile ? 'none' : 'block' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 12px', marginBottom: 4 }}>
             <div style={{ width: 30, height: 30, background: P.inkMuted, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 800, fontSize: 13, color: P.parchment }}>{(user?.first_name || user?.username || 'S').charAt(0).toUpperCase()}</span>
@@ -104,7 +113,7 @@ export default function StudentResourcesPage() {
       </aside>
 
       {/* Main */}
-      <main style={{ flex: 1, padding: '32px', overflow: 'auto' }}>
+      <main style={{ flex: 1, padding: isMobile ? '16px' : '32px', overflow: 'auto', minWidth: 0 }}>
         {/* Page header */}
         <div style={{ marginBottom: 28, paddingBottom: 20, borderBottom: `1px solid ${P.sand}` }}>
           <div style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: P.vermillion, marginBottom: 6 }}>Learning Materials</div>
@@ -113,7 +122,7 @@ export default function StudentResourcesPage() {
         </div>
 
         {/* Filter summary bar */}
-        <div style={{ background: P.parchmentLight, border: `1px solid ${P.sand}`, borderLeft: `3px solid ${P.ink}`, padding: '14px 20px', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+        <div style={{ background: P.parchmentLight, border: `1px solid ${P.sand}`, borderLeft: `3px solid ${P.ink}`, padding: '14px 20px', marginBottom: 24, display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'flex-start' : 'center', justifyContent: 'space-between', gap: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <BookOpen size={14} color={P.vermillion} strokeWidth={2} />
             <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.inkMuted }}>Viewing:</span>
@@ -146,9 +155,9 @@ export default function StudentResourcesPage() {
             </p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 0, border: `1px solid ${P.sand}` }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 0, border: `1px solid ${P.sand}` }}>
             {resources.map((res, i) => (
-              <div key={res.id} style={{ background: P.parchmentLight, padding: '22px 24px', borderRight: i % 3 < 2 ? `1px solid ${P.sand}` : 'none', borderBottom: i < resources.length - (resources.length % 3 || 3) ? `1px solid ${P.sand}` : 'none', transition: 'background 0.15s' }}
+              <div key={res.id} style={{ background: P.parchmentLight, padding: '22px 24px', borderRight: !isTablet && i % 3 < 2 ? `1px solid ${P.sand}` : isTablet && !isMobile && i % 2 === 0 ? `1px solid ${P.sand}` : 'none', borderBottom: i < resources.length - (isMobile ? 1 : isTablet ? 2 : (resources.length % 3 || 3)) ? `1px solid ${P.sand}` : 'none', transition: 'background 0.15s' }}
                 onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = P.parchmentDark}
                 onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = P.parchmentLight}
               >

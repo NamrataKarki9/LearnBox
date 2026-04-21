@@ -108,6 +108,13 @@ interface AuthResponse {
   user: User;
 }
 
+interface RegisterResponse {
+  success: boolean;
+  message: string;
+  email?: string;
+  registrationToken?: string;
+}
+
 interface RefreshTokenResponse {
   tokens: AuthTokens;
 }
@@ -147,7 +154,7 @@ interface VerifyPasswordResponse {
 
 // Auth API endpoints
 export const authAPI = {
-  register: (data: RegisterData) => api.post<AuthResponse>('/auth/register', data),
+  register: (data: RegisterData) => api.post<RegisterResponse>('/auth/register', data),
   login: (data: LoginData) => api.post<AuthResponse>('/auth/login', data),
   refreshToken: (refreshToken: string) => api.post<RefreshTokenResponse>('/auth/token/refresh', { refresh: refreshToken }),
   getMe: () => api.get<User | { user: User }>('/auth/me'),

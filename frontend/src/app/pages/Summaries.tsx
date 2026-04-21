@@ -43,6 +43,7 @@ export default function Summaries() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const logoutConfirm = useLogoutConfirm();
+  const [viewportWidth, setViewportWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1280);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([{ role: 'assistant', content: WELCOME }]);
@@ -50,6 +51,13 @@ export default function Summaries() {
   const [history, setHistory] = useState<Summary[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const isMobile = viewportWidth < 768;
+
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => { summaryAPI.getHistory().then(r => setHistory(r.data.data)).catch(() => {}); }, []);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
@@ -91,16 +99,16 @@ export default function Summaries() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: P.parchment, fontFamily: "'Lora', Georgia, serif" }}>
-      <aside style={{ width: 232, background: P.parchmentLight, borderRight: `1px solid ${P.sand}`, display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', flexShrink: 0 }}>
+    <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', minHeight: '100vh', background: P.parchment, fontFamily: "'Lora', Georgia, serif" }}>
+      <aside style={{ width: isMobile ? '100%' : 232, background: P.parchmentLight, borderRight: isMobile ? 'none' : `1px solid ${P.sand}`, borderBottom: isMobile ? `1px solid ${P.sand}` : 'none', display: 'flex', flexDirection: 'column', position: isMobile ? 'relative' : 'sticky', top: 0, height: isMobile ? 'auto' : '100vh', flexShrink: 0 }}>
         <div style={{ padding: '24px 20px 20px', borderBottom: `1px solid ${P.sand}` }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}><BookOpen size={18} color={P.vermillion} strokeWidth={2} /><span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, fontSize: 18, color: P.ink }}>LearnBox</span></div>
         </div>
-        <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <nav style={{ flex: 1, padding: '12px 10px', display: 'flex', flexDirection: isMobile ? 'row' : 'column', gap: 8, overflowX: isMobile ? 'auto' : 'visible' }}>
           {navItems.map(({ label, icon: Icon, path }, i) => {
             const active = i === 3;
             return (
-              <button key={label} onClick={() => path && navigate(path)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderLeft: active ? `3px solid ${P.vermillion}` : '3px solid transparent', background: active ? P.parchmentDark : 'transparent', color: active ? P.ink : P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: active ? 700 : 500, fontSize: 13.5, textAlign: 'left', cursor: path ? 'pointer' : 'default', width: '100%', transition: 'all 0.12s' }}
+              <button key={label} onClick={() => path && navigate(path)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none', borderLeft: !isMobile && active ? `3px solid ${P.vermillion}` : '3px solid transparent', borderBottom: isMobile && active ? `2px solid ${P.vermillion}` : '2px solid transparent', background: active ? P.parchmentDark : 'transparent', color: active ? P.ink : P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: active ? 700 : 500, fontSize: 13.5, textAlign: 'left', cursor: path ? 'pointer' : 'default', width: isMobile ? 'auto' : '100%', whiteSpace: 'nowrap', transition: 'all 0.12s' }}
                 onMouseEnter={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = P.parchmentDark; (e.currentTarget as HTMLElement).style.color = P.ink; }}}
                 onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = P.inkMuted; }}}
               >
@@ -111,7 +119,7 @@ export default function Summaries() {
             );
           })}
         </nav>
-        <div style={{ borderTop: `1px solid ${P.sand}`, padding: '14px 10px' }}>
+        <div style={{ borderTop: `1px solid ${P.sand}`, padding: '14px 10px', display: isMobile ? 'none' : 'block' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 12px', marginBottom: 4 }}>
             <div style={{ width: 30, height: 30, background: P.inkMuted, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 800, fontSize: 13, color: P.parchment }}>{(user?.first_name || 'S').charAt(0).toUpperCase()}</span></div>
             <p style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 13, color: P.ink, margin: 0 }}>{user?.first_name || user?.username}</p>
@@ -124,26 +132,26 @@ export default function Summaries() {
         </div>
       </aside>
 
-      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <header style={{ background: P.parchmentLight, borderBottom: `1px solid ${P.sand}`, padding: '0 32px', height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+      <main style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
+        <header style={{ background: P.parchmentLight, borderBottom: `1px solid ${P.sand}`, padding: isMobile ? '12px 16px' : '0 32px', minHeight: 60, display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', justifyContent: 'space-between', gap: 12, flexShrink: 0 }}>
           <h1 style={{ fontFamily: "'Playfair Display', serif", fontSize: 20, fontWeight: 800, color: P.ink, margin: 0 }}>Document Summaries</h1>
           <button onClick={() => setShowHistory(!showHistory)} style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', border: `1px solid ${P.sand}`, background: showHistory ? P.parchmentDark : 'transparent', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.ink, cursor: 'pointer' }}>
             <Clock size={13} /> History ({history.length})
           </button>
         </header>
-        <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: isMobile ? 'column' : 'row', overflow: 'hidden' }}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? '16px' : '24px 32px', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {messages.map((msg, i) => (
                 <div key={i} style={{ display: 'flex', justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start' }}>
-                  <div style={{ maxWidth: '72%', background: msg.role === 'user' ? P.ink : P.parchmentLight, color: msg.role === 'user' ? P.parchment : P.ink, border: `1px solid ${msg.role === 'user' ? 'transparent' : P.sand}`, padding: '12px 16px', fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, lineHeight: 1.65 }}>
+                  <div style={{ maxWidth: isMobile ? '100%' : '72%', background: msg.role === 'user' ? P.ink : P.parchmentLight, color: msg.role === 'user' ? P.parchment : P.ink, border: `1px solid ${msg.role === 'user' ? 'transparent' : P.sand}`, padding: '12px 16px', fontFamily: "'Lora', Georgia, serif", fontSize: 13.5, lineHeight: 1.65 }}>
                     {msg.isUploading ? <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><Loader2 size={14} style={{ animation: 'spin 0.8s linear infinite' }} /><span>{msg.content}</span></div> : <div style={{ whiteSpace: 'pre-line' }}>{msg.content}</div>}
                   </div>
                 </div>
               ))}
               <div ref={chatEndRef} />
             </div>
-            <div style={{ borderTop: `1px solid ${P.sand}`, background: P.parchmentLight, padding: '16px 32px', flexShrink: 0, display: 'flex', gap: 12, alignItems: 'center' }}>
+            <div style={{ borderTop: `1px solid ${P.sand}`, background: P.parchmentLight, padding: isMobile ? '16px' : '16px 32px', flexShrink: 0, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <input type="file" ref={fileInputRef} onChange={upload} accept=".pdf" style={{ display: 'none' }} disabled={isProcessing} />
               <button onClick={() => fileInputRef.current?.click()} disabled={isProcessing} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', background: P.inkMuted, color: P.parchmentLight, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 13, letterSpacing: '0.06em', textTransform: 'uppercase', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.6 : 1, transition: 'background 0.15s' }}
                 onMouseEnter={e => { if (!isProcessing) (e.currentTarget as HTMLElement).style.background = P.vermillion; }}
@@ -156,7 +164,7 @@ export default function Summaries() {
             </div>
           </div>
           {showHistory && (
-            <div style={{ width: 280, borderLeft: `1px solid ${P.sand}`, background: P.parchmentLight, overflowY: 'auto', flexShrink: 0 }}>
+            <div style={{ width: isMobile ? '100%' : 280, borderLeft: isMobile ? 'none' : `1px solid ${P.sand}`, borderTop: isMobile ? `1px solid ${P.sand}` : 'none', background: P.parchmentLight, overflowY: 'auto', flexShrink: 0, maxHeight: isMobile ? 280 : 'none' }}>
               <div style={{ padding: '16px 20px', borderBottom: `1px solid ${P.sand}` }}>
                 <h3 style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.1em', textTransform: 'uppercase', color: P.ink, margin: 0 }}>Summary History</h3>
               </div>
