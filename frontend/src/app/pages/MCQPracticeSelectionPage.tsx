@@ -1,5 +1,5 @@
 /**
- * MCQ Practice Selection Page — Paper & Ink Theme
+ * MCQ Practice Selection Page 
  */
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';

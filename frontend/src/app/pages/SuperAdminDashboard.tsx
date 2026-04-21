@@ -1,5 +1,5 @@
 /**
- * Super Admin Dashboard — Paper & Ink Theme
+ * Super Admin Dashboard 
  * Full platform access - manage colleges and create college admins
  */
 
@@ -239,10 +239,10 @@ export default function SuperAdminDashboard() {
   const handleSaveCollege = async () => {
     if (!validateCollegeForm()) return;
     try {
-      if (editingCollege) { await collegeAPI.update(editingCollege.id, collegeForm); toast.success('College updated successfully'); }
-      else { await collegeAPI.create(collegeForm); toast.success('College created successfully'); }
+      if (editingCollege) { await collegeAPI.update(editingCollege.id, collegeForm); toast.success('College updated.'); }
+      else { await collegeAPI.create(collegeForm); toast.success('College created.'); }
       setShowCollegeModal(false); setEditingCollege(null); setCollegeForm({name:'',code:'',location:'',description:'',address:'',email:'',contactNumber:'',isActive:true}); fetchAllData();
-    } catch { toast.error('Failed to save'); }
+    } catch { toast.error('Could not save college.'); }
   };
 
   const confirmDelete = async () => {
@@ -251,7 +251,13 @@ export default function SuperAdminDashboard() {
       if (deleteConf.type === 'college') await collegeAPI.delete(deleteConf.id, true);
       else if (deleteConf.type === 'user') await userAPI.delete(deleteConf.id);
       else await llmConfigAPI.delete(deleteConf.id);
-      toast.success('College deleted successfully'); fetchAllData();
+      toast.success(
+        deleteConf.type === 'college'
+          ? 'College deleted.'
+          : deleteConf.type === 'user'
+          ? 'User deleted.'
+          : 'LLM configuration deleted.'
+      ); fetchAllData();
     } catch (error: any) {
       const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Delete failed';
       toast.error(errorMessage);
@@ -259,7 +265,7 @@ export default function SuperAdminDashboard() {
     finally { setIsDeleting(false); setDeleteConf({ open: false, type: 'college', id: null, name: '' }); }
   };
 
-  const handleToggleCollegeStatus = async (c: College) => { try { await collegeAPI.update(c.id, { isActive: !c.isActive }); toast.success('Active status changed'); fetchAllData(); } catch { toast.error('Failed'); } };
+  const handleToggleCollegeStatus = async (c: College) => { try { await collegeAPI.update(c.id, { isActive: !c.isActive }); toast.success(c.isActive ? 'College deactivated.' : 'College activated.'); fetchAllData(); } catch { toast.error('Could not update college status.'); } };
 
   const validateUserForm = () => {
     // Username validation: Required, at least 3 characters, alphanumeric with underscores/hyphens
@@ -299,7 +305,7 @@ export default function SuperAdminDashboard() {
 
     // College Affiliation: Required if not SUPER_ADMIN
     if (!userForm.roles.includes('SUPER_ADMIN') && !userForm.collegeId) {
-      toast.error('College affiliation is required for non-admin users');
+      toast.error('Select a college for this user.');
       return false;
     }
 
@@ -311,29 +317,29 @@ export default function SuperAdminDashboard() {
     if (!validateUserForm()) return;
     try {
       await userAPI.update(editingUser.id, { ...userForm, collegeId: userForm.roles.includes('SUPER_ADMIN')?null:(userForm.collegeId?parseInt(userForm.collegeId):null) });
-      toast.success('User updated successfully'); setShowUserModal(false); setEditingUser(null); fetchAllData();
-    } catch { toast.error('Failed to update user'); }
+      toast.success('User updated.'); setShowUserModal(false); setEditingUser(null); fetchAllData();
+    } catch { toast.error('Could not update user.'); }
   };
 
   const handleToggleUserStatus = async (u: UserData) => {
-    if (u.id === user?.id) { toast.error('Cannot deactivate own account'); return; }
-    try { await userAPI.update(u.id, { isActive: !(u.isActive ?? true) }); toast.success('Status updated Successfully'); fetchAllData(); } catch { toast.error('Failed to update user status'); }
+    if (u.id === user?.id) { toast.error('You cannot deactivate your own account.'); return; }
+    try { await userAPI.update(u.id, { isActive: !(u.isActive ?? true) }); toast.success((u.isActive ?? true) ? 'User deactivated.' : 'User activated.'); fetchAllData(); } catch { toast.error('Could not update user status.'); }
   };
 
   const handleSaveLLM = async () => {
-    if (!llmForm.name || !llmForm.provider) { toast.error('Fill required fields'); return; }
+    if (!llmForm.name || !llmForm.provider) { toast.error('Enter all required fields.'); return; }
     try {
-      if (editingLLM) { await llmConfigAPI.update(editingLLM.id, llmForm); toast.success('LLM updated successfully'); }
-      else { await llmConfigAPI.create(llmForm); toast.success('LLM created successfully'); }
+      if (editingLLM) { await llmConfigAPI.update(editingLLM.id, llmForm); toast.success('LLM configuration updated.'); }
+      else { await llmConfigAPI.create(llmForm); toast.success('LLM configuration created.'); }
       setShowLLMModal(false); setEditingLLM(null);
       setLlmForm({ name: '', provider: 'OLLAMA', isActive: false, ollamaUrl: 'http://localhost:11434', ollamaModel: 'gemma3:1b', groqApiKey: '', groqModel: '', temperature: 0.7, maxTokens: 1000, topP: 0.9 });
       fetchAllData();
-    } catch { toast.error('Failed to create/update LLM'); }
+    } catch { toast.error('Could not save LLM configuration.'); }
   };
 
   const confirmActivateLLM = async () => {
     if(!activateLLMId) return; setIsActivating(true);
-    try { await llmConfigAPI.activate(activateLLMId); toast.success('Activated'); fetchAllData(); } catch { toast.error('Failed'); }
+    try { await llmConfigAPI.activate(activateLLMId); toast.success('LLM configuration activated.'); fetchAllData(); } catch { toast.error('Could not activate LLM configuration.'); }
     finally { setIsActivating(false); setActivateLLMConfirmOpen(false); setActivateLLMId(null); setActivateLLMName(''); }
   };
 
@@ -765,9 +771,16 @@ export default function SuperAdminDashboard() {
 
       {/* Modals from external components */}
       <LogoutConfirmDialog isOpen={logoutConfirm.isOpen} onConfirm={logoutConfirm.onConfirm} onCancel={logoutConfirm.onCancel} isLoading={logoutConfirm.isLoading} />
-      {showInviteModal && <InviteCollegeAdminModal isOpen={showInviteModal} onClose={() => setShowInviteModal(false)} colleges={colleges as any} onInvitationSent={function (invitation: any): void {
-        throw new Error('Function not implemented.');
-      } } />}
+      {showInviteModal && (
+        <InviteCollegeAdminModal
+          isOpen={showInviteModal}
+          onClose={() => setShowInviteModal(false)}
+          colleges={colleges as any}
+          onInvitationSent={() => {
+            fetchAllData();
+          }}
+        />
+      )}
     </div>
   );
 }

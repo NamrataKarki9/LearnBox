@@ -1,5 +1,5 @@
 /**
- * Admin Dashboard Layout — Paper & Ink Theme
+ * Admin Dashboard Layout 
  */
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';

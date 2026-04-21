@@ -4,11 +4,11 @@ import { mcqAPI, quizAPI, resourceAPI, MCQ, QuizAnswerDetail, QuizResult, Recomm
 import { API_BASE } from '../../config';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 
-// 🔒 Global in-memory cache for MCQs (survives navigation)
+//  Global in-memory cache for MCQs (survives navigation)
 let GLOBAL_MCQ_CACHE: any[] | null = null;
 const setGlobalMCQCache = (data: any[] | null) => {
   GLOBAL_MCQ_CACHE = data;
-  console.log('💾 Global MCQ cache updated:', GLOBAL_MCQ_CACHE?.length, 'questions');
+  console.log(' Global MCQ cache updated:', GLOBAL_MCQ_CACHE?.length, 'questions');
 };
 const getGlobalMCQCache = () => GLOBAL_MCQ_CACHE;
 

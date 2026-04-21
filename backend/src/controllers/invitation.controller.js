@@ -199,9 +199,14 @@ export const acceptInvitationAndRegister = async (req, res) => {
         );
 
         if (!acceptResult.success) {
-            const statusCode = acceptResult.field 
-                ? HTTP_STATUS.BAD_REQUEST 
-                : HTTP_STATUS.CONFLICT;
+            let statusCode = HTTP_STATUS.BAD_REQUEST;
+
+            if (acceptResult.field === 'username' || acceptResult.field === 'email') {
+                statusCode = HTTP_STATUS.CONFLICT;
+            } else if (acceptResult.field === 'server') {
+                statusCode = HTTP_STATUS.INTERNAL_SERVER_ERROR;
+            }
+
             return res.status(statusCode).json({
                 success: false,
                 error: acceptResult.error,

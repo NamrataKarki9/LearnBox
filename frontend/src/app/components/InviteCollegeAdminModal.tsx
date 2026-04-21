@@ -81,7 +81,11 @@ export function InviteCollegeAdminModal({
       const responseData = response.data || response;
       
       if (responseData.success && responseData.invitation) {
-        toast.success('Invitation sent successfully! Email sent to ' + formData.email);
+        if (responseData.warning) {
+          toast.warning(responseData.warning);
+        } else {
+          toast.success('Invitation successfully sent.');
+        }
         onInvitationSent(responseData.invitation);
         
         // Reset form

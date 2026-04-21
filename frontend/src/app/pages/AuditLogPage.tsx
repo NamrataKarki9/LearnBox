@@ -1,5 +1,5 @@
 /**
- * Audit Log Page — Paper & Ink Theme
+ * Audit Log Page 
  * View activity tracking for college admin actions
  */
 

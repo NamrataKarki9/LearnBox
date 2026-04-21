@@ -6,7 +6,8 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { toast } from 'sonner';
-import { AlertCircle, CheckCircle, Lock, User, Mail, Building2, Eye, EyeOff } from 'lucide-react';
+import { AlertCircle, CheckCircle, Lock, User, Building2, Eye, EyeOff } from 'lucide-react';
+import { validateUsername, validatePassword } from '../../utils/validators';
 
 export default function InvitationAcceptPage() {
   const [searchParams] = useSearchParams();
@@ -26,9 +27,7 @@ export default function InvitationAcceptPage() {
     lastName: ''
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
-  const [passwordStrength, setPasswordStrength] = useState<
-    'weak' | 'medium' | 'strong'
-  >('weak');
+  const nameRegex = /^[a-zA-Z\s'-]+$/;
 
   // Validate invitation token on mount
   useEffect(() => {
@@ -95,39 +94,83 @@ export default function InvitationAcceptPage() {
     validateToken();
   }, [token]);
 
-  const checkPasswordStrength = (password: string) => {
-    if (password.length < 8) {
-      setPasswordStrength('weak');
-    } else if (password.length < 12 || !/\d/.test(password) || !/[A-Z]/.test(password)) {
-      setPasswordStrength('medium');
-    } else {
-      setPasswordStrength('strong');
+  const validateNameField = (value: string, label: string) => {
+    if (!value.trim()) {
+      return '';
+    }
+
+    if (!nameRegex.test(value.trim())) {
+      return `${label} looks invalid.`;
+    }
+
+    return '';
+  };
+
+  const validateField = (field: string, value: string) => {
+    switch (field) {
+      case 'username': {
+        const validation = validateUsername(value);
+        if (!validation.valid) {
+          return value.trim()
+            ? 'Choose a valid username.'
+            : 'Enter your username.';
+        }
+        return '';
+      }
+      case 'password': {
+        const validation = validatePassword(value);
+        if (!validation.valid) {
+          if (!value) return 'Enter your password.';
+          return validation.errors[0] || 'Use a stronger password.';
+        }
+        return '';
+      }
+      case 'firstName':
+        return validateNameField(value, 'First name');
+      case 'lastName':
+        return validateNameField(value, 'Last name');
+      default:
+        return '';
     }
   };
 
   const validateForm = () => {
-    const newErrors: Record<string, string> = {};
+    const newErrors: Record<string, string> = {
+      username: validateField('username', formData.username),
+      password: validateField('password', formData.password),
+      firstName: validateField('firstName', formData.firstName),
+      lastName: validateField('lastName', formData.lastName),
+    };
 
-    if (!formData.username.trim()) {
-      newErrors.username = 'Username is required';
-    }
-
-    if (!formData.password.trim()) {
-      newErrors.password = 'Password is required';
-    } else {
-      if (formData.password.length < 8) {
-        newErrors.password = 'Password must be at least 8 characters';
+    Object.keys(newErrors).forEach((key) => {
+      if (!newErrors[key]) {
+        delete newErrors[key];
       }
-      if (!/\d/.test(formData.password)) {
-        newErrors.password = 'Password must contain at least one number';
-      }
-      if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(formData.password)) {
-        newErrors.password = 'Password must contain at least one special character';
-      }
-    }
+    });
 
     setFormErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+
+    const firstError = Object.values(newErrors)[0];
+    if (firstError) {
+      toast.error(firstError);
+      return false;
+    }
+
+    return true;
+  };
+
+  const updateField = (field: keyof typeof formData, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+
+    if (formErrors[field]) {
+      const nextError = validateField(field, value);
+      setFormErrors((prev) => ({ ...prev, [field]: nextError }));
+    }
+  };
+
+  const handleFieldBlur = (field: keyof typeof formData) => {
+    const nextError = validateField(field, formData[field]);
+    setFormErrors((prev) => ({ ...prev, [field]: nextError }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -148,9 +191,11 @@ export default function InvitationAcceptPage() {
         lastName: formData.lastName.trim()
       });
 
-      if (response.success) {
+      const responseData = response.data || response;
+
+      if (responseData.success) {
         setValidationState('success');
-        toast.success('Registration completed! Redirecting to login...');
+        toast.success(responseData.message || 'Registration completed! Redirecting to login...');
         
         // Redirect to login after 2 seconds
         setTimeout(() => {
@@ -158,60 +203,65 @@ export default function InvitationAcceptPage() {
         }, 2000);
       } else {
         setValidationState('valid');
-        toast.error(response.error || 'Registration failed');
+        toast.error(responseData.error || 'Registration failed');
       }
     } catch (error: any) {
       console.error('Error registering:', error);
       setValidationState('valid');
+      const field = error?.response?.data?.field;
+      const errorMessage =
+        error?.response?.data?.error ||
+        'Could not complete registration.';
+
+      if (field && field !== 'token' && field !== 'server') {
+        setFormErrors((prev) => ({ ...prev, [field]: errorMessage }));
+      }
+
       toast.error(
-        error?.response?.data?.error || 
-        'Failed to complete registration. Please try again.'
+        errorMessage
       );
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#7C9E9E]/10 to-[#A8C5B5]/10 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center space-y-2">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 sm:p-6">
+      <Card className="w-full max-w-md border-border shadow-sm">
+        <CardHeader className="space-y-3 border-b text-center">
           <div className="flex justify-center">
-            <div className="bg-[#7C9E9E]/10 p-3">
-              <Building2 className="h-8 w-8 text-[#7C9E9E]" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border bg-muted/40">
+              <Building2 className="h-6 w-6 text-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl">College Admin Registration</CardTitle>
-          <CardDescription>
+          <CardTitle className="text-2xl font-semibold tracking-tight">College Admin Registration</CardTitle>
+          <CardDescription className="text-sm">
             Complete your registration to become a College Admin
           </CardDescription>
         </CardHeader>
 
-        <CardContent>
+        <CardContent className="pt-6">
           {/* Loading State */}
           {validationState === 'loading' && (
             <div className="space-y-4 text-center py-8">
               <div className="inline-block">
-                <div className="w-8 h-8 border-4 border-[#7C9E9E]/20 border-t-[#7C9E9E] animate-spin" />
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-border border-t-foreground" />
               </div>
-              <p className="text-ink-secondary">Validating your invitation...</p>
+              <p className="text-sm text-muted-foreground">Validating your invitation...</p>
             </div>
           )}
 
           {/* Invalid State */}
           {validationState === 'invalid' && (
             <div className="space-y-4 py-8">
-              <div className="bg-red-50 border border-red-200 p-4 space-y-2">
+              <div className="space-y-2 rounded-lg border border-destructive/20 bg-destructive/5 p-4">
                 <div className="flex gap-2">
-                  <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
+                  <AlertCircle className="h-5 w-5 text-destructive flex-shrink-0" />
                   <div>
-                    <p className="font-semibold text-red-900">Invalid Invitation</p>
-                    <p className="text-sm text-red-700 mt-1">{error}</p>
+                    <p className="font-semibold text-foreground">Invalid Invitation</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{error}</p>
                   </div>
                 </div>
               </div>
-              <Button
-                onClick={() => navigate('/login')}
-                className="w-full"
-              >
+              <Button onClick={() => navigate('/login')} className="w-full">
                 Back to Login
               </Button>
             </div>
@@ -221,16 +271,16 @@ export default function InvitationAcceptPage() {
           {validationState === 'valid' && (
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Invitation Info */}
-              <div className="bg-blue-50 border border-blue-200 p-3 space-y-2">
-                <p className="text-sm text-blue-700 font-semibold">Invitation Details:</p>
-                <div className="space-y-1 text-sm text-blue-600">
+              <div className="space-y-2 rounded-lg border bg-muted/30 p-4">
+                <p className="text-sm font-semibold text-foreground">Invitation Details</p>
+                <div className="space-y-1 text-sm text-muted-foreground">
                   <p>
                     <span className="font-medium">To:</span> {invitation?.inviteeEmail}
                   </p>
                   <p>
                     <span className="font-medium">College:</span> {invitation?.college?.name}
                   </p>
-                  <p className="text-xs text-blue-500">
+                  <p className="text-xs">
                     Expires: {new Date(invitation?.expiresAt).toLocaleDateString()}
                   </p>
                 </div>
@@ -247,16 +297,13 @@ export default function InvitationAcceptPage() {
                   type="text"
                   placeholder="Choose your username"
                   value={formData.username}
-                  onChange={(e) => {
-                    setFormData({ ...formData, username: e.target.value });
-                    if (formErrors.username) {
-                      setFormErrors({ ...formErrors, username: '' });
-                    }
-                  }}
-                  className={formErrors.username ? 'border-red-500' : ''}
+                  onChange={(e) => updateField('username', e.target.value)}
+                  onBlur={() => handleFieldBlur('username')}
+                  autoComplete="username"
+                  aria-invalid={!!formErrors.username}
                 />
                 {formErrors.username && (
-                  <p className="text-sm text-red-500">{formErrors.username}</p>
+                  <p className="text-sm text-destructive">{formErrors.username}</p>
                 )}
               </div>
 
@@ -270,21 +317,18 @@ export default function InvitationAcceptPage() {
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
-                    placeholder="Enter a strong password"
+                    placeholder="Create your password"
                     value={formData.password}
-                    onChange={(e) => {
-                      setFormData({ ...formData, password: e.target.value });
-                      checkPasswordStrength(e.target.value);
-                      if (formErrors.password) {
-                        setFormErrors({ ...formErrors, password: '' });
-                      }
-                    }}
-                    className={formErrors.password ? 'border-red-500 pr-10' : 'pr-10'}
+                    onChange={(e) => updateField('password', e.target.value)}
+                    onBlur={() => handleFieldBlur('password')}
+                    autoComplete="new-password"
+                    aria-invalid={!!formErrors.password}
+                    className="pr-10"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted hover:text-ink-secondary"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {showPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -294,48 +338,12 @@ export default function InvitationAcceptPage() {
                   </button>
                 </div>
 
-                {/* Password Strength */}
-                {formData.password && (
-                  <div className="space-y-1">
-                    <div className="flex gap-1">
-                      {[1, 2, 3].map((i) => (
-                        <div
-                          key={i}
-                          className={`h-1.5 flex-1  transition-colors ${
-                            i <= (passwordStrength === 'weak' ? 1 : passwordStrength === 'medium' ? 2 : 3)
-                              ? i === 1
-                                ? 'bg-red-500'
-                                : i === 2
-                                ? 'bg-yellow-500'
-                                : 'bg-green-500'
-                              : 'bg-parchment-dark'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-xs text-ink-muted">
-                      Strength:{' '}
-                      <span
-                        className={
-                          passwordStrength === 'weak'
-                            ? 'text-red-600 font-semibold'
-                            : passwordStrength === 'medium'
-                            ? 'text-yellow-600 font-semibold'
-                            : 'text-green-600 font-semibold'
-                        }
-                      >
-                        {passwordStrength}
-                      </span>
-                    </p>
-                  </div>
-                )}
-
                 {formErrors.password && (
-                  <p className="text-sm text-red-500">{formErrors.password}</p>
+                  <p className="text-sm text-destructive">{formErrors.password}</p>
                 )}
 
-                <p className="text-xs text-ink-muted">
-                  Must contain at least 8 characters, one number and one special character
+                <p className="text-xs text-muted-foreground">
+                  Use 8+ characters with uppercase, lowercase, a number, and a symbol.
                 </p>
               </div>
 
@@ -345,10 +353,16 @@ export default function InvitationAcceptPage() {
                 <Input
                   id="firstName"
                   type="text"
-                  placeholder="John"
+                  placeholder="First name"
                   value={formData.firstName}
-                  onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                  onChange={(e) => updateField('firstName', e.target.value)}
+                  onBlur={() => handleFieldBlur('firstName')}
+                  autoComplete="given-name"
+                  aria-invalid={!!formErrors.firstName}
                 />
+                {formErrors.firstName && (
+                  <p className="text-sm text-destructive">{formErrors.firstName}</p>
+                )}
               </div>
 
               {/* Last Name */}
@@ -357,29 +371,35 @@ export default function InvitationAcceptPage() {
                 <Input
                   id="lastName"
                   type="text"
-                  placeholder="Doe"
+                  placeholder="Last name"
                   value={formData.lastName}
-                  onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                  onChange={(e) => updateField('lastName', e.target.value)}
+                  onBlur={() => handleFieldBlur('lastName')}
+                  autoComplete="family-name"
+                  aria-invalid={!!formErrors.lastName}
                 />
+                {formErrors.lastName && (
+                  <p className="text-sm text-destructive">{formErrors.lastName}</p>
+                )}
               </div>
 
               {/* Submit Button */}
               <Button
                 type="submit"
                 disabled={validationState === 'registering'}
-                className="w-full bg-[#7C9E9E] hover:bg-[#6B8D8D] text-white"
+                className="w-full"
               >
                 {validationState === 'registering'
                   ? 'Creating Account...'
                   : 'Complete Registration'}
               </Button>
 
-              <div className="text-center text-sm text-ink-secondary">
+              <div className="text-center text-sm text-muted-foreground">
                 Already have an account?{' '}
                 <button
                   type="button"
                   onClick={() => navigate('/login')}
-                  className="text-[#7C9E9E] hover:underline font-semibold"
+                  className="font-medium text-foreground underline-offset-4 hover:underline"
                 >
                   Login here
                 </button>
@@ -390,22 +410,19 @@ export default function InvitationAcceptPage() {
           {/* Success State */}
           {validationState === 'success' && (
             <div className="space-y-4 py-8 text-center">
-              <div className="bg-green-50 w-16 h-16 flex items-center justify-center mx-auto">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border bg-muted/30">
+                <CheckCircle className="h-8 w-8 text-foreground" />
               </div>
               <div className="space-y-2">
-                <p className="font-semibold text-lg text-gray-900">Registration Successful!</p>
-                <p className="text-sm text-ink-secondary">
+                <p className="text-lg font-semibold text-foreground">Registration Successful</p>
+                <p className="text-sm text-muted-foreground">
                   Your College Admin account has been created successfully.
                 </p>
-                <p className="text-xs text-ink-muted">
+                <p className="text-xs text-muted-foreground">
                   You will be redirected to login shortly...
                 </p>
               </div>
-              <Button
-                onClick={() => navigate('/login')}
-                className="w-full bg-[#7C9E9E] hover:bg-[#6B8D8D] text-white"
-              >
+              <Button onClick={() => navigate('/login')} className="w-full">
                 Go to Login
               </Button>
             </div>
@@ -415,9 +432,9 @@ export default function InvitationAcceptPage() {
           {validationState === 'registering' && (
             <div className="space-y-4 text-center py-8">
               <div className="inline-block">
-                <div className="w-8 h-8 border-4 border-[#7C9E9E]/20 border-t-[#7C9E9E] animate-spin" />
+                <div className="h-8 w-8 animate-spin rounded-full border-4 border-border border-t-foreground" />
               </div>
-              <p className="text-ink-secondary">Creating your account...</p>
+              <p className="text-sm text-muted-foreground">Creating your account...</p>
             </div>
           )}
         </CardContent>

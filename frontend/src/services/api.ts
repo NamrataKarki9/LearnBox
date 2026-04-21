@@ -207,6 +207,14 @@ export interface AcceptInvitationData {
   lastName?: string;
 }
 
+export interface AcceptInvitationResponse {
+  success: boolean;
+  message?: string;
+  user?: User;
+  error?: string;
+  field?: string;
+}
+
 export interface CreateInvitationResponse {
   success: boolean;
   invitation?: Invitation;
@@ -231,7 +239,7 @@ export interface InvitationActionResponse {
 
 export const invitationAPI = {
   validateToken: (token: string) => api.get<InvitationValidationResponse>(`/auth/validate-invitation/${token}`),
-  acceptAndRegister: (data: AcceptInvitationData) => api.post<AuthResponse>('/auth/accept-invitation', data),
+  acceptAndRegister: (data: AcceptInvitationData) => api.post<AcceptInvitationResponse>('/auth/accept-invitation', data),
   createInvitation: (data: InvitationData) => api.post<CreateInvitationResponse>('/auth/admin/invite-college-admin', data),
   getPendingInvitations: () => api.get<InvitationListResponse>('/auth/admin/invitations/pending'),
   resendInvitation: (invitationId: number) => api.post<InvitationActionResponse>(`/auth/admin/invitations/${invitationId}/resend`, {}),

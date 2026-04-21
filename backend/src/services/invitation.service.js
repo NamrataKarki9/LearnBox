@@ -204,6 +204,7 @@ export const validateInvitationToken = async (inviteToken) => {
                 id: invitation.id,
                 inviteeEmail: invitation.inviteeEmail,
                 inviteeName: invitation.inviteeName,
+                collegeId: invitation.collegeId,
                 college: invitation.college,
                 expiresAt: invitation.expiresAt
             }
@@ -238,7 +239,11 @@ export const acceptInvitation = async (
         // Validate invitation
         const validation = await validateInvitationToken(inviteToken);
         if (!validation.valid) {
-            return { success: false, error: validation.error };
+            return {
+                success: false,
+                error: validation.error,
+                field: 'token'
+            };
         }
 
         const invitation = validation.invitation;
@@ -385,6 +390,7 @@ export const acceptInvitation = async (
         return {
             success: false,
             error: 'Failed to complete registration. Please try again later.',
+            field: 'server',
             details: process.env.NODE_ENV === 'development' ? error.message : undefined
         };
     }

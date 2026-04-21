@@ -1,7 +1,6 @@
 /**
  * Student Settings Page
- * Industry-aligned settings interface for online learning platform
- * Inspired by Coursera, Udemy, LinkedIn Learning
+
  */
 
 import { useState, useEffect } from 'react';

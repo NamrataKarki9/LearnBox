@@ -1,5 +1,5 @@
 /**
- * Student Dashboard — Paper & Ink Theme
+ * Student Dashboard 
  */
 
 import { useState, useEffect } from 'react';
