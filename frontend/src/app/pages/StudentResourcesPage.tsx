@@ -4,7 +4,7 @@ import { useFilters } from '../../context/FilterContext';
 import { useNavigate } from 'react-router-dom';
 import { resourceAPI, facultyAPI, type Resource, type Faculty } from '../../services/api';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
-import { Download, FileText, BookOpen, GraduationCap, Eye, LayoutDashboard, HelpCircle, AlignLeft, Link2, Settings, LogOut, ChevronRight } from 'lucide-react';
+import { Download, FileText, BookOpen, GraduationCap, Eye, LayoutDashboard, HelpCircle, AlignLeft, Link2, Settings, LogOut, ChevronRight, Grid3x3, List } from 'lucide-react';
 import { useLogoutConfirm } from '../../hooks/useLogoutConfirm';
 import { LogoutConfirmDialog } from '../components/LogoutConfirmDialog';
 
@@ -22,6 +22,9 @@ export default function StudentResourcesPage() {
   const [error, setError] = useState('');
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewingResource, setViewingResource] = useState<{ url: string; title: string } | null>(null);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [currentPage, setCurrentPage] = useState(0);
+  const pageSize = 5;
   const isMobile = viewportWidth < 768;
   const isTablet = viewportWidth < 1024;
 
@@ -45,6 +48,7 @@ export default function StudentResourcesPage() {
         if (filters.moduleId !== 'all') params.moduleId = parseInt(filters.moduleId);
         const r = await resourceAPI.filter(params);
         setResources(r.data.data || []);
+        setCurrentPage(0); // Reset pagination when resources change
       } catch (e: any) { setError(e.response?.data?.error || 'Failed to fetch resources'); }
       finally { setLoading(false); }
     };
@@ -53,6 +57,20 @@ export default function StudentResourcesPage() {
 
   const handleDownload = (id: number) => { try { window.open(resourceAPI.getDownloadUrl(id), '_blank', 'noopener,noreferrer'); } catch {} };
   const handleView = (r: Resource) => { try { setViewingResource({ url: resourceAPI.getDownloadUrl(r.id), title: r.title }); setViewerOpen(true); } catch {} };
+
+  // Pagination logic
+  const paginatedResources = resources.slice(currentPage * pageSize, (currentPage + 1) * pageSize);
+  const totalPages = Math.ceil(resources.length / pageSize);
+
+  const PaginationControls = () => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: P.parchmentLight, borderTop: `1px solid ${P.sand}`, marginTop: 0 }}>
+      <span style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 12, color: P.inkSecondary }}>Page {currentPage + 1} of {totalPages}</span>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={() => setCurrentPage(currentPage - 1)} disabled={currentPage === 0} style={{ padding: '6px 12px', background: currentPage === 0 ? P.parchment : P.ink, color: currentPage === 0 ? P.inkMuted : P.parchmentLight, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, textTransform: 'uppercase', cursor: currentPage === 0 ? 'not-allowed' : 'pointer' }}>Previous</button>
+        <button onClick={() => setCurrentPage(currentPage + 1)} disabled={currentPage >= totalPages - 1} style={{ padding: '6px 12px', background: currentPage >= totalPages - 1 ? P.parchment : P.ink, color: currentPage >= totalPages - 1 ? P.inkMuted : P.parchmentLight, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, textTransform: 'uppercase', cursor: currentPage >= totalPages - 1 ? 'not-allowed' : 'pointer' }}>Next</button>
+      </div>
+    </div>
+  );
 
   const faculty = faculties.find(f => f.id.toString() === filters.facultyId);
   const filterLabel = [
@@ -128,11 +146,21 @@ export default function StudentResourcesPage() {
             <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 12, fontWeight: 600, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.inkMuted }}>Viewing:</span>
             <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 13, fontWeight: 700, color: P.ink }}>{filterLabel}</span>
           </div>
-          <button onClick={() => navigate('/student/dashboard')} style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '7px 16px', border: `1px solid ${P.sand}`, background: 'transparent', color: P.inkSecondary, cursor: 'pointer', transition: 'all 0.12s' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = P.parchmentDark; (e.currentTarget as HTMLElement).style.borderColor = P.ink; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.borderColor = P.sand; }}>
-            Change Selection
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div style={{ display: 'flex', gap: 0, boxShadow: `inset 0 0 0 1px ${P.sand}` }}>
+              <button onClick={() => { setViewMode('grid'); setCurrentPage(0); }} style={{ padding: '6px 12px', background: viewMode === 'grid' ? P.parchmentDark : 'transparent', color: viewMode === 'grid' ? P.ink : P.inkSecondary, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Grid3x3 size={13} /> Grid
+              </button>
+              <button onClick={() => { setViewMode('list'); setCurrentPage(0); }} style={{ padding: '6px 12px', background: viewMode === 'list' ? P.parchmentDark : 'transparent', color: viewMode === 'list' ? P.ink : P.inkSecondary, border: 'none', boxShadow: `inset -1px 0 0 ${P.sand}`, fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, fontWeight: 700, textTransform: 'uppercase', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4 }}>
+                <List size={13} /> List
+              </button>
+            </div>
+            <button onClick={() => navigate('/student/dashboard')} style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 12, letterSpacing: '0.06em', textTransform: 'uppercase', padding: '7px 16px', border: `1px solid ${P.sand}`, background: 'transparent', color: P.inkSecondary, cursor: 'pointer', transition: 'all 0.12s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = P.parchmentDark; (e.currentTarget as HTMLElement).style.borderColor = P.ink; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.borderColor = P.sand; }}>
+              Change Selection
+            </button>
+          </div>
         </div>
 
         {/* Error */}
@@ -155,34 +183,80 @@ export default function StudentResourcesPage() {
             </p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 0, border: `1px solid ${P.sand}` }}>
-            {resources.map((res, i) => (
-              <div key={res.id} style={{ background: P.parchmentLight, padding: '22px 24px', borderRight: !isTablet && i % 3 < 2 ? `1px solid ${P.sand}` : isTablet && !isMobile && i % 2 === 0 ? `1px solid ${P.sand}` : 'none', borderBottom: i < resources.length - (isMobile ? 1 : isTablet ? 2 : (resources.length % 3 || 3)) ? `1px solid ${P.sand}` : 'none', transition: 'background 0.15s' }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = P.parchmentDark}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = P.parchmentLight}
-              >
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-                  <div style={{ width: 36, height: 36, background: P.parchmentDark, border: `1px solid ${P.sand}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <FileText size={16} color={P.vermillion} strokeWidth={2} />
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700, color: P.ink, marginBottom: 6, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{res.title}</h3>
-                    {res.description && <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 12.5, color: P.inkMuted, marginBottom: 10, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden' }}>{res.description}</p>}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <GraduationCap size={11} color={P.inkMuted} />
-                        <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, letterSpacing: '0.04em' }}>{res.faculty?.code} — {res.faculty?.name}</span>
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <BookOpen size={11} color={P.inkMuted} />
-                        <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, letterSpacing: '0.04em' }}>Year {res.year} — {res.module?.name}</span>
+          <>
+            {viewMode === 'grid' ? (
+              <div style={{ border: `1px solid ${P.sand}` }}>
+                <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : isTablet ? 'repeat(2, 1fr)' : 'repeat(3, 1fr)', gap: 0 }}>
+                  {paginatedResources.map((res, i) => (
+                    <div key={res.id} style={{ background: P.parchmentLight, padding: '22px 24px', borderRight: !isTablet && i % 3 < 2 ? `1px solid ${P.sand}` : isTablet && !isMobile && i % 2 === 0 ? `1px solid ${P.sand}` : 'none', borderBottom: i < paginatedResources.length - 1 ? `1px solid ${P.sand}` : 'none', transition: 'background 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = P.parchmentDark}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = P.parchmentLight}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+                        <div style={{ width: 36, height: 36, background: P.parchmentDark, border: `1px solid ${P.sand}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <FileText size={16} color={P.vermillion} strokeWidth={2} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700, color: P.ink, marginBottom: 6, lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{res.title}</h3>
+                          {res.description && <p style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 12.5, color: P.inkMuted, marginBottom: 10, lineHeight: 1.55, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden' }}>{res.description}</p>}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 14 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <GraduationCap size={11} color={P.inkMuted} />
+                              <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, letterSpacing: '0.04em' }}>{res.faculty?.code} — {res.faculty?.name}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <BookOpen size={11} color={P.inkMuted} />
+                              <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, letterSpacing: '0.04em' }}>Year {res.year} — {res.module?.name}</span>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, color: P.inkMuted, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                              {new Date(res.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </span>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button onClick={() => handleView(res)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', border: `1px solid ${P.sand}`, background: 'transparent', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.inkSecondary, cursor: 'pointer' }}>
+                                <Eye size={12} strokeWidth={2} /> View
+                              </button>
+                              <button onClick={() => handleDownload(res.id)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', border: 'none', background: P.inkMuted, fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.parchment, cursor: 'pointer' }}>
+                                <Download size={12} strokeWidth={2} /> DL
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, color: P.inkMuted, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                        {new Date(res.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </span>
-                      <div style={{ display: 'flex', gap: 8 }}>
+                  ))}
+                </div>
+                {totalPages > 1 && <PaginationControls />}
+              </div>
+            ) : (
+              <div style={{ border: `1px solid ${P.sand}`, background: P.parchmentLight }}>
+                <div>
+                  {paginatedResources.map((res, i) => (
+                    <div key={res.id} style={{ display: 'flex', alignItems: 'center', gap: 16, padding: '18px 24px', borderBottom: i < paginatedResources.length - 1 ? `1px solid ${P.sand}` : 'none', transition: 'background 0.15s' }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = P.parchmentDark}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = P.parchmentLight}
+                    >
+                      <div style={{ width: 36, height: 36, background: P.parchmentDark, border: `1px solid ${P.sand}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <FileText size={16} color={P.vermillion} strokeWidth={2} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <h3 style={{ fontFamily: "'Playfair Display', serif", fontSize: 15, fontWeight: 700, color: P.ink, marginBottom: 4 }}>{res.title}</h3>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 6 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <GraduationCap size={11} color={P.inkMuted} />
+                            <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, letterSpacing: '0.04em' }}>{res.faculty?.code} — {res.faculty?.name}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <BookOpen size={11} color={P.inkMuted} />
+                            <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, color: P.inkMuted, letterSpacing: '0.04em' }}>Year {res.year} — {res.module?.name}</span>
+                          </div>
+                          <span style={{ fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 10, color: P.inkMuted, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                            {new Date(res.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
                         <button onClick={() => handleView(res)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 12px', border: `1px solid ${P.sand}`, background: 'transparent', fontFamily: "'Barlow Semi Condensed', sans-serif", fontWeight: 700, fontSize: 11, letterSpacing: '0.06em', textTransform: 'uppercase', color: P.inkSecondary, cursor: 'pointer' }}>
                           <Eye size={12} strokeWidth={2} /> View
                         </button>
@@ -191,11 +265,12 @@ export default function StudentResourcesPage() {
                         </button>
                       </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
+                {totalPages > 1 && <PaginationControls />}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </main>
 

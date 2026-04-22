@@ -79,6 +79,12 @@ export default function SuperAdminDashboard() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Pagination state
+  const pageSize = 5;
+  const [collegeCurrentPage, setCollegeCurrentPage] = useState(0);
+  const [userCurrentPage, setUserCurrentPage] = useState(0);
+  const [llmCurrentPage, setLlmCurrentPage] = useState(0);
+  
   const [deleteConf, setDeleteConf] = useState<{ open: boolean, type: 'college'|'user'|'llm', id: number|null, name: string }>({ open: false, type: 'college', id: null, name: '' });
   const [activateLLMConfirmOpen, setActivateLLMConfirmOpen] = useState(false);
   const [activateLLMId, setActivateLLMId] = useState<number|null>(null);
@@ -360,6 +366,30 @@ export default function SuperAdminDashboard() {
   });
 
   const visibleColleges = colleges.filter(c => collegeView==='all' || (collegeView==='active'?c.isActive:!c.isActive));
+  
+  // Paginated data
+  const paginatedColleges = visibleColleges.slice(collegeCurrentPage * pageSize, (collegeCurrentPage + 1) * pageSize);
+  const totalCollegePages = Math.ceil(visibleColleges.length / pageSize);
+  
+  const paginatedUsers = filteredUsers.slice(userCurrentPage * pageSize, (userCurrentPage + 1) * pageSize);
+  const totalUserPages = Math.ceil(filteredUsers.length / pageSize);
+  
+  const paginatedLlmConfigs = llmConfigs.slice(llmCurrentPage * pageSize, (llmCurrentPage + 1) * pageSize);
+  const totalLlmPages = Math.ceil(llmConfigs.length / pageSize);
+  
+  // Reset to first page when filters/search changes
+  useEffect(() => { setCollegeCurrentPage(0); }, [collegeView]);
+  useEffect(() => { setUserCurrentPage(0); }, [filterRole, filterStatus, searchTerm]);
+
+  const PaginationControls = ({ currentPage, totalPages, onPageChange }: { currentPage: number; totalPages: number; onPageChange: (page: number) => void }) => (
+    <div style={{ padding: '12px 16px', background: P.parchmentLight, borderTop: `1px solid ${P.sandLight}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <span style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 12, color: P.inkSecondary }}>Page {currentPage + 1} of {totalPages}</span>
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={() => onPageChange(currentPage - 1)} disabled={currentPage === 0} style={{ padding: '6px 12px', background: currentPage === 0 ? P.parchment : P.ink, color: currentPage === 0 ? P.inkMuted : P.parchmentLight, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, textTransform: 'uppercase', cursor: currentPage === 0 ? 'not-allowed' : 'pointer' }}>Previous</button>
+        <button onClick={() => onPageChange(currentPage + 1)} disabled={currentPage >= totalPages - 1} style={{ padding: '6px 12px', background: currentPage >= totalPages - 1 ? P.parchment : P.ink, color: currentPage >= totalPages - 1 ? P.inkMuted : P.parchmentLight, border: 'none', fontFamily: "'Barlow Semi Condensed', sans-serif", fontSize: 11, fontWeight: 700, textTransform: 'uppercase', cursor: currentPage >= totalPages - 1 ? 'not-allowed' : 'pointer' }}>Next</button>
+      </div>
+    </div>
+  );
 
   const roleText = (r:string[]) => r.includes('SUPER_ADMIN')?'Super Admin':r.includes('COLLEGE_ADMIN')?'College Admin':'Student';
   const roleColor = (r:string[]) => r.includes('SUPER_ADMIN')?P.purple:r.includes('COLLEGE_ADMIN')?P.inkSecondary:P.moss;
@@ -501,7 +531,7 @@ export default function SuperAdminDashboard() {
                       <tr>{['Name & Code','Location','Description','Address','Email','Contact','Status','Actions'].map(l=><th key={l} style={{ padding:'12px 16px', background:P.parchmentDark, borderBottom:`1px solid ${P.sandLight}`, fontFamily:"'Barlow Semi Condensed', sans-serif", fontSize:11, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', color:P.inkSecondary, textAlign:'left' }}>{l}</th>)}</tr>
                     </thead>
                     <tbody>
-                      {visibleColleges.map((c, i) => (
+                      {paginatedColleges.map((c, i) => (
                         <tr key={c.id} style={{ borderBottom: `1px solid ${P.sandLight}` }}>
                           <td style={{ padding: '12px 16px' }}>
                             <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 14, fontWeight: 700, color: P.ink }}>{c.name}</div>
@@ -527,6 +557,7 @@ export default function SuperAdminDashboard() {
                       ))}
                     </tbody>
                   </table>
+                  {totalCollegePages > 1 && <PaginationControls currentPage={collegeCurrentPage} totalPages={totalCollegePages} onPageChange={setCollegeCurrentPage} />}
                 </div>
               </div>
             )}
@@ -568,7 +599,7 @@ export default function SuperAdminDashboard() {
                       <tr>{['User / Email','Role','College','Status','Actions'].map(l=><th key={l} style={{ padding:'12px 16px', background:P.parchmentDark, borderBottom:`1px solid ${P.sandLight}`, fontFamily:"'Barlow Semi Condensed', sans-serif", fontSize:11, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', color:P.inkSecondary, textAlign:'left' }}>{l}</th>)}</tr>
                     </thead>
                     <tbody>
-                      {filteredUsers.map((u, i) => (
+                      {paginatedUsers.map((u, i) => (
                         <tr key={u.id} style={{ borderBottom: `1px solid ${P.sandLight}` }}>
                           <td style={{ padding: '12px 16px' }}>
                             <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 14, fontWeight: 700, color: P.ink }}>{u.username}</div>
@@ -593,6 +624,7 @@ export default function SuperAdminDashboard() {
                       ))}
                     </tbody>
                   </table>
+                  {totalUserPages > 1 && <PaginationControls currentPage={userCurrentPage} totalPages={totalUserPages} onPageChange={setUserCurrentPage} />}
                 </div>
               </div>
             )}
@@ -609,7 +641,7 @@ export default function SuperAdminDashboard() {
                       <tr>{['Config Name','Provider','Model','Status','Actions'].map(l=><th key={l} style={{ padding:'12px 16px', background:P.parchmentDark, borderBottom:`1px solid ${P.sandLight}`, fontFamily:"'Barlow Semi Condensed', sans-serif", fontSize:11, fontWeight:700, letterSpacing:'0.06em', textTransform:'uppercase', color:P.inkSecondary, textAlign:'left' }}>{l}</th>)}</tr>
                     </thead>
                     <tbody>
-                      {llmConfigs.map((c, i) => (
+                      {paginatedLlmConfigs.map((c, i) => (
                         <tr key={c.id} style={{ borderBottom: `1px solid ${P.sandLight}` }}>
                           <td style={{ padding: '12px 16px' }}>
                             <div style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 14, fontWeight: 700, color: P.ink }}>{c.name}</div>
@@ -630,6 +662,7 @@ export default function SuperAdminDashboard() {
                       ))}
                     </tbody>
                   </table>
+                  {totalLlmPages > 1 && <PaginationControls currentPage={llmCurrentPage} totalPages={totalLlmPages} onPageChange={setLlmCurrentPage} />}
                 </div>
               </div>
             )}

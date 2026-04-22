@@ -26,7 +26,7 @@ export default function AuditLogPage() {
   
   // Pagination
   const [skip, setSkip] = useState(0);
-  const [take, setTake] = useState(50);
+  const [take, setTake] = useState(10);
   const [total, setTotal] = useState(0);
 
   useEffect(() => {
