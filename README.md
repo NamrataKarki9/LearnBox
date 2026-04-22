@@ -1,280 +1,180 @@
 "# LearnBox
 
-A web-based academic learning platform designed for university students to access educational resources, practice MCQs, and manage academic content efficiently.
+A comprehensive educational platform for managing learning resources, conducting assessments, and tracking student progress.
 
-## 🚀 Features
+## Overview
 
-- **User Authentication**: Secure JWT-based authentication with access and refresh tokens
-- **Role-Based Access**: Support for Super Admin, College Admin, and Student roles
-- **Protected Routes**: Client-side route protection for authenticated users
-- **Admin Panel**: Powered by AdminJS for easy database management
-- **Responsive UI**: Modern interface built with React and Tailwind CSS
-- **Type-Safe**: TypeScript implementation for better code quality
+LearnBox is a full-stack application providing educators and students with tools for resource management, interactive learning, and performance analytics. The platform supports multiple user roles, semantic search capabilities, and cloud-based file storage.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
-### Backend
-- **Runtime**: Node.js v22.17.0
-- **Framework**: Express v5.2.1
-- **Database**: PostgreSQL with Prisma ORM v6.19.1
-- **Authentication**: JWT (jsonwebtoken, bcryptjs)
-- **Admin Panel**: AdminJS v7.8.1
-- **ES Modules**: Modern JavaScript module system
+**Frontend:**
+- React 18.3.1 with TypeScript
+- Vite build tool
+- TailwindCSS for styling
 
-### Frontend
-- **Framework**: React 18.3.1 with TypeScript
-- **Build Tool**: Vite v6.3.5
-- **Styling**: Tailwind CSS v4
-- **UI Components**: shadcn/ui + Radix UI
-- **Routing**: React Router v7.11.0
-- **HTTP Client**: Axios
-- **Icons**: Lucide React, Material-UI Icons
+**Backend:**
+- Node.js with Express.js 5.2.1
+- PostgreSQL 14+ database
+- Prisma 6.19.1 ORM
 
-## 📋 Prerequisites
+**Infrastructure:**
+- Docker and Docker Compose for containerization
+- Cloudinary for media storage
+- Vectra for vector database
+- JWT for authentication
 
-- Node.js v22.x or higher
-- PostgreSQL database
-- npm or yarn package manager
+## Prerequisites
 
-## 🔧 Installation
+- Node.js v18 or higher
+- npm v9 or higher
+- PostgreSQL 14 or higher
+- Git
 
-### 1. Clone the Repository
+## Quick Start
+
+### Automated Setup
+
+**Windows:**
+```powershell
+.\setup.ps1
+```
+
+**macOS/Linux:**
 ```bash
-git clone <repository-url>
-cd learnbox
+chmod +x setup.sh
+./setup.sh
 ```
 
-### 2. Backend Setup
+### Manual Setup
 
-```bash
-cd backend
-npm install
-```
+1. Install dependencies:
+   ```bash
+   npm install
+   cd backend && npm install
+   cd ../frontend && npm install
+   ```
 
-Create a `.env` file in the backend directory:
-```env
-DATABASE_URL=postgresql://learnbox_user:learnbox_user@localhost:5432/learnbox_db?schema=public
-ACCESS_TOKEN_SECRET=your_secure_access_secret_here
-REFRESH_TOKEN_SECRET=your_secure_refresh_secret_here
-PORT=5000
-```
+2. Configure environment:
+   ```bash
+   cp backend/.env.example backend/.env
+   # Update backend/.env with your credentials
+   ```
 
-### 3. Database Setup
+3. Setup database:
+   ```bash
+   cd backend
+   npm run prisma:generate
+   npm run prisma:push
+   ```
 
-Create PostgreSQL user and database:
-```sql
-CREATE USER learnbox_user WITH PASSWORD 'learnbox_user';
-CREATE DATABASE learnbox_db OWNER learnbox_user;
-GRANT ALL PRIVILEGES ON DATABASE learnbox_db TO learnbox_user;
-```
+4. Start services:
+   ```bash
+   # Terminal 1: Backend
+   cd backend
+   npm run dev
 
-Push schema to database:
-```bash
-npx prisma db push
-```
+   # Terminal 2: Frontend
+   cd frontend
+   npm run dev
+   ```
 
-### 4. Frontend Setup
+5. Access application:
+   - Frontend: http://localhost:5173
+   - Backend API: http://localhost:5000
+   - Admin Panel: http://localhost:5000/admin
 
-```bash
-cd frontend
-npm install
-```
-
-## 🚦 Running the Application
-
-### Start Backend Server
-```bash
-cd backend
-node src/app.js
-```
-Backend will run on http://localhost:5000
-
-### Start Frontend Development Server
-```bash
-cd frontend
-npm run dev
-```
-Frontend will run on http://localhost:5173
-
-### Access Admin Panel
-Navigate to http://localhost:5000/admin
-
-## 📁 Project Structure
+## Project Structure
 
 ```
 learnbox/
-├── backend/
+├── backend/                 # Express.js API
+│   ├── src/
+│   │   ├── controllers/    # Business logic
+│   │   ├── routes/         # API endpoints
+│   │   ├── services/       # Data operations
+│   │   ├── middleware/     # Auth, uploads
+│   │   └── config/         # Service configs
 │   ├── prisma/
-│   │   └── schema.prisma          # Database schema
+│   │   └── schema.prisma   # Database schema
+│   └── package.json
+├── frontend/                # React application
 │   ├── src/
-│   │   ├── controllers/           # Business logic
-│   │   ├── middleware/            # Auth & role middleware
-│   │   ├── routes/                # API routes
-│   │   ├── utils/                 # Helper functions
-│   │   ├── admin.js               # AdminJS configuration
-│   │   ├── app.js                 # Express app entry point
-│   │   ├── config.js              # Environment config
-│   │   └── prisma.js              # Prisma client
-│   ├── package.json
-│   └── .env
-├── frontend/
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── components/        # Reusable components
-│   │   │   ├── pages/             # Page components
-│   │   │   └── App.tsx            # Main app component
-│   │   ├── context/
-│   │   │   └── AuthContext.tsx    # Authentication context
-│   │   ├── services/
-│   │   │   └── api.ts             # API client & endpoints
-│   │   ├── styles/                # Global styles
-│   │   └── main.tsx               # Entry point
-│   ├── package.json
-│   └── vite.config.ts
-└── README.md
+│   │   ├── components/     # Reusable components
+│   │   ├── pages/          # Page components
+│   │   ├── services/       # API client
+│   │   └── context/        # Global state
+│   └── package.json
+├── SETUP.md                 # Setup guide
+└── DOCKER.md                # Docker documentation
 ```
 
-## 🔑 API Endpoints
+## Core Features
 
-### Authentication Routes (`/api/auth`)
+- User authentication with JWT and role-based access control
+- Resource management with cloud storage integration
+- Learning site creation and module organization
+- MCQ and quiz management with scoring
+- Semantic search using vector embeddings
+- Analytics and audit logging
+- Admin dashboard for system management
 
-| Method | Endpoint | Description | Auth Required |
-|--------|----------|-------------|---------------|
-| POST | `/register` | Create new user account | No |
-| POST | `/login` | Authenticate user | No |
-| POST | `/token/refresh` | Refresh access token | No |
-| GET | `/me` | Get current user info | Yes |
+## Configuration
 
-### Request/Response Examples
+Environment variables required for backend/.env:
+- `DATABASE_URL`: PostgreSQL connection string
+- `JWT_SECRET`: Secret key for token signing
+- `JWT_REFRESH_SECRET`: Secret key for refresh tokens
+- `CLOUDINARY_CLOUD_NAME`: Cloudinary account
+- `CLOUDINARY_API_KEY`: Cloudinary API key
+- `CLOUDINARY_API_SECRET`: Cloudinary API secret
 
-**Register**
-```json
-POST /api/auth/register
-{
-  "username": "johndoe",
-  "email": "john@example.com",
-  "password": "password123",
-  "first_name": "John",
-  "last_name": "Doe"
-}
+See [SETUP.md](./SETUP.md) for complete environment configuration.
 
-Response:
-{
-  "message": "User created successfully",
-  "tokens": {
-    "access": "eyJhbGc...",
-    "refresh": "eyJhbGc..."
-  },
-  "user": {
-    "id": 1,
-    "username": "johndoe",
-    "email": "john@example.com",
-    "roles": ["STUDENT"]
-  }
-}
+## Development
+
+### Backend Commands
+
+```bash
+cd backend
+
+npm run dev              # Development server with hot reload
+npm run build            # Build for production
+npm run start            # Start production server
+npm run prisma:generate  # Generate Prisma Client
+npm run prisma:push      # Push schema to database
+npm run seed             # Run database seeders
 ```
 
-**Login**
-```json
-POST /api/auth/login
-{
-  "email": "john@example.com",
-  "password": "password123"
-}
+### Frontend Commands
 
-Response: (same as register)
+```bash
+cd frontend
+
+npm run dev              # Development server
+npm run build            # Build for production
+npm run preview          # Preview production build
 ```
 
-## 🔐 Authentication Flow
+## Troubleshooting
 
-1. **Registration**: User creates account → Receives JWT tokens → Redirected to login
-2. **Login**: User submits credentials → Tokens stored in localStorage → Redirected to dashboard
-3. **Protected Routes**: Automatic token validation → Token refresh on expiry → Logout on failure
-4. **Token Refresh**: Automatic via Axios interceptor on 401 responses
+For setup issues, see [SETUP.md](./SETUP.md#troubleshooting).
 
-## 🗄️ Database Schema
+Common problems:
+- Backend won't start: Verify PostgreSQL is running and DATABASE_URL is correct
+- Frontend errors: Clear node_modules and reinstall: `rm -rf node_modules && npm install`
+- Database connection failed: Check PostgreSQL credentials and ensure database exists
 
-### User Model
-```prisma
-model User {
-  id         Int      @id @default(autoincrement())
-  username   String   @unique
-  email      String   @unique
-  password   String
-  first_name String?
-  last_name  String?
-  roles      Role[]   @default([STUDENT])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
-}
+## API Documentation
 
-enum Role {
-  SUPER_ADMIN
-  COLLEGE_ADMIN
-  STUDENT
-}
-```
+API endpoints reference: See [API_TEST_CASES.md](./backend/API_TEST_CASES.md)
 
-## 🎨 Frontend Pages
+## Support
 
-- **Landing Page** (`/`): Marketing page with platform overview
-- **Login Page** (`/login`): User authentication
-- **Register Page** (`/register`): New user registration
-- **Dashboard** (`/dashboard`): Protected user dashboard
+1. Check [SETUP.md](./SETUP.md) for setup problems
+2. Review [DOCKER.md](./DOCKER.md) for containerization issues
+3. See [API_TEST_CASES.md](./backend/API_TEST_CASES.md) for API questions
 
-## 🔒 Security Features
+## License
 
-- Passwords hashed with bcrypt (10 salt rounds)
-- JWT access tokens (short-lived)
-- JWT refresh tokens (long-lived)
-- Protected API routes with middleware
-- CORS enabled for frontend-backend communication
-- Automatic token refresh on expiry
-
-## 🐛 Troubleshooting
-
-### Backend won't start
-- Ensure PostgreSQL is running
-- Verify DATABASE_URL in .env
-- Check if port 5000 is available
-
-### Frontend compilation errors
-- Delete `node_modules` and reinstall: `rm -rf node_modules && npm install`
-- Clear Vite cache: `rm -rf node_modules/.vite`
-
-### Database connection failed
-- Verify PostgreSQL credentials
-- Ensure database and user exist
-- Check firewall/port settings
-
-### CORS errors
-- Ensure backend is running on port 5000
-- Verify frontend is accessing correct backend URL
-
-## 📝 Development Notes
-
-- Backend uses ES Modules (`"type": "module"` in package.json)
-- .env file must be UTF-8 encoded without BOM
-- Prisma client auto-generated after schema changes
-- Frontend uses Vite for fast HMR and builds
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 👥 Authors
-
-LearnBox Development Team
-
----
-
-**Version**: 0.0.1  
-**Last Updated**: December 2025" 
+This project is provided as-is for educational and organizational purposes." 
